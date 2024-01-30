@@ -9,7 +9,9 @@ ARG CABAL=recommended
 RUN apt-get update && \
     apt-get install -y \
         build-essential \
-        curl libffi-dev \
+        curl \
+        git \
+	libffi-dev \
         libffi8 \
         libgmp-dev \
         libgmp10 \
