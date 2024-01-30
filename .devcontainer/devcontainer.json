@@ -1,0 +1,34 @@
+{
+    "name": "Haskell Dev Container",
+    "build": {
+      "context": "..",
+      "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "eriksik2.vscode-ghci",
+          "haskell.haskell",
+          "jcanero.hoogle-vscode",
+          "justusadam.language-haskell",
+          "phoityne.phoityne-vscode"
+        ],
+        "settings": {
+          "files.exclude": {
+            "**/.git": true,
+            "**/.svn": true,
+            "**/.hg": true,
+            "**/CVS": true,
+            "**/.DS_Store": true,
+            "**/Thumbs.db": true,
+            ".devcontainer": true
+          },
+          "haskell.manageHLS": "GHCup",
+          "haskell.openDocumentationInHackage": false,
+          "haskell.openSourceInHackage": false,
+          "haskell.trace.client": "error",
+          "hoogle-vscode.useCabalDependencies": true
+        }
+      }
+    }
+  }
