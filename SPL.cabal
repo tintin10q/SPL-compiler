@@ -1,0 +1,17 @@
+cabal-version:      3.0
+name:               SPL
+version:            0.1.0.0
+synopsis:           A compiler for SPL (Simple Programming Language) for the 2023-2024 course Compiler Construction (NWI-IMC004)
+license:            NONE
+author:             Quinten Cabo <quinten.cabo@ru.nl>, Marijn van Wezel <marijnvanwezel@ru.nl>
+build-type:         Simple
+
+common warnings
+    ghc-options: -Wall
+
+executable SPL
+    import:           warnings
+    main-is:          Main.hs
+    build-depends:    base ^>=4.17.2.1
+    hs-source-dirs:   app
+    default-language: Haskell2010
