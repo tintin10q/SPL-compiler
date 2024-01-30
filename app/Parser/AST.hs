@@ -1,17 +1,38 @@
 module Parser.AST where
 
 type Identifier = String
-type Program = [Statement]
+type Program = [Decl]
 
-data Statement = TODO
+data Type =
+      IntType             -- Int
+    | CharType            -- Char
+    | BoolType            -- Bool
+    | VoidType            -- Void
+    | TupleType Type Type -- (a, b)
+    | ListType Type       -- [a]
+    | TypeVar Identifier  -- a
+
+data Decl = 
+      -- a(b : c, d : e) : Bool {
+      --     f();
+      -- }
+      FunctionDecl Identifier (Maybe Type) [(Identifier, Maybe Type)] [Stmt]
+
+data Stmt =
+      ReturnStmt Expr                    -- return a;
+    | IfStmt Expr Stmt (Maybe Stmt)      -- if (a) {b} else {c}
+    | WhileStmt Expr Stmt                -- while (a) {b}
+    | ExprStmt Expr                      -- a;
+    | BlockStmt [Stmt]                   -- { a }
+    | VarStmt (Maybe Type) Variable Expr -- a b = c;
 
 data Expr =
-      BinOp BinOp Expr Expr
-    | UnaryOp UnaryOp Expr
-    | AssignExpr Variable Expr
-    | VariableExpr Variable
-    | FunctionCall Identifier [Expr]
-    | LiteralExpr Literal
+      BinOp BinOp Expr Expr          -- a ∘ b
+    | UnaryOp UnaryOp Expr           -- ∘ a
+    | AssignExpr Variable Expr       -- a = b
+    | FunctionCall Identifier [Expr] -- f()
+    | VariableExpr Variable          -- a
+    | LiteralExpr Literal            -- 10
 
 data UnaryOp =
       Neg -- -a, !a
@@ -37,12 +58,13 @@ data BinOp =
 
 data Variable = 
       Variable Identifier -- a
-    | Property Identifier Variable -- a.b
+    | PropAccess Identifier Variable -- a.b
 
 data Literal =
-      True
-    | False
-    | Int Int
-    | Float Float
-    | Char Char
-    | EmptyList
+      TrueLit            -- true
+    | FalseLit           -- false
+    | IntLit Int         -- 10
+    | FloatLit Float     -- 10.0
+    | CharLit Char       -- 'a'
+    | TupleLit Expr Expr -- (a, b)
+    | EmptyListLit       -- []
