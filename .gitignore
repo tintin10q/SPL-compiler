@@ -23,5 +23,4 @@ cabal.project.local~
 .ghc.environment.**
 
 .DS_Store
-.vscode
 .idea
