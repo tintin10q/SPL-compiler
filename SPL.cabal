@@ -12,6 +12,9 @@ common warnings
 executable SPL
     import:           warnings
     main-is:          Main.hs
+    other-modules:
+        Parser.AST
+        Parser.Parser
     build-depends:    base ^>=4.17.2.1,
                       parsec ^>=3.1.17.0
     hs-source-dirs:   app
