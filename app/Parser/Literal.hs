@@ -10,3 +10,18 @@ pTrue = TrueLit <$ string "true"
 
 pFalse :: Parser Literal
 pFalse = FalseLit <$ string "false"
+
+pInt :: Parser Literal
+pInt = undefined
+
+pFloat :: Parser Literal
+pFloat = undefined
+
+pChar :: Parser Literal
+pChar = undefined
+
+pTuple :: Parser Literal
+pTuple = undefined
+
+pEmptyList :: Parser Literal
+pEmptyList = EmptyListLit <$ string "[]"
