@@ -1,7 +1,7 @@
 FROM debian:12.4
 
 # Versions
-ARG GHC=9.6.3
+ARG GHC=9.4.8
 ARG HLS=recommended
 ARG CABAL=recommended
 
@@ -11,7 +11,7 @@ RUN apt-get update && \
         build-essential \
         curl \
         git \
-	libffi-dev \
+        libffi-dev \
         libffi8 \
         libgmp-dev \
         libgmp10 \
@@ -49,4 +49,4 @@ RUN cabal update && \
 RUN hoogle generate --download --haskell
 
 # Open shell
-ENTRYPOINT ['/bin/bash']
+ENTRYPOINT ["/bin/bash"]

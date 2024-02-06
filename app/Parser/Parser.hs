@@ -1,14 +1,17 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Parser.Parser where
 
 import Parser.AST
-import Text.Parsec.Text (Parser)
-import Text.Parsec
+import Data.Void
+import Text.Megaparsec
+import Data.Text (Text)
+import Text.Megaparsec.Char
 
-program :: Parser Program
-program = undefined
+type Parser = Parsec Void Text
 
-identifier :: Parser Identifier
-identifier = do
-    identifier' <- many1 letter
-    apostrophes <- many (char '\'')
-    return $ identifier' ++ apostrophes
+pIdentifier :: Parser Identifier
+pIdentifier = do
+    identifier <- some (letterChar <|> single '_')
+    apostrophes <- many (single '\'')
+    return $ identifier ++ apostrophes
