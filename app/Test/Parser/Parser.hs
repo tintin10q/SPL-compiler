@@ -1,13 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Test.Parser.Parser where
 
-import Test.Hspec
+import Test.Hspec ( hspec, describe, it, shouldBe, Spec )
 import Parser.Parser (pIdentifier)
 import Text.Megaparsec (parse)
-import Parser.AST
+import Test.Parser.Literal (literalSpec)
 
-testPIdentifier = hspec $ do
-    describe "Parser.Parser.pIdentifier" $ do
+parserSpec :: Spec
+parserSpec = do
+    describe "Parser.Parser" $ do
+        pIdentifierSpec
+        literalSpec
+
+pIdentifierSpec :: Spec
+pIdentifierSpec = do
+    describe "pIdentifier" $ do
         it "parses an identifier consisting of alphabetical characters" $ do
             parse pIdentifier "test.spl" "ident" `shouldBe` Right "ident"
 

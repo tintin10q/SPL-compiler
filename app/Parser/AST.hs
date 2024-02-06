@@ -11,12 +11,14 @@ data Type =
     | TupleType Type Type -- (a, b)
     | ListType Type       -- [a]
     | TypeVar Identifier  -- a
+    deriving (Eq, Show)
 
 data Decl = 
       -- a(b : c, d : e) : Bool {
       --     f();
       -- }
       FunctionDecl Identifier (Maybe Type) [(Identifier, Maybe Type)] [Stmt]
+    deriving (Eq, Show)
 
 data Stmt =
       ReturnStmt Expr                    -- return a;
@@ -25,6 +27,7 @@ data Stmt =
     | ExprStmt Expr                      -- a;
     | BlockStmt [Stmt]                   -- { a }
     | VarStmt (Maybe Type) Variable Expr -- a b = c;
+    deriving (Eq, Show)
 
 data Expr =
       BinOp BinOp Expr Expr          -- a ∘ b
@@ -33,10 +36,13 @@ data Expr =
     | FunctionCall Identifier [Expr] -- f()
     | VariableExpr Variable          -- a
     | LiteralExpr Literal            -- 10
+    deriving (Eq, Show)
 
 data UnaryOp =
-      Neg -- -a, !a
-    | Pos -- +a
+      Negate   -- !a
+    | Negative -- -a
+    | Pos      -- +a
+    deriving (Eq, Show)
 
 data BinOp =
       Gt    -- a > b
@@ -55,10 +61,12 @@ data BinOp =
     | Div   -- a / b
     | Exp   -- a ^ b
     | Cons  -- a:b
+    deriving (Eq, Show)
 
 data Variable = 
-      Variable Identifier -- a
-    | PropAccess Identifier Variable -- a.b
+      Identifier Identifier -- a
+    | Property Expr Identifier -- a.b
+    deriving (Eq, Show)
 
 data Literal =
       TrueLit            -- true
@@ -68,3 +76,4 @@ data Literal =
     | CharLit Char       -- 'a'
     | TupleLit Expr Expr -- (a, b)
     | EmptyListLit       -- []
+    deriving (Eq, Show)
