@@ -53,6 +53,7 @@ data BinOp =
     | Or    -- a || b
     | Imp   -- a -> b
     | Xor   -- a xor b
+    | Mul   -- a * b
     | Add   -- a + b
     | Sub   -- a - b
     | Mod   -- a % b

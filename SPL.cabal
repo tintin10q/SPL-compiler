@@ -16,16 +16,16 @@ executable SPL
         Parser.AST
         Parser.Expr
         Parser.Lexer
-        Parser.Literal
         Parser.Parser
+        Test.Parser.Expr
         Test.Parser.Lexer
-        Test.Parser.Literal
         Test.Parser.Parser
         Test.Test
     build-depends:    base ^>=4.17.2.1,
                       hspec ^>=2.11.7,
                       hspec-megaparsec ^>= 2.2.1,
                       megaparsec ^>=9.6.1,
+                      parser-combinators ^>= 1.3.0,
                       text ^>=2.1
     hs-source-dirs:   app
     default-language: Haskell2010
