@@ -4,21 +4,22 @@ module Parser.Literal where
 import Parser.AST (Literal (..))
 import Parser.Parser (Parser)
 import Text.Megaparsec.Char
+import qualified Parser.Lexer as L
 
 pTrue :: Parser Literal
-pTrue = TrueLit <$ string "true"
+pTrue = TrueLit <$ L.true
 
 pFalse :: Parser Literal
-pFalse = FalseLit <$ string "false"
+pFalse = FalseLit <$ L.false
 
 pInt :: Parser Literal
-pInt = undefined
+pInt = IntLit <$> L.integer
 
 pFloat :: Parser Literal
-pFloat = undefined
+pFloat = FloatLit <$> L.float
 
 pChar :: Parser Literal
-pChar = undefined
+pChar = CharLit <$> (char '\'' *> L.char <* char '\'')
 
 pTuple :: Parser Literal
 pTuple = undefined
