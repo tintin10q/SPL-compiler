@@ -67,11 +67,11 @@ data Variable =
     deriving (Eq, Show)
 
 data Literal =
-      TrueLit            -- true
-    | FalseLit           -- false
-    | IntLit Int         -- 10, -10, +10
-    | FloatLit Float     -- 10.0
-    | CharLit Char       -- 'a'
-    | TupleLit Expr Expr -- (a, b)
-    | EmptyListLit       -- []
+      TrueLit               -- true
+    | FalseLit              -- false
+    | IntLit Int            -- 10, -10, +10
+    | FloatLit Float        -- 10.0, -10.0, +10.0
+    | CharLit Char          -- 'a'
+    | TupleLit (Expr, Expr) -- (a, b)
+    | EmptyListLit          -- []
     deriving (Eq, Show)

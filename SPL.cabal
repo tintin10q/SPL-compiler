@@ -18,6 +18,7 @@ executable SPL
         Parser.Lexer
         Parser.Literal
         Parser.Parser
+        Test.Parser.Lexer
         Test.Parser.Literal
         Test.Parser.Parser
         Test.Test

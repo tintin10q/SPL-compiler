@@ -3,26 +3,43 @@ module Parser.Literal where
 
 import Parser.AST (Literal (..))
 import Parser.Parser (Parser)
-import Text.Megaparsec.Char
-import qualified Parser.Lexer as L
+import Parser.Lexer
+import Parser.Expr (pExpr)
+import Control.Monad (void)
+import Text.Megaparsec (choice, try)
+
+pLiteral :: Parser Literal
+pLiteral = choice
+    [ try pTrue
+    , try pFalse
+    , try pInt
+    , try pFloat
+    , try pChar
+    , try pTuple
+    , try pEmptyList
+    ]
 
 pTrue :: Parser Literal
-pTrue = TrueLit <$ L.true
+pTrue = TrueLit <$ tTrue
 
 pFalse :: Parser Literal
-pFalse = FalseLit <$ L.false
+pFalse = FalseLit <$ tFalse
 
 pInt :: Parser Literal
-pInt = IntLit <$> L.integer
+pInt = IntLit <$> tInteger
 
 pFloat :: Parser Literal
-pFloat = FloatLit <$> L.float
+pFloat = FloatLit <$> tFloat
 
 pChar :: Parser Literal
-pChar = CharLit <$> (char '\'' *> L.char <* char '\'')
+pChar = CharLit <$> tChar
 
 pTuple :: Parser Literal
-pTuple = undefined
+pTuple = parens $ do
+    left <- pExpr
+    void tComma
+    right <- pExpr
+    return $ TupleLit (left, right)
 
 pEmptyList :: Parser Literal
-pEmptyList = EmptyListLit <$ string "[]"
+pEmptyList = EmptyListLit <$ tEmptyList

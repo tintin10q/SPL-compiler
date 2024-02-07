@@ -91,6 +91,10 @@ literalSpec = do
                 parse pChar "test.spl" `shouldFailOn` "'a '"
                 parse pChar "test.spl" `shouldFailOn` "'  '"
 
+        describe "pTuple" $ do
+            it "parses a tuple of two expressions" $ do
+                parse pTuple "test.spl" "('a', 12.0)" `shouldParse` TupleLit (LiteralExpr $ CharLit 'a', LiteralExpr $ FloatLit 12.0)
+
         describe "pEmptyList" $ do
             it "parses the empty list" $ do
                 parse pEmptyList "test.spl" "[]" `shouldParse` EmptyListLit
