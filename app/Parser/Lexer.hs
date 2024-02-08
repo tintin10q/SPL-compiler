@@ -45,6 +45,57 @@ tFloat = L.signed whitespace L.float
 tComma :: Parser T.Text
 tComma = symbol ","
 
+tExcl :: Parser T.Text
+tExcl = symbol "!"
+
+tGt :: Parser T.Text
+tGt = symbol ">"
+
+tGte :: Parser T.Text
+tGte = symbol ">="
+
+tLt :: Parser T.Text
+tLt = symbol "<"
+
+tLte :: Parser T.Text
+tLte = symbol "<="
+
+tDoubleEq :: Parser T.Text
+tDoubleEq = symbol "=="
+
+tExclEq :: Parser T.Text
+tExclEq = symbol "!="
+
+tDoubleAmpersand :: Parser T.Text
+tDoubleAmpersand = symbol "&&"
+
+tDoublePipe :: Parser T.Text
+tDoublePipe = symbol "||"
+
+tStar :: Parser T.Text
+tStar = symbol "*"
+
+tPlus :: Parser T.Text
+tPlus = symbol "+"
+
+tMin :: Parser T.Text
+tMin = symbol "-"
+
+tPercent :: Parser T.Text
+tPercent = symbol "%"
+
+tSlash :: Parser T.Text
+tSlash = symbol "/"
+
+tColon :: Parser T.Text
+tColon = symbol ":"
+
+tDot :: Parser T.Text
+tDot = symbol "."
+
+tEq :: Parser T.Text
+tEq = symbol "="
+
 tTrue :: Parser T.Text
 tTrue = symbol "true"
 

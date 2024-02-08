@@ -43,23 +43,31 @@ data UnaryOp =
     deriving (Eq, Show)
 
 data BinOp =
-      Gt    -- a > b
+--  | Exp   -- a ^ b
+    --
+      Mul   -- a * b
+    | Div   -- a / b
+    | Mod   -- a % b
+    --
+    | Add   -- a + b
+    | Sub   -- a - b
+    --
+    | Cons  -- a:b
+    --
+    | Gt    -- a > b
     | Gte   -- a >= b
     | Lt    -- a < b
     | Lte   -- a <= b
     | Eq    -- a == b
     | Neq   -- a != b
+    --
     | And   -- a && b
+    --
     | Or    -- a || b
-    | Imp   -- a -> b
-    | Xor   -- a xor b
-    | Mul   -- a * b
-    | Add   -- a + b
-    | Sub   -- a - b
-    | Mod   -- a % b
-    | Div   -- a / b
-    | Exp   -- a ^ b
-    | Cons  -- a:b
+    --
+--  | Xor   -- a xor b
+    --
+--  | Imp   -- a -> b
     deriving (Eq, Show)
 
 data Variable = 
