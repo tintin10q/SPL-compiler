@@ -24,6 +24,7 @@ data Stmt =
       ReturnStmt Expr                    -- return a;
     | IfStmt Expr Stmt (Maybe Stmt)      -- if (a) {b} else {c}
     | WhileStmt Expr Stmt                -- while (a) {b}
+    | ForStmt Expr Expr Expr Stmt        -- for (Int a = 3; a += 1; a = a + 1) {b()}
     | ExprStmt Expr                      -- a;
     | BlockStmt [Stmt]                   -- { a }
     | VarStmt (Maybe Type) Variable Expr -- a b = c;
