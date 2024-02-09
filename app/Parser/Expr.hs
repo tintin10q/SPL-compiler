@@ -61,9 +61,10 @@ pExpr = makeExprParser pTerm operatorTable
 -- or unary 'opped' expression).
 pTerm :: Parser Expr
 pTerm = choice
-  [ try $ L.parens pExpr
+  [
+  try pFunctionCall
+  , try $ L.parens pExpr
   , try pAssignExpr
-  , try pFunctionCall
   , try pLiteralExpr
   , try pVariableExpr
   ]
@@ -80,9 +81,12 @@ pFunctionCall :: Parser Expr
 pFunctionCall = do
   functionName <- T.unpack <$> L.tIdentifier
   void L.tLeftParen
-  arguments <- many $ pExpr <* L.tComma
-  lastArgument <- optional pExpr
+  arguments <- many (pExpr <* L.tComma)
+  lastArgument <- optional pLiteralExpr  
   return $ FunctionCall functionName (arguments ++ maybeToList lastArgument)
+
+-- pFunctionCall :: Parser Expr
+-- pFunctionCall = FunctionCall . T.unpack <$> L.tIdentifier <* L.tLeftParen <*> (const <$> many (pExpr <* L.tComma) <*> ( maybeToList <$> optional pExpr)) <* L.tRightParen
 
 -- Parses a variable expression (e.g. a, a.b, a.b.c).
 pVariableExpr :: Parser Expr
@@ -109,7 +113,7 @@ pIdentifier = Identifier . T.unpack <$> L.lexeme L.tIdentifier
 
 -- Parses a property (e.g. a.b, a.b.c).
 pProperty :: Parser Variable
-pProperty = fail "Not implemented" -- TODO
+pProperty = fail "Not implementedd" -- TODO
 
 {--
 
