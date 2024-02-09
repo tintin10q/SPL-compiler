@@ -16,7 +16,7 @@ import Parser.Expr
       pLiteralExpr,
       pTrue,
       pTuple,
-      pVariableExpr )
+      pVariableExpr, pFunctionCall )
 
 exprSpec :: Spec
 exprSpec = do
@@ -59,6 +59,19 @@ exprSpec = do
                 parse pAssignExpr "test.spl" "a='b'  " `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b')
                 parse pAssignExpr "test.spl" "a  =  'b'" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b')
                 parse pAssignExpr "test.spl" "a=    'b'" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b')
+
+        describe "pFunctionCall" $ do
+            it "parses an empty function call" $ do
+                parse pFunctionCall "test.spl" "f()" `shouldParse` FunctionCall "f" []
+
+            it "parses a function call with single argument" $ do
+                parse pFunctionCall "test.spl" "f('a')" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a']
+
+            it "parses a function call with single argument trailing comma" $ do
+                parse pFunctionCall "test.spl" "f('a',)" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a']
+
+            it "parses a function call with multiple arguments" $ do
+                parse pFunctionCall "test.spl" "f('a', 'b')" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a', LiteralExpr $ CharLit 'b']
 
         describe "pVariableExpr" $ do
             it "parses a simple identifier variable" $ do

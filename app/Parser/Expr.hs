@@ -3,11 +3,12 @@ module Parser.Expr where
 
 import Parser.AST
 import Parser.Parser (Parser)
-import Text.Megaparsec (choice, try, (<|>))
+import Text.Megaparsec (choice, try, (<|>), many, optional)
 import Control.Monad (void)
 import Control.Monad.Combinators.Expr
 import qualified Parser.Lexer as L
 import qualified Data.Text as T
+import Data.Maybe (maybeToList)
 
 {--
 
@@ -76,7 +77,12 @@ pAssignExpr = do
 
 -- Parses a function call expression (e.g. foo(), bar('a', 'b', 'c')).
 pFunctionCall :: Parser Expr
-pFunctionCall = fail "Not implemented" -- TODO
+pFunctionCall = do
+  functionName <- T.unpack <$> L.tIdentifier
+  void L.tLeftParen
+  arguments <- many $ pExpr <* L.tComma
+  lastArgument <- optional pExpr
+  return $ FunctionCall functionName (arguments ++ maybeToList lastArgument)
 
 -- Parses a variable expression (e.g. a, a.b, a.b.c).
 pVariableExpr :: Parser Expr
