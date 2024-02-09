@@ -33,11 +33,8 @@ pForStmt = do
     expr <- pExpr
     _ <- L.symbol ")"
     body <- pStmt
-    return $ BlockStmt [
-                decl, 
-                WhileStmt cond $ ExprStmt expr <> body 
-             ]
-
+    return (ForStmt decl cond expr body)
+    
 pExprStmt :: Parser Stmt
 pExprStmt = ExprStmt <$> pExpr <* L.tSemiColon
 
