@@ -17,9 +17,13 @@ executable SPL
         Parser.Expr
         Parser.Lexer
         Parser.Parser
+        Parser.Type
+        Parser.Stmt
         Test.Parser.Expr
         Test.Parser.Lexer
         Test.Parser.Parser
+        Test.Parser.Stmt
+        Test.Parser.AST
         Test.Test
     build-depends:    base ^>=4.17.2.1,
                       hspec ^>=2.11.7,
