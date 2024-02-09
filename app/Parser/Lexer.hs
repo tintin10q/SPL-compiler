@@ -24,7 +24,7 @@ braces = between (symbol "{") (symbol "}")
 brackets = between (symbol "[") (symbol "]")
 
 tIdentifier :: Parser T.Text
-tIdentifier = do
+tIdentifier = lexeme $ do
   first <- letterChar <|> char '_'
   middle <- many (alphaNumChar <|> char '_')
   apostrophes <- many $ char '\''
@@ -32,15 +32,15 @@ tIdentifier = do
 
 -- https://hackage.haskell.org/package/megaparsec-9.6.1/docs/Text-Megaparsec-Char-Lexer.html#g:3
 tChar :: Parser Char
-tChar = char '\'' *> L.charLiteral <* char '\''
+tChar = lexeme $ char '\'' *> L.charLiteral <* char '\''
 
 -- https://hackage.haskell.org/package/megaparsec-9.6.1/docs/Text-Megaparsec-Char-Lexer.html#v:decimal
 tInteger :: Parser Int
-tInteger = L.signed whitespace L.decimal
+tInteger = lexeme $ L.signed whitespace L.decimal
 
 -- https://hackage.haskell.org/package/megaparsec-9.6.1/docs/Text-Megaparsec-Char-Lexer.html#v:float
 tFloat :: Parser Float
-tFloat = L.signed whitespace L.float
+tFloat = lexeme $ L.signed whitespace L.float
 
 tComma :: Parser T.Text
 tComma = symbol ","
