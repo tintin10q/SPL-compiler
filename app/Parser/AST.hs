@@ -29,6 +29,13 @@ data Stmt =
     | VarStmt (Maybe Type) Variable Expr -- a b = c;
     deriving (Eq, Show)
 
+instance Semigroup Stmt where 
+  BlockStmt a <> BlockStmt b = BlockStmt (a ++ b)
+  BlockStmt a <> b = BlockStmt (a ++ [b])
+  a <> BlockStmt b = BlockStmt (a : b)
+  a <> b = BlockStmt [a, b]
+  
+
 data Expr =
       BinOp BinOp Expr Expr          -- a ∘ b
     | UnaryOp UnaryOp Expr           -- ∘ a
