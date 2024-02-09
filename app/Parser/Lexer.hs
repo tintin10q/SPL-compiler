@@ -90,6 +90,9 @@ tSlash = symbol "/"
 tColon :: Parser T.Text
 tColon = symbol ":"
 
+tSemiColon :: Parser T.Text
+tSemiColon = symbol ";"
+
 tDot :: Parser T.Text
 tDot = symbol "."
 
@@ -104,3 +107,36 @@ tFalse = symbol "false"
 
 tEmptyList :: Parser T.Text
 tEmptyList = symbol "[]"
+
+-- Keywords:
+tReturn :: Parser T.Text
+tReturn = symbol "return"
+
+tIf :: Parser T.Text
+tIf = symbol "if"
+
+tElse :: Parser T.Text
+tElse = symbol "else"
+
+tWhile :: Parser T.Text
+tWhile = symbol "while"
+
+tFor :: Parser T.Text
+tFor = symbol "for"
+
+tVar :: Parser T.Text
+tVar = symbol "var"
+
+-- Type types
+
+tIntType :: Parser T.Text
+tIntType = symbol "Int"
+
+tCharType :: Parser T.Text
+tCharType = symbol "Char"
+
+tBoolType :: Parser T.Text
+tBoolType = symbol "Bool"
+
+tVoidType :: Parser T.Text
+tVoidType = symbol "Void"
