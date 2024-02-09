@@ -70,9 +70,9 @@ pTerm = choice
 -- Parses an assignment expression (e.g. a = 'c', a.b = 'd').
 pAssignExpr :: Parser Expr
 pAssignExpr = do
-  variable <- L.lexeme pVariable
+  variable <- pVariable
   void L.tEq
-  AssignExpr variable <$> L.lexeme pExpr
+  AssignExpr variable <$> pExpr
 
 -- Parses a function call expression (e.g. foo(), bar('a', 'b', 'c')).
 pFunctionCall :: Parser Expr
@@ -80,11 +80,11 @@ pFunctionCall = fail "Not implemented" -- TODO
 
 -- Parses a variable expression (e.g. a, a.b, a.b.c).
 pVariableExpr :: Parser Expr
-pVariableExpr = VariableExpr <$> L.lexeme pVariable
+pVariableExpr = VariableExpr <$> pVariable
 
 -- Parses a literal expression (e.g. 10, 'a', []).
 pLiteralExpr :: Parser Expr
-pLiteralExpr = LiteralExpr <$> L.lexeme pLiteral
+pLiteralExpr = LiteralExpr <$> pLiteral
 
 {--
 
@@ -99,7 +99,7 @@ pVariable = pIdentifier <|> pProperty
 
 -- Parses an identifier (e.g. a).
 pIdentifier :: Parser Variable
-pIdentifier = Identifier . T.unpack <$> L.tIdentifier
+pIdentifier = Identifier . T.unpack <$> L.lexeme L.tIdentifier
 
 -- Parses a property (e.g. a.b, a.b.c).
 pProperty :: Parser Variable
@@ -134,20 +134,20 @@ pFalse = FalseLit <$ L.tFalse
 
 -- Parses a signed floating point number (e.g. 12.0, -12.0, +12.0).
 pFloat :: Parser Literal
-pFloat = FloatLit <$> L.lexeme L.tFloat
+pFloat = FloatLit <$> L.tFloat
 
 -- Parse a signed integer (e.g. 12, -12, +12).
 pInt :: Parser Literal
-pInt = IntLit <$> L.lexeme L.tInteger
+pInt = IntLit <$> L.tInteger
 
 -- Parses a character surrounded by quotes, including escape sequences
 -- such as '\n' and '\t'.
 pChar :: Parser Literal
-pChar = CharLit <$> L.lexeme L.tChar
+pChar = CharLit <$> L.tChar
 
 -- Parses a tuple of exactly two expressions.
 pTuple :: Parser Literal
-pTuple = L.lexeme $ L.parens $ do
+pTuple = L.parens $ do
     left <- pExpr
     void L.tComma
     right <- pExpr
@@ -155,4 +155,4 @@ pTuple = L.lexeme $ L.parens $ do
 
 -- Parses the empty list ([]).
 pEmptyList :: Parser Literal
-pEmptyList = EmptyListLit <$ L.lexeme L.tEmptyList
+pEmptyList = EmptyListLit <$ L.tEmptyList
