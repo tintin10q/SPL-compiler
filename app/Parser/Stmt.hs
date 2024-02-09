@@ -6,9 +6,8 @@ import Parser.Parser (Parser)
 import Parser.Expr (pExpr, pVariable)
 import qualified Parser.Lexer as L
 
-import Text.Megaparsec (choice, try, (<|>), optional)
+import Text.Megaparsec (choice, try, (<|>), optional, many)
 import Parser.Type (pVarType)
-import Parser.Lexer (braces)
 
 
 pReturn :: Parser Stmt
@@ -18,10 +17,10 @@ pVarStmt :: Parser Stmt
 pVarStmt = VarStmt <$> (optional pVarType <|> Nothing <$ L.tVar) <*> pVariable <*> (L.tEq *> pExpr) <* L.tSemiColon
 
 pIfStmt :: Parser Stmt
-pIfStmt = IfStmt <$> (L.tIf *> braces pExpr) <*> pStmt <*> optional (L.tElse *> pStmt)
+pIfStmt = IfStmt <$> (L.tIf *> L.parens pExpr) <*> pStmt <*> optional (L.tElse *> pStmt)
 
 pWhileStmt :: Parser Stmt
-pWhileStmt = WhileStmt <$> (L.tWhile *> braces pExpr) <*> pStmt
+pWhileStmt = WhileStmt <$> (L.tWhile *> L.parens pExpr) <*> pStmt
 
 
 pForStmt :: Parser Stmt
@@ -43,7 +42,7 @@ pExprStmt :: Parser Stmt
 pExprStmt = ExprStmt <$> pExpr <* L.tSemiColon
 
 pBlockStmt :: Parser Stmt
-pBlockStmt = braces pStmt
+pBlockStmt = BlockStmt <$> (L.braces pStmt *> many pStmt)
 
 
 pStmt :: Parser Stmt

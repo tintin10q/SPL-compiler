@@ -5,6 +5,7 @@ import Test.Parser.Expr (exprSpec)
 import Test.Parser.Lexer (lexerSpec)
 import Test.Parser.AST (astSpec)
 import Test.Hspec (Spec, describe)
+import Test.Parser.Stmt (stmtSpec)
 
 
 parserSpec :: Spec
@@ -13,3 +14,4 @@ parserSpec = do
         lexerSpec
         exprSpec
         astSpec
+        stmtSpec

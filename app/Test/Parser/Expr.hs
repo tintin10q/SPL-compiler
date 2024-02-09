@@ -6,6 +6,17 @@ import Text.Megaparsec (parse)
 import Parser.AST
 import Test.Hspec.Megaparsec (shouldParse, shouldFailOn)
 import Parser.Expr
+    ( pAssignExpr,
+      pChar,
+      pEmptyList,
+      pExpr,
+      pFalse,
+      pFloat,
+      pInt,
+      pLiteralExpr,
+      pTrue,
+      pTuple,
+      pVariableExpr )
 
 exprSpec :: Spec
 exprSpec = do
