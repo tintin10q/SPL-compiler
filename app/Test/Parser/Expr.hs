@@ -73,6 +73,9 @@ exprSpec = do
             it "parses a function call with multiple arguments" $ do
                 parse pFunctionCall "test.spl" "f('a', 'b')" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a', LiteralExpr $ CharLit 'b']
 
+            it "parses a function call with multiple arguments trailing comma" $ do
+                parse pFunctionCall "test.spl" "f('a', 'b',)" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a', LiteralExpr $ CharLit 'b']
+
         describe "pVariableExpr" $ do
             it "parses a simple identifier variable" $ do
                 parse pVariableExpr "test.spl" "ident" `shouldParse` VariableExpr (Identifier "ident")
