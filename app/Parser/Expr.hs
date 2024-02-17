@@ -8,7 +8,7 @@ import Control.Monad (void)
 import Control.Monad.Combinators.Expr
 import qualified Parser.Lexer as L
 import qualified Data.Text as T
-import Data.Maybe (maybeToList)
+import Utils (optionList)
 
 {--
 
@@ -80,10 +80,12 @@ pFunctionCall :: Parser Expr
 pFunctionCall = do
   functionName <- T.unpack <$> L.tIdentifier
   void L.tLeftParen
-  first <- optional pExpr
-  others <- many $ L.tComma *> pExpr
+  args <- optional $ do
+    first <- pExpr
+    others <- many $ L.tComma *> pExpr
+    return $ first:others
   void L.tRightParen
-  return $ FunctionCall functionName $ maybeToList first ++ others
+  return $ FunctionCall functionName $ optionList args
 
 -- Parses a variable expression (e.g. a, a.b, a.b.c).
 pVariableExpr :: Parser Expr
@@ -98,7 +100,7 @@ pVariable :: Parser Variable
 pVariable = pIdentifier <|> pProperty
 
 -- Parses an identifier (e.g. a).
--- Grammar: (alpha | '_') (alphaNum | '_')* '\''*
+-- Grammar: (alphaLower | '_') (alphaNum | '_')* '\''*
 pIdentifier :: Parser Variable
 pIdentifier = Identifier . T.unpack <$> L.lexeme L.tIdentifier
 

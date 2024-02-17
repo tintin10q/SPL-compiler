@@ -11,6 +11,7 @@ import Control.Applicative ((<|>))
 import Data.Functor (($>))
 import Parser.Type (pType, pRetType)
 import Parser.Stmt (pStmt)
+import Utils (optionList)
 
 -- Parses any declaration.
 pDecl :: Parser Decl
@@ -39,8 +40,10 @@ pFunDecl :: Parser Decl
 pFunDecl = do
     functionName <- T.unpack <$> L.tIdentifier
     void L.tLeftParen
-    args <- do
-        fail "To be implemented"
+    args <- optional $ do
+        first <- pArg
+        rest <- many $ L.tComma *> pArg
+        return $ first:rest
     void L.tRightParen
     retType <- optional $ do
         void L.tColon
@@ -49,4 +52,14 @@ pFunDecl = do
     statements <- many pStmt
     void L.tRightBrace
 
-    return $ FunDecl functionName retType args statements
+    return $ FunDecl functionName retType (optionList args) statements
+
+    where 
+        pArg = do
+            name <- T.unpack <$> L.tIdentifier
+            ty <- optional $ do
+                void L.tColon
+                pType
+            return (name, ty)
+
+        

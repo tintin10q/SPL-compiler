@@ -27,7 +27,7 @@ parens = between (symbol "(") (symbol ")")
 
 tIdentifier :: Parser T.Text
 tIdentifier = lexeme $ do
-  first <- letterChar <|> char '_'
+  first <- lowerChar <|> char '_'
   middle <- many (alphaNumChar <|> char '_')
   apostrophes <- many $ char '\''
   return $ T.pack $ first : (middle ++ apostrophes)
