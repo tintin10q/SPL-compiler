@@ -8,6 +8,8 @@ import qualified Data.Text as T
 import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec (between, many, (<|>))
 
+-- Helpers
+
 -- https://hackage.haskell.org/package/megaparsec-9.6.1/docs/Text-Megaparsec-Char-Lexer.html#v:space
 whitespace = L.space
   space1                         -- skip whitespace, newlines and tabs
@@ -22,6 +24,8 @@ symbol = L.symbol whitespace
 parens = between (symbol "(") (symbol ")")
 braces = between (symbol "{") (symbol "}")
 brackets = between (symbol "[") (symbol "]")
+
+-- Literals
 
 tIdentifier :: Parser T.Text
 tIdentifier = lexeme $ do
@@ -41,6 +45,17 @@ tInteger = lexeme $ L.signed whitespace L.decimal
 -- https://hackage.haskell.org/package/megaparsec-9.6.1/docs/Text-Megaparsec-Char-Lexer.html#v:float
 tFloat :: Parser Float
 tFloat = lexeme $ L.signed whitespace L.float
+
+tTrue :: Parser T.Text
+tTrue = symbol "true"
+
+tFalse :: Parser T.Text
+tFalse = symbol "false"
+
+tEmptyList :: Parser T.Text
+tEmptyList = symbol "[]"
+
+-- Tokens
 
 tComma :: Parser T.Text
 tComma = symbol ","
@@ -99,16 +114,14 @@ tDot = symbol "."
 tEq :: Parser T.Text
 tEq = symbol "="
 
-tTrue :: Parser T.Text
-tTrue = symbol "true"
+tLeftParen :: Parser T.Text
+tLeftParen = symbol "("
 
-tFalse :: Parser T.Text
-tFalse = symbol "false"
+tRightParen :: Parser T.Text
+tRightParen = symbol ")"
 
-tEmptyList :: Parser T.Text
-tEmptyList = symbol "[]"
+-- Keywords
 
--- Keywords:
 tReturn :: Parser T.Text
 tReturn = symbol "return"
 
@@ -127,7 +140,7 @@ tFor = symbol "for"
 tVar :: Parser T.Text
 tVar = symbol "var"
 
--- Type types
+-- Types
 
 tIntType :: Parser T.Text
 tIntType = symbol "Int"
