@@ -6,8 +6,6 @@ import Parser.Stmt (pStmt)
 import Parser.AST
 import Text.Megaparsec (parse)
 
--- TODO ;)
-
 
 stmtSpec :: Spec
 stmtSpec = do
@@ -24,5 +22,5 @@ stmtSpec = do
             it "parses a IfStmt (with else)" $ do
                 parse pStmt "test.spl" "if (a > 3) 5; else 0;" `shouldParse` IfStmt (BinOp Gt (VariableExpr (Identifier "a")) (LiteralExpr $ IntLit 3)) (ExprStmt $ LiteralExpr (IntLit 5)) (Just (ExprStmt $ LiteralExpr (IntLit 0)))
                 parse pStmt "test.spl" "if (a > 3) a = 5; else a = 0;" `shouldParse` IfStmt (BinOp Gt (VariableExpr (Identifier "a")) (LiteralExpr $ IntLit 3)) (ExprStmt $ AssignExpr (Identifier "a") (LiteralExpr $ IntLit 5)) (Just (ExprStmt $ AssignExpr (Identifier "a") (LiteralExpr $ IntLit 0)))
-            --it "parses a WhileStmt" $ do
-            --    parse pStmt "test.spl" "while (true) a = a + 1;" `shouldParse` WhileStmt (LiteralExpr TrueLit) (ExprStmt $ AssignExpr (Identifier "a") (BinOp Add (VariableExpr $ Identifier "a") (LiteralExpr $ IntLit 1)))
+            it "parses a WhileStmt" $ do
+               parse pStmt "test.spl" "while (true) a = a + 1;" `shouldParse` WhileStmt (LiteralExpr TrueLit) (ExprStmt $ AssignExpr (Identifier "a") (BinOp Add (VariableExpr $ Identifier "a") (LiteralExpr $ IntLit 1)))

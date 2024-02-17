@@ -13,12 +13,11 @@ data Type =
     | TypeVar Identifier  -- a
     deriving (Eq, Show)
 
-data Decl = 
-      -- a(b : c, d : e) : Bool {
-      --     f();
-      -- }
-      FunctionDecl Identifier (Maybe Type) [(Identifier, Maybe Type)] [Stmt]
-    deriving (Eq, Show)
+-- a(b : c, d : e) : Bool {
+  --     f();
+  -- }
+data Decl = FunctionDecl Identifier (Maybe Type) [(Identifier, Maybe Type)] [Stmt]
+  deriving (Eq, Show)
 
 data Stmt =
       ReturnStmt Expr                    -- return a;
@@ -29,14 +28,7 @@ data Stmt =
     | BlockStmt [Stmt]                   -- { a }
     | VarStmt (Maybe Type) Variable Expr -- a b = c;
     deriving (Eq, Show)
-
-instance Semigroup Stmt where 
-  BlockStmt a <> BlockStmt b = BlockStmt (a ++ b)
-  BlockStmt a <> b = BlockStmt (a ++ [b])
-  a <> BlockStmt b = BlockStmt (a : b)
-  a <> b = BlockStmt [a, b]
   
-
 data Expr =
       BinOp BinOp Expr Expr          -- a ∘ b
     | UnaryOp UnaryOp Expr           -- ∘ a
@@ -46,35 +38,26 @@ data Expr =
     | LiteralExpr Literal            -- 10
     deriving (Eq, Show)
 
-data UnaryOp =
-    Negate   -- !a
-    deriving (Eq, Show)
+data UnaryOp = Negate -- !a
+  deriving (Eq, Show)
 
 data BinOp =
---  | Exp   -- a ^ b
-    --
+--    Exp   -- a ^ b
       Mul   -- a * b
     | Div   -- a / b
     | Mod   -- a % b
-    --
     | Add   -- a + b
     | Sub   -- a - b
-    --
     | Cons  -- a:b
-    --
     | Gt    -- a > b
     | Gte   -- a >= b
     | Lt    -- a < b
     | Lte   -- a <= b
     | Eq    -- a == b
     | Neq   -- a != b
-    --
     | And   -- a && b
-    --
     | Or    -- a || b
-    --
 --  | Xor   -- a xor b
-    --
 --  | Imp   -- a -> b
     deriving (Eq, Show)
 
@@ -92,3 +75,9 @@ data Literal =
     | TupleLit (Expr, Expr) -- (a, b)
     | EmptyListLit          -- []
     deriving (Eq, Show)
+
+instance Semigroup Stmt where 
+  BlockStmt a <> BlockStmt b = BlockStmt $ a <> b
+  BlockStmt a <> b = BlockStmt $ a <> [b]
+  a <> BlockStmt b = BlockStmt $ [a] <> b
+  a <> b = BlockStmt $ [a] <> [b]
