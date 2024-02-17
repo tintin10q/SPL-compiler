@@ -5,39 +5,15 @@ import Test.Hspec
 import Text.Megaparsec (parse)
 import Parser.AST
 import Test.Hspec.Megaparsec (shouldParse, shouldFailOn)
-import Parser.Decl (pVarDecl, pFunDecl, pDecl)
+import Parser.Decl (pFunDecl, pDecl)
 
 declSpec :: Spec
 declSpec = do
     describe "Parser.Decl" $ do
         describe "pDecl" $ do
-            it "parses a variable declaration" $ do
-                parse pDecl "test.spl" "var i = 1;" `shouldParse` VarDecl Nothing "i" (LiteralExpr $ IntLit 1)
-                parse pVarDecl "test.spl" "Int i = 1;" `shouldParse` VarDecl (Just IntType) "i" (LiteralExpr $ IntLit 1)
-
             it "parses a function declaration" $ do
-                parse pFunDecl "test.spl" "foo(): Void { foo(); }" `shouldParse` FunDecl "foo" (Just VoidType) [] [ExprStmt $ FunctionCall "foo" []]
-                parse pFunDecl "test.spl" "foo(a, b : [a]): Void { foo(); }" `shouldParse` FunDecl "foo" (Just VoidType) [("a", Nothing), ("b", Just $ ListType $ TypeVar "a")] [ExprStmt $ FunctionCall "foo" []]
-
-        describe "pVarDecl" $ do
-            it "parses a type-free variable declaration" $ do
-                parse pVarDecl "test.spl" "var i = 1;" `shouldParse` VarDecl Nothing "i" (LiteralExpr $ IntLit 1)
-                parse pVarDecl "test.spl" "var i = 'a';" `shouldParse` VarDecl Nothing "i" (LiteralExpr $ CharLit 'a')
-                parse pVarDecl "test.spl" "var i=1;" `shouldParse` VarDecl Nothing "i" (LiteralExpr $ IntLit 1)
-                parse pVarDecl "test.spl" "var i=1 ;" `shouldParse` VarDecl Nothing "i" (LiteralExpr $ IntLit 1)
-                parse pVarDecl "test.spl" "var i = 1 ; " `shouldParse` VarDecl Nothing "i" (LiteralExpr $ IntLit 1)
-            
-            it "parses a variable declaration with variable 'var'" $ do
-                parse pVarDecl "test.spl" "var var = 1;" `shouldParse` VarDecl Nothing "var" (LiteralExpr $ IntLit 1)
-
-            it "parses a variable declaration with type" $ do
-                parse pVarDecl "test.spl" "Int i = 1;" `shouldParse` VarDecl (Just IntType) "i" (LiteralExpr $ IntLit 1)
-                parse pVarDecl "test.spl" "Char i = 'a';" `shouldParse` VarDecl (Just CharType) "i" (LiteralExpr $ CharLit 'a')
-                parse pVarDecl "test.spl" "[Char] i = 'a':'b':[];" `shouldParse` VarDecl (Just $ ListType CharType) "i" (BinOp Cons (LiteralExpr (CharLit 'a')) (BinOp Cons (LiteralExpr (CharLit 'b')) (LiteralExpr EmptyListLit)))
-                parse pVarDecl "test.spl" "(Char, Int) i = ('a', 12);" `shouldParse` VarDecl (Just $ TupleType CharType IntType) "i" (LiteralExpr $ TupleLit (LiteralExpr $ CharLit 'a', LiteralExpr $ IntLit 12))
-
-            it "does not parse the Void return type" $ do
-                parse pVarDecl "test.spl" `shouldFailOn` "Void i = 1;"
+                parse pDecl "test.spl" "foo(): Void { foo(); }" `shouldParse` FunDecl "foo" (Just VoidType) [] [ExprStmt $ FunctionCall "foo" []]
+                parse pDecl "test.spl" "foo(a, b : [a]): Void { foo(); }" `shouldParse` FunDecl "foo" (Just VoidType) [("a", Nothing), ("b", Just $ ListType $ TypeVar "a")] [ExprStmt $ FunctionCall "foo" []]
 
         describe "pFunDecl" $ do
             it "parses a function declaration without arguments or return type" $ do

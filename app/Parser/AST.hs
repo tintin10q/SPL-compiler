@@ -18,15 +18,14 @@ data Decl =
     --     f();
     -- }
     FunDecl Identifier (Maybe Type) [(Identifier, Maybe Type)] [Stmt]
-    -- var hello = 'w':'o':'r':'l':'d':[]
-  | VarDecl (Maybe Type) Identifier Expr
   deriving (Eq, Show)
 
 data Stmt =
-      ReturnStmt (Maybe Expr)            -- return a;
-    | IfStmt Expr [Stmt] (Maybe [Stmt])  -- if (a) {b} else {c}
-    | WhileStmt Expr [Stmt]              -- while (a) {b}
-    | ExprStmt Expr                      -- a;
+      ReturnStmt (Maybe Expr)              -- return a;
+    | IfStmt Expr [Stmt] (Maybe [Stmt])    -- if (a) {b} else {c}
+    | WhileStmt Expr [Stmt]                -- while (a) {b}
+    | ExprStmt Expr                        -- a;
+    | VarStmt (Maybe Type) Identifier Expr -- var hello = 'w':'o':'r':'l':'d':[]
     deriving (Eq, Show)
   
 data Expr =

@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Test.Parser.Stmt where
 import Test.Hspec (Spec, describe, it)
-import Test.Hspec.Megaparsec (shouldParse)
+import Test.Hspec.Megaparsec (shouldParse, shouldFailOn)
 import Parser.Stmt
 import Parser.AST
 import Text.Megaparsec (parse)
@@ -22,7 +22,9 @@ stmtSpec = do
                 parse pStmt "test.spl" "if (true) { a(); } else { b(); }" `shouldParse` IfStmt (LiteralExpr TrueLit) [ExprStmt $ FunctionCall "a" []] (Just [ExprStmt $ FunctionCall "b" []])
             it "parses a while statement" $ do
                 parse pStmt "test.spl" "while(true) {a(); b(); c();}" `shouldParse` WhileStmt (LiteralExpr TrueLit) [ExprStmt $ FunctionCall "a" [], ExprStmt $ FunctionCall "b" [], ExprStmt $ FunctionCall "c" []]
-    
+            it "parses a variable statement" $ do
+                parse pStmt "test.spl" "Int i = 1;" `shouldParse` VarStmt (Just IntType) "i" (LiteralExpr $ IntLit 1)
+
         describe "pIfStmt" $ do
             it "parses an empty if statement" $ do
                 parse pIfStmt "test.spl" "if (true) {}" `shouldParse` IfStmt (LiteralExpr TrueLit) [] Nothing
@@ -80,3 +82,23 @@ stmtSpec = do
                 parse pReturnStmt "test.spl" "return 1 + 1;" `shouldParse` ReturnStmt (Just $ BinOp Add (LiteralExpr $ IntLit 1) (LiteralExpr $ IntLit 1))
                 parse pReturnStmt "test.spl" "return f() ;" `shouldParse` ReturnStmt (Just $ FunctionCall "f" [])
                 parse pReturnStmt "test.spl" "return (1 , 2);" `shouldParse` ReturnStmt (Just $ LiteralExpr $ TupleLit (LiteralExpr (IntLit 1), LiteralExpr (IntLit 2)))
+
+        describe "pVarStmt" $ do
+            it "parses a type-free variable declaration" $ do
+                parse pVarStmt "test.spl" "var i = 1;" `shouldParse` VarStmt Nothing "i" (LiteralExpr $ IntLit 1)
+                parse pVarStmt "test.spl" "var i = 'a';" `shouldParse` VarStmt Nothing "i" (LiteralExpr $ CharLit 'a')
+                parse pVarStmt "test.spl" "var i=1;" `shouldParse` VarStmt Nothing "i" (LiteralExpr $ IntLit 1)
+                parse pVarStmt "test.spl" "var i=1 ;" `shouldParse` VarStmt Nothing "i" (LiteralExpr $ IntLit 1)
+                parse pVarStmt "test.spl" "var i = 1 ; " `shouldParse` VarStmt Nothing "i" (LiteralExpr $ IntLit 1)
+            
+            it "parses a variable declaration with variable 'var'" $ do
+                parse pVarStmt "test.spl" "var var = 1;" `shouldParse` VarStmt Nothing "var" (LiteralExpr $ IntLit 1)
+
+            it "parses a variable declaration with type" $ do
+                parse pVarStmt "test.spl" "Int i = 1;" `shouldParse` VarStmt (Just IntType) "i" (LiteralExpr $ IntLit 1)
+                parse pVarStmt "test.spl" "Char i = 'a';" `shouldParse` VarStmt (Just CharType) "i" (LiteralExpr $ CharLit 'a')
+                parse pVarStmt "test.spl" "[Char] i = 'a':'b':[];" `shouldParse` VarStmt (Just $ ListType CharType) "i" (BinOp Cons (LiteralExpr (CharLit 'a')) (BinOp Cons (LiteralExpr (CharLit 'b')) (LiteralExpr EmptyListLit)))
+                parse pVarStmt "test.spl" "(Char, Int) i = ('a', 12);" `shouldParse` VarStmt (Just $ TupleType CharType IntType) "i" (LiteralExpr $ TupleLit (LiteralExpr $ CharLit 'a', LiteralExpr $ IntLit 12))
+
+            it "does not parse the Void return type" $ do
+                parse pVarStmt "test.spl" `shouldFailOn` "Void i = 1;"

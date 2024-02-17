@@ -6,6 +6,10 @@ import Parser.Expr (pExpr)
 import Text.Megaparsec (choice, try, optional, many)
 import Control.Monad (void)
 import qualified Parser.Lexer as L
+import qualified Data.Text as T
+import Data.Functor (($>))
+import Control.Applicative ((<|>))
+import Parser.Type (pType)
 
 -- Parses any statement.
 pStmt :: Parser Stmt
@@ -14,6 +18,7 @@ pStmt = choice
     , try pWhileStmt
     , try pReturnStmt
     , try pExprStmt
+    , try pVarStmt
     ]
 
 -- Parses an if statement.
@@ -64,4 +69,18 @@ pReturnStmt = do
     void L.tSemiColon      -- ';'
 
     return $ ReturnStmt expr
+
+-- Parses a variable declaration.
+-- Grammar: ('var' | type) identifier '=' expr ';'
+pVarStmt :: Parser Stmt
+pVarStmt = do
+    ty <- pVarType
+    identifier <- T.unpack <$> L.tIdentifier
+    void L.tEq
+    expr <- pExpr
+    void L.tSemiColon
+
+    return $ VarStmt ty identifier expr
+
+    where pVarType = (L.tVar $> Nothing) <|> (Just <$> pType)
 
