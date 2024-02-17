@@ -106,7 +106,7 @@ pIdentifier = Identifier . T.unpack <$> L.lexeme L.tIdentifier
 
 -- Parses a property (e.g. a.b, a.b.c).
 pProperty :: Parser Variable
-pProperty = fail "Not implementedd" -- TODO
+pProperty = fail "Not implemented" -- TODO
 
 -- Parse any literal value
 pLiteral :: Parser Literal
