@@ -22,8 +22,6 @@ lexeme = L.lexeme whitespace
 -- https://hackage.haskell.org/package/megaparsec-9.6.1/docs/Text-Megaparsec-Char-Lexer.html#v:symbol
 symbol = L.symbol whitespace
 parens = between (symbol "(") (symbol ")")
-braces = between (symbol "{") (symbol "}")
-brackets = between (symbol "[") (symbol "]")
 
 -- Literals
 
@@ -119,6 +117,18 @@ tLeftParen = symbol "("
 
 tRightParen :: Parser T.Text
 tRightParen = symbol ")"
+
+tLeftBrace :: Parser T.Text
+tLeftBrace = symbol "{"
+
+tRightBrace :: Parser T.Text
+tRightBrace = symbol "}"
+
+tLeftSquareBracket :: Parser T.Text
+tLeftSquareBracket = symbol "["
+
+tRightSquareBracket :: Parser T.Text
+tRightSquareBracket = symbol "]"
 
 -- Keywords
 

@@ -14,6 +14,7 @@ executable SPL
     main-is:          Main.hs
     other-modules:
         Parser.AST
+        Parser.Decl
         Parser.Expr
         Parser.Lexer
         Parser.Parser
@@ -23,7 +24,6 @@ executable SPL
         Test.Parser.Lexer
         Test.Parser.Parser
         Test.Parser.Stmt
-        Test.Parser.AST
         Test.Test
     build-depends:    base ^>=4.17.2.1,
                       hspec ^>=2.11.7,

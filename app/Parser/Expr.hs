@@ -61,9 +61,8 @@ pExpr = makeExprParser pTerm operatorTable
 -- or unary 'opped' expression).
 pTerm :: Parser Expr
 pTerm = choice
-  [
-  try pFunctionCall
-  , try $ L.parens pExpr
+  [ try $ L.parens pExpr
+  , try pFunctionCall
   , try pAssignExpr
   , try pLiteralExpr
   , try pVariableExpr
@@ -81,12 +80,10 @@ pFunctionCall :: Parser Expr
 pFunctionCall = do
   functionName <- T.unpack <$> L.tIdentifier
   void L.tLeftParen
-  arguments <- many (pExpr <* L.tComma)
-  lastArgument <- optional pLiteralExpr  
-  return $ FunctionCall functionName (arguments ++ maybeToList lastArgument)
-
--- pFunctionCall :: Parser Expr
--- pFunctionCall = FunctionCall . T.unpack <$> L.tIdentifier <* L.tLeftParen <*> (const <$> many (pExpr <* L.tComma) <*> ( maybeToList <$> optional pExpr)) <* L.tRightParen
+  first <- optional pExpr
+  others <- many $ L.tComma *> pExpr
+  void L.tRightParen
+  return $ FunctionCall functionName $ maybeToList first ++ others
 
 -- Parses a variable expression (e.g. a, a.b, a.b.c).
 pVariableExpr :: Parser Expr
@@ -96,31 +93,18 @@ pVariableExpr = VariableExpr <$> pVariable
 pLiteralExpr :: Parser Expr
 pLiteralExpr = LiteralExpr <$> pLiteral
 
-{--
-
-Variable parsers. These cannot be put in a separate file because
-of the cyclic dependency with expressions.
-
---}
-
 -- Parses a variable (e.g. a, a.b., a.b.c).
 pVariable :: Parser Variable
 pVariable = pIdentifier <|> pProperty
 
 -- Parses an identifier (e.g. a).
+-- Grammar: (alpha | '_') (alphaNum | '_')* '\''*
 pIdentifier :: Parser Variable
 pIdentifier = Identifier . T.unpack <$> L.lexeme L.tIdentifier
 
 -- Parses a property (e.g. a.b, a.b.c).
 pProperty :: Parser Variable
 pProperty = fail "Not implementedd" -- TODO
-
-{--
-
-Literal parsers. These cannot be put in a separate file because
-of the cyclic dependency with expressions.
-
---}
 
 -- Parse any literal value
 pLiteral :: Parser Literal
@@ -135,10 +119,12 @@ pLiteral = choice
     ]
 
 -- Parse true.
+-- Grammar: 'true'
 pTrue :: Parser Literal
 pTrue = TrueLit <$ L.tTrue
 
 -- Parse false.
+-- Grammar: 'false'
 pFalse :: Parser Literal
 pFalse = FalseLit <$ L.tFalse
 
@@ -147,15 +133,18 @@ pFloat :: Parser Literal
 pFloat = FloatLit <$> L.tFloat
 
 -- Parse a signed integer (e.g. 12, -12, +12).
+-- Grammar (simplified): [('-' | '+')] digit+
 pInt :: Parser Literal
 pInt = IntLit <$> L.tInteger
 
 -- Parses a character surrounded by quotes, including escape sequences
 -- such as '\n' and '\t'.
+-- Grammar: '\'' any char '\''
 pChar :: Parser Literal
 pChar = CharLit <$> L.tChar
 
 -- Parses a tuple of exactly two expressions.
+-- Grammar: '(' expr ',' expr ')'
 pTuple :: Parser Literal
 pTuple = L.parens $ do
     left <- pExpr
@@ -164,5 +153,6 @@ pTuple = L.parens $ do
     return $ TupleLit (left, right)
 
 -- Parses the empty list ([]).
+-- Grammar: '[]'
 pEmptyList :: Parser Literal
 pEmptyList = EmptyListLit <$ L.tEmptyList
