@@ -263,6 +263,7 @@ Expr =
     | UnaryOp Expr            -- ∘ a
     | Variable '=' Expr       -- a = b
     | Identifier '(' [Expr] [',' Expr]* ')' -- f()
+    | Variable '.' Variable   -- a
     | Variable                -- a
     | Literal                 -- 10
 
