@@ -1,47 +1,86 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Parser.Stmt where
 
 import Parser.AST
 import Parser.Parser (Parser)
-import Parser.Expr (pExpr, pVariable)
+import Parser.Expr (pExpr)
+import Text.Megaparsec (choice, try, optional, many)
+import Control.Monad (void)
 import qualified Parser.Lexer as L
+import qualified Data.Text as T
+import Data.Functor (($>))
+import Control.Applicative ((<|>))
+import Parser.Type (pType)
 
-import Text.Megaparsec (choice, try, (<|>), optional, many)
-import Parser.Type (pVarType)
+-- Parses any statement.
+pStmt :: Parser Stmt
+pStmt = choice
+    [ try pIfStmt
+    , try pWhileStmt
+    , try pReturnStmt
+    , try pExprStmt
+    , try pVarStmt
+    ]
 
-
-pReturn :: Parser Stmt
-pReturn = ReturnStmt <$> (L.tReturn *> pExpr) <* L.tSemiColon
-
-pVarStmt :: Parser Stmt
-pVarStmt = VarStmt <$> (optional pVarType <|> Nothing <$ L.tVar) <*> pVariable <*> (L.tEq *> pExpr) <* L.tSemiColon
-
+-- Parses an if statement.
+-- Grammar: 'if' '(' expr ')' '{' stmt* '}' ['else' '{' stmt* '}']
 pIfStmt :: Parser Stmt
-pIfStmt = IfStmt <$> (L.tIf *> L.parens pExpr) <*> pStmt <*> optional (L.tElse *> pStmt)
+pIfStmt = do
+    void L.tIf                    -- 'if'
+    void L.tLeftParen             -- '('
+    condition <- pExpr            -- expr
+    void L.tRightParen            -- ')'
+    void L.tLeftBrace             -- '{'
+    consequent <- many pStmt      -- stmt*
+    void L.tRightBrace            -- '}'
+    alternative <- optional $ do  -- [
+        void L.tElse              -- 'else'
+        void L.tLeftBrace         -- '{'
+        alternative <- many pStmt -- stmt*
+        void L.tRightBrace        -- '}'
+        return alternative        -- ]
 
+    return $ IfStmt condition consequent alternative
+
+-- Parses a while statement.
+-- Grammar: 'while' '(' expr ')' '{' stmt* '}'
 pWhileStmt :: Parser Stmt
-pWhileStmt = WhileStmt <$> (L.tWhile *> L.parens pExpr) <*> pStmt
+pWhileStmt = do
+    void L.tWhile           -- 'while'
+    void L.tLeftParen       -- '('
+    condition <- pExpr      -- expr
+    void L.tRightParen      -- ')'
+    void L.tLeftBrace       -- '{'
+    statement <- many pStmt -- stmt*
+    void L.tRightBrace      -- '}'
 
+    return $ WhileStmt condition statement
 
-pForStmt :: Parser Stmt
-pForStmt = do
-    _ <- L.tFor
-    _ <- L.symbol "("
-    decl <- pVarStmt
-    cond <- pExpr
-    _ <- L.tSemiColon
-    expr <- pExpr
-    _ <- L.symbol ")"
-    body <- pStmt
-    return (ForStmt decl cond expr body)
-    
+-- Parses an expression statement.
+-- Grammar: expr ';'
 pExprStmt :: Parser Stmt
 pExprStmt = ExprStmt <$> pExpr <* L.tSemiColon
 
-pBlockStmt :: Parser Stmt
-pBlockStmt = BlockStmt <$> (L.braces pStmt *> many pStmt)
+-- Parses a return statement.
+-- Grammar: 'return' [ expr ] ';'
+pReturnStmt :: Parser Stmt
+pReturnStmt = do
+    void L.tReturn         -- 'return'
+    expr <- optional pExpr -- [ expr ]
+    void L.tSemiColon      -- ';'
 
+    return $ ReturnStmt expr
 
-pStmt :: Parser Stmt
-pStmt = choice [ try pReturn, try pExprStmt, try pVarStmt, try pIfStmt, try pBlockStmt]
+-- Parses a variable declaration.
+-- Grammar: ('var' | type) identifier '=' expr ';'
+pVarStmt :: Parser Stmt
+pVarStmt = do
+    ty <- pVarType
+    identifier <- T.unpack <$> L.tIdentifier
+    void L.tEq
+    expr <- pExpr
+    void L.tSemiColon
+
+    return $ VarStmt ty identifier expr
+
+    where pVarType = (L.tVar $> Nothing) <|> (Just <$> pType)
 

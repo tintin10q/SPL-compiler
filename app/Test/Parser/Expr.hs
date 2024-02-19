@@ -6,17 +6,6 @@ import Text.Megaparsec (parse)
 import Parser.AST
 import Test.Hspec.Megaparsec (shouldParse, shouldFailOn)
 import Parser.Expr
-    ( pAssignExpr,
-      pChar,
-      pEmptyList,
-      pExpr,
-      pFalse,
-      pFloat,
-      pInt,
-      pLiteralExpr,
-      pTrue,
-      pTuple,
-      pVariableExpr, pFunctionCall )
 
 exprSpec :: Spec
 exprSpec = do
@@ -26,6 +15,7 @@ exprSpec = do
                 parse pExpr "test.spl" "1" `shouldParse` LiteralExpr (IntLit 1)
                 parse pExpr "test.spl" "a = 'b'" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b')
                 parse pExpr "test.spl" "ident" `shouldParse` VariableExpr (Identifier "ident")
+                parse pExpr "test.spl" "(a + b)" `shouldParse` BinOp Add (VariableExpr (Identifier "a")) (VariableExpr (Identifier "b"))
 
             it "parses a simple unary expression" $ do
                 parse pExpr "test.spl" "!true" `shouldParse` UnaryOp Negate (LiteralExpr TrueLit)
@@ -36,9 +26,12 @@ exprSpec = do
             it "parses a simple binary expression" $ do
                 parse pExpr "test.spl" "1 + 2" `shouldParse` BinOp Add (LiteralExpr $ IntLit 1) (LiteralExpr $ IntLit 2)
                 parse pExpr "test.spl" "a + b" `shouldParse` BinOp Add (VariableExpr $ Identifier "a") (VariableExpr $ Identifier "b")
+                parse pExpr "test.spl" "f(a + b) + c" `shouldParse` BinOp Add (FunctionCall "f" [BinOp Add (VariableExpr (Identifier "a")) (VariableExpr (Identifier "b"))]) (VariableExpr (Identifier "c"))
 
             it "parses an expression" $ do
                 parse pExpr "test.spl" "1 + 2 * 4" `shouldParse` BinOp Add (LiteralExpr $ IntLit 1) (BinOp Mul (LiteralExpr $ IntLit 2) (LiteralExpr $ IntLit 4))
+                parse pExpr "test.spl" "1 * (2 + 4) * 16" `shouldParse` BinOp Mul (BinOp Mul (LiteralExpr (IntLit 1)) (BinOp Add (LiteralExpr (IntLit 2)) (LiteralExpr (IntLit 4)))) (LiteralExpr (IntLit 16))
+                parse pExpr "test.spl" "1 + 2 * 3 / 4" `shouldParse` BinOp Add (LiteralExpr (IntLit 1)) (BinOp Div (BinOp Mul (LiteralExpr (IntLit 2)) (LiteralExpr (IntLit 3))) (LiteralExpr (IntLit 4)))
 
         describe "pAssignExpr" $ do
             it "parses an assignment" $ do
@@ -63,18 +56,39 @@ exprSpec = do
         describe "pFunctionCall" $ do
             it "parses an empty function call" $ do
                 parse pFunctionCall "test.spl" "f()" `shouldParse` FunctionCall "f" []
+                parse pFunctionCall "test.spl" "test()" `shouldParse` FunctionCall "test" []
+                parse pFunctionCall "test.spl" "while()" `shouldParse` FunctionCall "while" []
+                parse pFunctionCall "test.spl" "if()" `shouldParse` FunctionCall "if" []
+                parse pFunctionCall "test.spl" "f ()" `shouldParse` FunctionCall "f" []
+                parse pFunctionCall "test.spl" "f(   )" `shouldParse` FunctionCall "f" []
+                parse pFunctionCall "test.spl" "f (   )" `shouldParse` FunctionCall "f" []
+                parse pFunctionCall "test.spl" "f()  " `shouldParse` FunctionCall "f" []
 
             it "parses a function call with single argument" $ do
                 parse pFunctionCall "test.spl" "f('a')" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a']
-
-            it "parses a function call with single argument trailing comma" $ do
-                parse pFunctionCall "test.spl" "f('a',)" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a']
+                parse pFunctionCall "test.spl" "f  ('a')" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a']
+                parse pFunctionCall "test.spl" "f(  'a'  )" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a']
+                parse pFunctionCall "test.spl" "f  (  'a'  )" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a']
+                parse pFunctionCall "test.spl" "f(f('a'))" `shouldParse` FunctionCall "f" [FunctionCall "f" [LiteralExpr $ CharLit 'a']]
+                parse pFunctionCall "test.spl" "f(f(1 + 348 + 19))" `shouldParse` FunctionCall "f" [FunctionCall "f" [BinOp Add (BinOp Add (LiteralExpr (IntLit 1)) (LiteralExpr (IntLit 348))) (LiteralExpr (IntLit 19))]]
+                parse pFunctionCall "test.spl" "f(12)" `shouldParse` FunctionCall "f" [LiteralExpr $ IntLit 12]
+                parse pFunctionCall "test.spl" "f(2 * (1 + 3))" `shouldParse` FunctionCall "f" [BinOp Mul (LiteralExpr (IntLit 2)) (BinOp Add (LiteralExpr (IntLit 1)) (LiteralExpr (IntLit 3)))]
+                parse pFunctionCall "test.spl" "f((1 + 3) * 2)" `shouldParse` FunctionCall "f" [BinOp Mul (BinOp Add (LiteralExpr (IntLit 1)) (LiteralExpr (IntLit 3))) (LiteralExpr (IntLit 2))]
 
             it "parses a function call with multiple arguments" $ do
                 parse pFunctionCall "test.spl" "f('a', 'b')" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a', LiteralExpr $ CharLit 'b']
+                parse pFunctionCall "test.spl" "f  ('a', 'b')" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a', LiteralExpr $ CharLit 'b']
+                parse pFunctionCall "test.spl" "f(  'a', 'b'  )" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a', LiteralExpr $ CharLit 'b']
+                parse pFunctionCall "test.spl" "f  (  'a', 'b'  )" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a', LiteralExpr $ CharLit 'b']
+                parse pFunctionCall "test.spl" "f('a'  , 'b')" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a', LiteralExpr $ CharLit 'b']
+                parse pFunctionCall "test.spl" "f('a','b')" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a', LiteralExpr $ CharLit 'b']
+                parse pFunctionCall "test.spl" "f(f(), f())" `shouldParse` FunctionCall "f" [FunctionCall "f" [], FunctionCall "f" []]
+                parse pFunctionCall "test.spl" "f(f(f()), f())" `shouldParse` FunctionCall "f" [FunctionCall "f" [FunctionCall "f" []], FunctionCall "f" []]
+                parse pFunctionCall "test.spl" "f(1.2 + 23.1, f(1) + (12 + 39), 'a')" `shouldParse` FunctionCall "f" [BinOp Add (LiteralExpr (FloatLit 1.2)) (LiteralExpr (FloatLit 23.1)), BinOp Add (FunctionCall "f" [LiteralExpr (IntLit 1)]) (BinOp Add (LiteralExpr (IntLit 12)) (LiteralExpr (IntLit 39))), LiteralExpr (CharLit 'a')]
 
-            it "parses a function call with multiple arguments trailing comma" $ do
-                parse pFunctionCall "test.spl" "f('a', 'b',)" `shouldParse` FunctionCall "f" [LiteralExpr $ CharLit 'a', LiteralExpr $ CharLit 'b']
+            it "parses a function call with tuple arguments" $ do
+                parse pFunctionCall "test.spl" "f((1, 2))" `shouldParse` FunctionCall "f" [LiteralExpr $ TupleLit (LiteralExpr (IntLit 1), LiteralExpr (IntLit 2))]
+                parse pFunctionCall "test.spl" "f((1, 2), 3)" `shouldParse` FunctionCall "f" [LiteralExpr $ TupleLit (LiteralExpr (IntLit 1), LiteralExpr (IntLit 2)), LiteralExpr $ IntLit 3]
 
         describe "pVariableExpr" $ do
             it "parses a simple identifier variable" $ do

@@ -13,20 +13,19 @@ data Type =
     | TypeVar Identifier  -- a
     deriving (Eq, Show)
 
--- a(b : c, d : e) : Bool {
-  --     f();
-  -- }
-data Decl = FunctionDecl Identifier (Maybe Type) [(Identifier, Maybe Type)] [Stmt]
+data Decl =
+    -- a(b : c, d : e) : Bool {
+    --     f();
+    -- }
+    FunDecl Identifier (Maybe Type) [(Identifier, Maybe Type)] [Stmt]
   deriving (Eq, Show)
 
 data Stmt =
-      ReturnStmt Expr                    -- return a;
-    | IfStmt Expr Stmt (Maybe Stmt)      -- if (a) {b} else {c}
-    | WhileStmt Expr Stmt                -- while (a) {b}
-    | ForStmt Stmt Expr Expr Stmt        -- for (Int a = 3; a += 1; a = a + 1) {b()}
-    | ExprStmt Expr                      -- a;
-    | BlockStmt [Stmt]                   -- { a }
-    | VarStmt (Maybe Type) Variable Expr -- a b = c;
+      ReturnStmt (Maybe Expr)              -- return a;
+    | IfStmt Expr [Stmt] (Maybe [Stmt])    -- if (a) {b} else {c}
+    | WhileStmt Expr [Stmt]                -- while (a) {b}
+    | ExprStmt Expr                        -- a;
+    | VarStmt (Maybe Type) Identifier Expr -- var hello = 'w':'o':'r':'l':'d':[]
     deriving (Eq, Show)
   
 data Expr =
@@ -42,23 +41,20 @@ data UnaryOp = Negate -- !a
   deriving (Eq, Show)
 
 data BinOp =
---    Exp   -- a ^ b
-      Mul   -- a * b
-    | Div   -- a / b
-    | Mod   -- a % b
-    | Add   -- a + b
-    | Sub   -- a - b
-    | Cons  -- a:b
-    | Gt    -- a > b
-    | Gte   -- a >= b
-    | Lt    -- a < b
-    | Lte   -- a <= b
-    | Eq    -- a == b
-    | Neq   -- a != b
-    | And   -- a && b
-    | Or    -- a || b
---  | Xor   -- a xor b
---  | Imp   -- a -> b
+      Mul   -- '*'
+    | Div   -- '/'
+    | Mod   -- '%'
+    | Add   -- '+'
+    | Sub   -- '-'
+    | Cons  -- ':'
+    | Gt    -- '>'
+    | Gte   -- '>='
+    | Lt    -- '<'
+    | Lte   -- '<='
+    | Eq    -- '=='
+    | Neq   -- '!='
+    | And   -- '&&'
+    | Or    -- '||'
     deriving (Eq, Show)
 
 data Variable = 
@@ -76,8 +72,3 @@ data Literal =
     | EmptyListLit          -- []
     deriving (Eq, Show)
 
-instance Semigroup Stmt where 
-  BlockStmt a <> BlockStmt b = BlockStmt $ a <> b
-  BlockStmt a <> b = BlockStmt $ a <> [b]
-  a <> BlockStmt b = BlockStmt $ [a] <> b
-  a <> b = BlockStmt $ [a] <> [b]

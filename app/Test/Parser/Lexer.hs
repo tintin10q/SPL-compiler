@@ -28,7 +28,10 @@ lexerSpec = do
             parse tIdentifier "test.spl" "my_i'dent" `shouldParse` "my_i'"
 
         it "parses lower and upper-case characters" $ do
-            parse tIdentifier "test.spl" "MyIdeNt" `shouldParse` "MyIdeNt"
+            parse tIdentifier "test.spl" "myIdeNt" `shouldParse` "myIdeNt"
 
         it "doesn't parse identifiers starting with a digit" $ do
             parse tIdentifier "test.spl" `shouldFailOn` "1dent"
+
+        it "doesn't parse identifiers starting with a capital" $ do
+            parse tIdentifier "test.spl" `shouldFailOn` "MyIdeNt"
