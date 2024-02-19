@@ -1,6 +1,6 @@
 ---
 title: "Compiler Construction"
-subtitle: "Report"
+subtitle: "Lexical Analyses (Interim Report)"
 date: \today
 author:
 - "Marijn van Wezel (s1040392)"
@@ -74,7 +74,7 @@ header-includes: |
 
 # Introduction
 
-We chose Haskell, since it is especially well-suited for compiler construction. Its support for algebraic data types and its well-suitedness for writing parsers makes it ideal for this. It also provided a good learning opportunity for both of us, since we want to get better at Haskell.
+This report outlines our progress with the SPL compiler.  
 
 The language we will be implementing is called SPL (Simple Programming Language). It is similar to C, but with support for polymorphic datatypes.
 
@@ -104,27 +104,32 @@ fac(n : Int) : Int {
 }
 ```
 
+We chose Haskell to implement our compiler, since it is especially well-suited for compiler construction. Mainly Haskell's support for algebraic data types and its well-suitedness for writing parsers makes it ideal for crafting compilers. It also provides a good learning opportunity for both of us, since we want to get better at Haskell.
+
 # Lexical analyses
 
 This section describes the lexical analyses phase of the compiler (parsing).
 
 ## Designing the abstract syntax tree
 
-We designed the abstract syntax tree immediately the first week, and it was the first thing that we did.
+We designed the abstract syntax tree immediately the first week. It was the first thing that we did in the project and we spent quite some time on it.
+We used a bottom-up approach to construct the AST. We started with the simple constructs (e.g. literals), and worked up to larger constructs such as function declarations. The program is just a list of function declarations.
 
-We used a bottom-up approach to construct the AST. We started with the simple constructs (e.g. literals), and worked up to larger constructs such as function declarations.
-
-Since we did not have a grammar yet, we looked at the available examples in the GitLab repository to figure out the syntax of SPL.
+Since we did not have a grammar yet, we looked at the available examples in the GitLab repository to figure out the syntax of SPL. We used our ast as a grammer for the most part but we did write an extended BNF grammer in the appendix.
 
 ## The parser
 
-We use a parser combinator for parsing. We started with building our own parser combinators, but we realised this would make it much more difficult to get good error messages, and required significantly more work. Therefore, we switched to the parser combinator library [megaparsec](https://hackage.haskell.org/package/megaparsec), which is the (informal) successor of [parsec](https://hackage.haskell.org/package/parsec).
+We use a parser combinator for parsing. We started with building our own parser combinators. This was a good learning experiance. 
+But we soon realised this effort would require an significantly amount of work and make it much more difficult to get good error messages.
+We decided that using more mature tools instead of trying to reinvent the weel would give us more time to work on cool extensions. 
+
+Therefore, we switched to the parser combinator library [megaparsec](https://hackage.haskell.org/package/megaparsec), which is the (informal) successor of [parsec](https://hackage.haskell.org/package/parsec).
 
 To become more familiar with the libary, and for occasional tips, we used [this excellent tutorial by Mark Karpov](https://markkarpov.com/tutorial/megaparsec.html).
 
-Parser combinators work through *function composition*, where we take very simple parsers (such as "parse a single character") and compose these together to create more complicated parsers (such as "parse the word 'parser'"). This composition usually happens through helper functions, defined by megaparsec, that take zero or more parsers, and construct a new (bigger) parser. For example, the `<|>` combinator takes two parsers, and constructs a new parser that first tries the parser on the left, and if it fails tries the parser on the right.
+Parser combinators work through *function composition*, where we take very simple parsers (such as "parse a single character") and compose these together to create more complicated parsers (such as "parse the word 'parser'"). This composition usually happens through helper functions, defined by megaparsec, that take zero or more parsers, and construct a new (bigger) parser. For example, the `<|>` combinator takes two parsers, and constructs a new parser that first tries the parser on the left, and if it fails tries the parser on the right.  
 
-Since parsers in megaparsec are also part of a number of useful typeclasses, such as Monad, we can use a number of useful functions Haskell itself provides to compose parsers (e.g. `do` notation, `many`, `some`).
+Since parsers in megaparsec are also part of a number of useful typeclasses, such as Monad, we can use a number of useful functions Haskell itself provides to compose parsers (e.g. `do` notation, `many`, `some`, `<$>`).
 
 ## Handling associativity
 
@@ -165,7 +170,7 @@ The operator table is ordered in decreasing precedence (i.e. the higher in the l
 - `Prefix`: for prefix operators;
 - `Postfix`: for postfix operators.
 
-We chose the same precedence and associativity has Haskell ([source](https://rosettacode.org/wiki/Operator_precedence#Haskell)).
+We chose the same precedence and associativity as Haskell ([source](https://rosettacode.org/wiki/Operator_precedence#Haskell)).
 
 ## Error handling
 
@@ -192,6 +197,10 @@ We use these lexer parsers all throughout the rest of the parser, in places wher
 
 We chose this approach, since it is well supported by megaparsec. Eventhough megaparsec does work on arbitrary input streams (including user-defined tokens), you cannot use a large part of the predefined parsers created by the megaparsec community. We do not see a benefit of converting the whole input into tokens first when using parser combinators.
 
+## Pretty printing
+
+We have not yet implemented the pretty printer. But we do know that with our current lexer design all the comments will be lost. To resolve this we could store the comments somewhere outside of the AST or actually have a lexer step, seperate from the parsing. 
+
 ## Testing
 
 For testing, we use the testing library [hspec](https://hackage.haskell.org/package/hspec), which has great support for megaparsec through the [hspec-megaparsec](https://hackage.haskell.org/package/hspec-megaparsec) library.
@@ -205,3 +214,84 @@ Since we started with writing the AST in Haskell based on the examples in the re
 We initially did struggle with the left-recusivity of property access (e.g. `a.hd`), but fixed this eventually.
 
 We also wrote many tests for our parsers from the start, which helped reduce bugs.
+
+\pagebreak
+
+# appendix
+
+## Grammar
+
+Change the grammar to the one you actually used
+
+```
+Program = Decl+
+
+Type =
+    | 'Int'             
+    | 'Char'
+    | 'Bool'
+    | 'Void'
+    | '(' Identifier ',' Identifier ')'
+    | '[' Identifier ']'
+    | Identifier  -- a
+  
+Typed = ':' Type
+
+Decl =
+    -- a(b : c, d : e) : Bool {
+    --     f();
+    -- }
+    Identifier '(' [Identifier [Typed] [',' Identifier [Typed] ]* ] ')' [Typed] '{' [Stmt*] '}'
+
+Stmt =
+    | 'return' [Expr] ';'
+    | 'if' '(' Expr ')' '{' [Stmt*] '}' [else '{' [Stmt*] '}']    -- if (a) {b} else {c}
+    | 'while' '(' Expr ')' '{' [Stmt*] '}'                -- while (a) {b}
+    | Expr  ';'                         -- a;
+    | 'var' [Type] Identifier Expr  ';' -- var hello = 'w':'o':'r':'l':'d':[]
+
+  
+Expr =
+    | Expr BinOp Expr         -- a ∘ b
+    | UnaryOp Expr            -- ∘ a
+    | Variable '=' Expr       -- a = b
+    | Identifier '(' [Expr] [',' Expr]* ')' -- f()
+    | Variable                -- a
+    | Literal                 -- 10
+
+UnaryOp = '!' -- !a
+
+BinOp =
+    | '*'
+    | '/'
+    | '%'
+    | '+'
+    | '-'
+    | ':'
+    | '>'
+    | '>='
+    | '<'
+    | '<='
+    | '=='
+    | '!='
+    | '&&'
+    | '||'
+
+Variable = 
+    | Identifier -- a
+    | Expr '.' Identifier -- a.b
+
+Literal =
+    | true
+    | false
+    | Int            
+    | Float        
+    | Char          
+    | '('Expr ',' Expr')' 
+    | '[' ']' 
+
+Char = ''' UnicodeChar '''
+Float = Int '.' Int -- Is this ok?
+Int = [ '-' ] digit+
+Identifier = alphaNumLower [''']
+```
