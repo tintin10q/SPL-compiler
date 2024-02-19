@@ -221,7 +221,14 @@ We also wrote many tests for our parsers from the start, which helped reduce bug
 
 ## Grammar
 
-Change the grammar to the one you actually used
+| Symbol | Meaning                                |
+|--------|----------------------------------------|
+| \|     | or                                     |
+| 'if'   | Literal if                             |
+| '''    | Literal '                              |
+| [ a ]  | a should appear 0 or 1 time            |
+| a*     | a should appear 0 or more times (many) |
+| a+     | a should appear 1 or more times (some) |
 
 ```
 Program = Decl+
@@ -241,12 +248,12 @@ Decl =
     -- a(b : c, d : e) : Bool {
     --     f();
     -- }
-    Identifier '(' [Identifier [Typed] [',' Identifier [Typed] ]* ] ')' [Typed] '{' [Stmt*] '}'
+    Identifier '(' [Identifier [Typed] [',' Identifier [Typed] ]* ] ')' [Typed] '{' Stmt* '}'
 
 Stmt =
     | 'return' [Expr] ';'
-    | 'if' '(' Expr ')' '{' [Stmt*] '}' [else '{' [Stmt*] '}']    -- if (a) {b} else {c}
-    | 'while' '(' Expr ')' '{' [Stmt*] '}'                -- while (a) {b}
+    | 'if' '(' Expr ')' '{' Stmt* '}' [else '{' Stmt* '}']    -- if (a) {b} else {c}
+    | 'while' '(' Expr ')' '{' Stmt* '}'                -- while (a) {b}
     | Expr  ';'                         -- a;
     | 'var' [Type] Identifier Expr  ';' -- var hello = 'w':'o':'r':'l':'d':[]
 
@@ -282,8 +289,8 @@ Variable =
     | Expr '.' Identifier -- a.b
 
 Literal =
-    | true
-    | false
+    | 'true'
+    | 'false'
     | Int            
     | Float        
     | Char          
