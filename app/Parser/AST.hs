@@ -59,7 +59,7 @@ data BinOp =
 
 data Variable = 
       Identifier Identifier -- a
-    | Property Expr Identifier -- a.b
+    | Property [Variable] -- a.b
     deriving (Eq, Show)
 
 data Literal =

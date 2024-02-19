@@ -209,3 +209,7 @@ exprSpec = do
 
             it "discards trailing whitespace" $ do
                 parse pEmptyList "test.spl" "[]    " `shouldParse` EmptyListLit
+        describe "pProperty" $ do
+            it "parses a.a" $ do
+                parse pProperty "test.spl" "a.a" `shouldParse` Property [Identifier "a", Identifier "a"]
+                parse pProperty "test.spl" "aap.baap" `shouldParse` Property [Identifier "aap", Identifier "baap"]

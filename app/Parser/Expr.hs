@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Parser.Expr where
 
 import Parser.AST
@@ -106,7 +105,10 @@ pIdentifier = Identifier . T.unpack <$> L.lexeme L.tIdentifier
 
 -- Parses a property (e.g. a.b, a.b.c).
 pProperty :: Parser Variable
-pProperty = fail "Not implemented" -- TODO
+pProperty = do
+   expr <- pIdentifier
+   vars <- many (L.tDot *> pIdentifier)
+   return (Property $ expr:vars)
 
 -- Parse any literal value
 pLiteral :: Parser Literal
