@@ -8,9 +8,9 @@ import Test.Test (runTests)
 
 main :: IO ()
 main = do
-    runTests
-    -- file:_ <- getArgs
-    -- source <- TIO.readFile file
-    -- case parse pProgram file source of
-        -- Left err -> putStr (errorBundlePretty err)
-        -- Right ast -> print ast
+    -- runTests
+    file:_ <- getArgs
+    source <- TIO.readFile file
+    case parse pProgram file source of
+        Left err -> putStr (errorBundlePretty err)
+        Right ast -> print ast
