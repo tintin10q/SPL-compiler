@@ -13,45 +13,49 @@ exprSpec = do
         describe "pExpr" $ do
             it "parses a term" $ do
                 parse pExpr "test.spl" "1" `shouldParse` LiteralExpr (IntLit 1)
-                parse pExpr "test.spl" "a = 'b'" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b')
-                parse pExpr "test.spl" "ident" `shouldParse` VariableExpr (Identifier "ident")
-                parse pExpr "test.spl" "(a + b)" `shouldParse` BinOp Add (VariableExpr (Identifier "a")) (VariableExpr (Identifier "b"))
+                parse pExpr "test.spl" "a = 'b'" `shouldParse` AssignExpr (Identifier "a" Nothing) (LiteralExpr $ CharLit 'b')
+                parse pExpr "test.spl" "ident" `shouldParse` VariableExpr (Identifier "ident" Nothing)
+                parse pExpr "test.spl" "(a + b)" `shouldParse` BinOp Add (VariableExpr (Identifier "a" Nothing)) (VariableExpr (Identifier "b" Nothing))
 
             it "parses a simple unary expression" $ do
                 parse pExpr "test.spl" "!true" `shouldParse` UnaryOp Negate (LiteralExpr TrueLit)
                 parse pExpr "test.spl" "!'a'" `shouldParse` UnaryOp Negate (LiteralExpr $ CharLit 'a')
-                parse pExpr "test.spl" "!a" `shouldParse` UnaryOp Negate (VariableExpr (Identifier "a"))
-                parse pExpr "test.spl" "!a = 'b'" `shouldParse` UnaryOp Negate (AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b'))
+                parse pExpr "test.spl" "!a" `shouldParse` UnaryOp Negate (VariableExpr (Identifier "a" Nothing))
+                parse pExpr "test.spl" "!a = 'b'" `shouldParse` UnaryOp Negate (AssignExpr (Identifier "a" Nothing) (LiteralExpr $ CharLit 'b'))
+                parse pExpr "test.spl" "(1, 2).hd" `shouldParse` UnaryOp (FieldAccess HeadField) (LiteralExpr $ TupleLit (LiteralExpr $ IntLit 1, LiteralExpr $ IntLit 2))
+                parse pExpr "test.spl" "(1, 2).tl" `shouldParse` UnaryOp (FieldAccess TailField) (LiteralExpr $ TupleLit (LiteralExpr $ IntLit 1, LiteralExpr $ IntLit 2))
 
             it "parses a simple binary expression" $ do
                 parse pExpr "test.spl" "1 + 2" `shouldParse` BinOp Add (LiteralExpr $ IntLit 1) (LiteralExpr $ IntLit 2)
-                parse pExpr "test.spl" "a + b" `shouldParse` BinOp Add (VariableExpr $ Identifier "a") (VariableExpr $ Identifier "b")
-                parse pExpr "test.spl" "f(a + b) + c" `shouldParse` BinOp Add (FunctionCall "f" [BinOp Add (VariableExpr (Identifier "a")) (VariableExpr (Identifier "b"))]) (VariableExpr (Identifier "c"))
+                parse pExpr "test.spl" "a + b" `shouldParse` BinOp Add (VariableExpr $ Identifier "a" Nothing) (VariableExpr $ Identifier "b" Nothing)
+                parse pExpr "test.spl" "f(a + b) + c" `shouldParse` BinOp Add (FunctionCall "f" [BinOp Add (VariableExpr (Identifier "a" Nothing)) (VariableExpr (Identifier "b" Nothing))]) (VariableExpr (Identifier "c" Nothing))
 
             it "parses an expression" $ do
                 parse pExpr "test.spl" "1 + 2 * 4" `shouldParse` BinOp Add (LiteralExpr $ IntLit 1) (BinOp Mul (LiteralExpr $ IntLit 2) (LiteralExpr $ IntLit 4))
                 parse pExpr "test.spl" "1 * (2 + 4) * 16" `shouldParse` BinOp Mul (BinOp Mul (LiteralExpr (IntLit 1)) (BinOp Add (LiteralExpr (IntLit 2)) (LiteralExpr (IntLit 4)))) (LiteralExpr (IntLit 16))
                 parse pExpr "test.spl" "1 + 2 * 3 / 4" `shouldParse` BinOp Add (LiteralExpr (IntLit 1)) (BinOp Div (BinOp Mul (LiteralExpr (IntLit 2)) (LiteralExpr (IntLit 3))) (LiteralExpr (IntLit 4)))
+                parse pExpr "test.spl" "(1, 2).tl + 3" `shouldParse` BinOp Add (UnaryOp (FieldAccess TailField) (LiteralExpr $ TupleLit (LiteralExpr $ IntLit 1, LiteralExpr $ IntLit 2))) (LiteralExpr $ IntLit 3)
+                parse pExpr "test.spl" "a.tl + b.hd" `shouldParse` BinOp Add (VariableExpr (Identifier "a" (Just TailField))) (VariableExpr (Identifier "b" (Just HeadField)))
 
         describe "pAssignExpr" $ do
             it "parses an assignment" $ do
-                parse pAssignExpr "test.spl" "a = 'b'" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b')
-                parse pAssignExpr "test.spl" "foobar = 'b'" `shouldParse` AssignExpr (Identifier "foobar") (LiteralExpr $ CharLit 'b')
-                parse pAssignExpr "test.spl" "a'' = 'b'" `shouldParse` AssignExpr (Identifier "a''") (LiteralExpr $ CharLit 'b')
-                parse pAssignExpr "test.spl" "a = true" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr TrueLit)
-                parse pAssignExpr "test.spl" "a = false" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr FalseLit)
-                parse pAssignExpr "test.spl" "a = ('a', 12.0)" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ TupleLit (LiteralExpr $ CharLit 'a', LiteralExpr $ FloatLit 12.0))
+                parse pAssignExpr "test.spl" "a = 'b'" `shouldParse` AssignExpr (Identifier "a" Nothing) (LiteralExpr $ CharLit 'b')
+                parse pAssignExpr "test.spl" "foobar = 'b'" `shouldParse` AssignExpr (Identifier "foobar" Nothing) (LiteralExpr $ CharLit 'b')
+                parse pAssignExpr "test.spl" "a'' = 'b'" `shouldParse` AssignExpr (Identifier "a''" Nothing) (LiteralExpr $ CharLit 'b')
+                parse pAssignExpr "test.spl" "a = true" `shouldParse` AssignExpr (Identifier "a" Nothing) (LiteralExpr TrueLit)
+                parse pAssignExpr "test.spl" "a = false" `shouldParse` AssignExpr (Identifier "a" Nothing) (LiteralExpr FalseLit)
+                parse pAssignExpr "test.spl" "a = ('a', 12.0)" `shouldParse` AssignExpr (Identifier "a" Nothing) (LiteralExpr $ TupleLit (LiteralExpr $ CharLit 'a', LiteralExpr $ FloatLit 12.0))
 
             it "parses nested assigments" $ do
-                parse pAssignExpr "test.spl" "a = b = 'c'" `shouldParse` AssignExpr (Identifier "a") (AssignExpr (Identifier "b") (LiteralExpr $ CharLit 'c'))
-                parse pAssignExpr "test.spl" "a = b = c = 'd'" `shouldParse` AssignExpr (Identifier "a") (AssignExpr (Identifier "b") (AssignExpr (Identifier "c") (LiteralExpr $ CharLit 'd')))
-                parse pAssignExpr "test.spl" "a = (a = 'b', 'c')" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ TupleLit (AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b'), LiteralExpr $ CharLit 'c'))
+                parse pAssignExpr "test.spl" "a = b = 'c'" `shouldParse` AssignExpr (Identifier "a" Nothing) (AssignExpr (Identifier "b" Nothing) (LiteralExpr $ CharLit 'c'))
+                parse pAssignExpr "test.spl" "a = b = c = 'd'" `shouldParse` AssignExpr (Identifier "a" Nothing) (AssignExpr (Identifier "b" Nothing) (AssignExpr (Identifier "c" Nothing) (LiteralExpr $ CharLit 'd')))
+                parse pAssignExpr "test.spl" "a = (a = 'b', 'c')" `shouldParse` AssignExpr (Identifier "a" Nothing) (LiteralExpr $ TupleLit (AssignExpr (Identifier "a" Nothing) (LiteralExpr $ CharLit 'b'), LiteralExpr $ CharLit 'c'))
 
             it "handles whitespace correctly" $ do
-                parse pAssignExpr "test.spl" "a='b'" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b')
-                parse pAssignExpr "test.spl" "a='b'  " `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b')
-                parse pAssignExpr "test.spl" "a  =  'b'" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b')
-                parse pAssignExpr "test.spl" "a=    'b'" `shouldParse` AssignExpr (Identifier "a") (LiteralExpr $ CharLit 'b')
+                parse pAssignExpr "test.spl" "a='b'" `shouldParse` AssignExpr (Identifier "a" Nothing) (LiteralExpr $ CharLit 'b')
+                parse pAssignExpr "test.spl" "a='b'  " `shouldParse` AssignExpr (Identifier "a" Nothing) (LiteralExpr $ CharLit 'b')
+                parse pAssignExpr "test.spl" "a  =  'b'" `shouldParse` AssignExpr (Identifier "a" Nothing) (LiteralExpr $ CharLit 'b')
+                parse pAssignExpr "test.spl" "a=    'b'" `shouldParse` AssignExpr (Identifier "a" Nothing) (LiteralExpr $ CharLit 'b')
 
         describe "pFunctionCall" $ do
             it "parses an empty function call" $ do
@@ -92,12 +96,22 @@ exprSpec = do
 
         describe "pVariableExpr" $ do
             it "parses a simple identifier variable" $ do
-                parse pVariableExpr "test.spl" "ident" `shouldParse` VariableExpr (Identifier "ident")
-                parse pVariableExpr "test.spl" "iDent" `shouldParse` VariableExpr (Identifier "iDent")
-                parse pVariableExpr "test.spl" "iDent'''" `shouldParse` VariableExpr (Identifier "iDent'''")
+                parse pVariableExpr "test.spl" "ident" `shouldParse` VariableExpr (Identifier "ident" Nothing)
+                parse pVariableExpr "test.spl" "iDent" `shouldParse` VariableExpr (Identifier "iDent" Nothing)
+                parse pVariableExpr "test.spl" "iDent'''" `shouldParse` VariableExpr (Identifier "iDent'''" Nothing)
+
+            it "parses head access" $ do
+                parse pVariableExpr "test.spl" "a.hd" `shouldParse` VariableExpr (Identifier "a" (Just HeadField))
+                parse pVariableExpr "test.spl" "hd.hd" `shouldParse` VariableExpr (Identifier "hd" (Just HeadField))
+                parse pVariableExpr "test.spl" "hd  .  hd" `shouldParse` VariableExpr (Identifier "hd" (Just HeadField))
+
+            it "parses tail access" $ do
+                parse pVariableExpr "test.spl" "a.tl" `shouldParse` VariableExpr (Identifier "a" (Just TailField))
+                parse pVariableExpr "test.spl" "tl.tl" `shouldParse` VariableExpr (Identifier "tl" (Just TailField))
+                parse pVariableExpr "test.spl" "tl  .  tl" `shouldParse` VariableExpr (Identifier "tl" (Just TailField))
 
             it "discards trailing whitespace" $ do
-                parse pVariableExpr "test.spl" "ident   " `shouldParse` VariableExpr (Identifier "ident")
+                parse pVariableExpr "test.spl" "ident   " `shouldParse` VariableExpr (Identifier "ident" Nothing)
 
         describe "pLiteralExpr" $ do
             it "parses a literal" $ do
@@ -209,7 +223,3 @@ exprSpec = do
 
             it "discards trailing whitespace" $ do
                 parse pEmptyList "test.spl" "[]    " `shouldParse` EmptyListLit
-        describe "pProperty" $ do
-            it "parses a.a" $ do
-                parse pProperty "test.spl" "a.a" `shouldParse` Property [Identifier "a", Identifier "a"]
-                parse pProperty "test.spl" "aap.baap" `shouldParse` Property [Identifier "aap", Identifier "baap"]

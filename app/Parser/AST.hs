@@ -1,6 +1,5 @@
 module Parser.AST where
 
-type Identifier = String
 type Program = [Decl]
 
 data Type =
@@ -10,34 +9,36 @@ data Type =
     | VoidType            -- Void
     | TupleType Type Type -- (a, b)
     | ListType Type       -- [a]
-    | TypeVar Identifier  -- a
+    | TypeVar String      -- a
     deriving (Eq, Show)
 
 data Decl =
     -- a(b : c, d : e) : Bool {
     --     f();
     -- }
-    FunDecl Identifier (Maybe Type) [(Identifier, Maybe Type)] [Stmt]
+    FunDecl String (Maybe Type) [(String, Maybe Type)] [Stmt]
   deriving (Eq, Show)
 
 data Stmt =
-      ReturnStmt (Maybe Expr)              -- return a;
-    | IfStmt Expr [Stmt] (Maybe [Stmt])    -- if (a) {b} else {c}
-    | WhileStmt Expr [Stmt]                -- while (a) {b}
-    | ExprStmt Expr                        -- a;
-    | VarStmt (Maybe Type) Identifier Expr -- var hello = 'w':'o':'r':'l':'d':[]
+      ReturnStmt (Maybe Expr)           -- return a;
+    | IfStmt Expr [Stmt] (Maybe [Stmt]) -- if (a) {b} else {c}
+    | WhileStmt Expr [Stmt]             -- while (a) {b}
+    | ExprStmt Expr                     -- a;
+    | VarStmt (Maybe Type) String Expr  -- var hello = 'w':'o':'r':'l':'d':[]
     deriving (Eq, Show)
   
 data Expr =
-      BinOp BinOp Expr Expr          -- a ∘ b
-    | UnaryOp UnaryOp Expr           -- ∘ a
-    | AssignExpr Variable Expr       -- a = b
-    | FunctionCall Identifier [Expr] -- f()
-    | VariableExpr Variable          -- a
-    | LiteralExpr Literal            -- 10
+      BinOp BinOp Expr Expr      -- a ∘ b
+    | UnaryOp UnaryOp Expr       -- ∘ a
+    | AssignExpr Variable Expr   -- a = b
+    | FunctionCall String [Expr] -- f()
+    | VariableExpr Variable      -- a, a.tl, a.hd
+    | LiteralExpr Literal        -- 10
     deriving (Eq, Show)
 
-data UnaryOp = Negate -- !a
+data UnaryOp = 
+    Negate            -- !a
+  | FieldAccess Field -- .hd, .tl
   deriving (Eq, Show)
 
 data BinOp =
@@ -58,8 +59,12 @@ data BinOp =
     deriving (Eq, Show)
 
 data Variable = 
-      Identifier Identifier -- a
-    | Property [Variable] -- a.b
+      Identifier String (Maybe Field) -- a, a.hd, a.tl
+    deriving (Eq, Show)
+
+data Field =
+      HeadField -- hd
+    | TailField -- tl
     deriving (Eq, Show)
 
 data Literal =

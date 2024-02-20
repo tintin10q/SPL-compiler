@@ -63,8 +63,8 @@ stmtSpec = do
 
         describe "pExprStmt" $ do
             it "parses an assignment" $ do
-                parse pExprStmt "test.spl" "a = 12;" `shouldParse` ExprStmt (AssignExpr (Identifier "a") (LiteralExpr $ IntLit 12))
-                parse pExprStmt "test.spl" "a = (1, 2);" `shouldParse` ExprStmt (AssignExpr (Identifier "a") (LiteralExpr $ TupleLit (LiteralExpr $ IntLit 1, LiteralExpr $ IntLit 2)))
+                parse pExprStmt "test.spl" "a = 12;" `shouldParse` ExprStmt (AssignExpr (Identifier "a" Nothing) (LiteralExpr $ IntLit 12))
+                parse pExprStmt "test.spl" "a = (1, 2);" `shouldParse` ExprStmt (AssignExpr (Identifier "a" Nothing) (LiteralExpr $ TupleLit (LiteralExpr $ IntLit 1, LiteralExpr $ IntLit 2)))
 
             it "parses a function call" $ do
                 parse pExprStmt "test.spl" "f();" `shouldParse` ExprStmt (FunctionCall "f" [])

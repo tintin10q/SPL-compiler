@@ -31,7 +31,10 @@ Expression parsers.
 -- Operator precedence and associativity: https://rosettacode.org/wiki/Operator_precedence#Haskell
 operatorTable :: [[Operator Parser Expr]]
 operatorTable =
-    [ [ Prefix (UnaryOp Negate <$ L.tExcl)
+    [ [ Postfix (UnaryOp (FieldAccess HeadField) <$ try (L.tDot <* L.tHead))
+      , Postfix (UnaryOp (FieldAccess TailField) <$ try (L.tDot <* L.tTail))
+      ]
+    , [ Prefix (UnaryOp Negate <$ L.tExcl)
       ]
     , [ InfixL (BinOp Mul <$ L.tStar)
       , InfixL (BinOp Div <$ L.tSlash)
@@ -67,13 +70,6 @@ pTerm = choice
   , try pVariableExpr
   ]
 
--- Parses an assignment expression (e.g. a = 'c', a.b = 'd').
-pAssignExpr :: Parser Expr
-pAssignExpr = do
-  variable <- pVariable
-  void L.tEq
-  AssignExpr variable <$> pExpr
-
 -- Parses a function call expression (e.g. foo(), bar('a', 'b', 'c')).
 pFunctionCall :: Parser Expr
 pFunctionCall = do
@@ -86,29 +82,28 @@ pFunctionCall = do
   void L.tRightParen
   return $ FunctionCall functionName $ optionList args
 
--- Parses a variable expression (e.g. a, a.b, a.b.c).
-pVariableExpr :: Parser Expr
-pVariableExpr = VariableExpr <$> pVariable
+-- Parses an assignment expression (e.g. a = 'c', a.b = 'd').
+pAssignExpr :: Parser Expr
+pAssignExpr = do
+  variable <- pVariable
+  void L.tEq
+  AssignExpr variable <$> pExpr
 
 -- Parses a literal expression (e.g. 10, 'a', []).
 pLiteralExpr :: Parser Expr
 pLiteralExpr = LiteralExpr <$> pLiteral
 
+-- Parses a variable expression (e.g. a, a.b, a.b.c).
+pVariableExpr :: Parser Expr
+pVariableExpr = VariableExpr <$> pVariable
+
 -- Parses a variable (e.g. a, a.b., a.b.c).
 pVariable :: Parser Variable
-pVariable = pIdentifier <|> pProperty
-
--- Parses an identifier (e.g. a).
--- Grammar: (alphaLower | '_') (alphaNum | '_')* '\''*
-pIdentifier :: Parser Variable
-pIdentifier = Identifier . T.unpack <$> L.lexeme L.tIdentifier
-
--- Parses a property (e.g. a.b, a.b.c).
-pProperty :: Parser Variable
-pProperty = do
-   expr <- pIdentifier
-   vars <- many (L.tDot *> pIdentifier)
-   return (Property $ expr:vars)
+pVariable = do
+      identifier <- T.unpack <$> L.lexeme L.tIdentifier
+      field <- optional pField
+      return $ Identifier identifier field
+    where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail))
 
 -- Parse any literal value
 pLiteral :: Parser Literal

@@ -150,6 +150,12 @@ tFor = symbol "for"
 tVar :: Parser T.Text
 tVar = symbol "var"
 
+tHead :: Parser T.Text
+tHead = symbol "hd"
+
+tTail :: Parser T.Text
+tTail = symbol "tl"
+
 -- Types
 
 tIntType :: Parser T.Text
