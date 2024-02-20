@@ -28,6 +28,7 @@ executable SPL
         Test.Parser.Program
         Test.Parser.Stmt
         Test.Parser.Type
+        Test.Printer
         Test.Test
         Printer
         Utils
