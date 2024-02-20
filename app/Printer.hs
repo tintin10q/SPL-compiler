@@ -1,43 +1,53 @@
 module Printer where
 import Parser.AST
 
+replicate_by = 4
+
 formatProgram :: Program -> String
 formatProgram = concatMap formatDecl
 
 formatDecl :: Decl -> String
-formatDecl (FunDecl name Nothing args body) = name ++ "(" ++ formatFuncArgs args  ++ ")" ++ "\n{\n" ++ foldMap formatStmt body ++ "\n}" 
-formatDecl (FunDecl name (Just ty) args body) = name ++ "(" ++ formatFuncArgs args ++ ") :" ++ formatType ty ++ "\n{\n" ++ foldMap formatStmt body ++"\n}"
 
-formatFuncArgs :: [(String, Maybe Type)] -> String
-formatFuncArgs [] = ""
-formatFuncArgs a = foldMap ( ("," ++) . formatFuncArg) a
+formatDecl (FunDecl name Nothing [] body) = name ++ "()" ++ "\n{\n" ++ foldMap (formatStmt 1) body ++ "\n}\n\n" 
+formatDecl (FunDecl name (Just ty) [] body) = name ++ "() :" ++ formatType ty ++ "\n{\n" ++ foldMap (formatStmt 1) body ++"\n}\n\n"
+formatDecl (FunDecl name Nothing (first:rest) body) = name ++ "(" ++ formatFuncArg first ++ formatFuncArgs rest  ++ ")" ++ "\n{\n" ++ foldMap (formatStmt 1) body ++ "\n}\n\n" 
+formatDecl (FunDecl name (Just ty) (first:rest) body) = name ++ "(" ++ formatFuncArg first ++ formatFuncArgs rest ++ ") : " ++ formatType ty ++ "\n{\n" ++ foldMap (formatStmt 1) body ++"\n}\n\n"
 
-formatFuncArg :: (String, Maybe Type) -> String
+formatFuncArg :: (String, Maybe Type) -> String 
 formatFuncArg (str, Nothing) = str 
 formatFuncArg (str, Just ty) = str ++ " : " ++ formatType ty
 
+-- Adds comma before
+formatFuncArgs :: [(String, Maybe Type)] -> String
+formatFuncArgs [] = ""
+formatFuncArgs (first:rest) = formatFuncArg first ++ foldMap ( ("," ++) . formatFuncArg) rest
 
-formatStmt :: Stmt -> String
-formatStmt (ReturnStmt Nothing) = "return;\n"
-formatStmt (ReturnStmt (Just expr)) = "return " ++ formatExpr expr ++ ";\n"
-formatStmt (IfStmt condition consequence Nothing) = "if (" ++ formatExpr condition ++ ")\n{\n" ++ foldMap formatStmt consequence ++ "\n}\n"
-formatStmt (IfStmt cond consequence (Just statements)) = formatStmt (IfStmt cond consequence Nothing) ++ "else {\n" ++ foldMap formatStmt statements ++ "\n}\n"
-formatStmt (WhileStmt condition body) = "while (" ++ formatExpr condition ++ ")\n{\n" ++ foldMap formatStmt body ++ "\n}\n" 
-formatStmt (ExprStmt expr) = formatExpr expr ++ ";\n"
-formatStmt (VarStmt Nothing identifier expr) = "var " ++ identifier ++ " = " ++ formatExpr expr ++ ";\n"
-formatStmt (VarStmt (Just ty) identifier expr) = formatType ty ++ " " ++ identifier ++ " = " ++ formatExpr expr ++ ";\n"
+
+makeIndent :: Int -> String
+makeIndent indent = replicate (indent * replicate_by) ' '
+
+formatStmt :: Int -> Stmt -> String
+formatStmt indent (ReturnStmt Nothing) = makeIndent indent ++ "return;"
+formatStmt indent (ReturnStmt (Just expr)) = makeIndent indent ++ "return " ++ formatExpr expr ++ ";"
+formatStmt indent (IfStmt condition consequence Nothing) = makeIndent indent ++ "if (" ++ formatExpr condition ++ ")\n" ++ makeIndent indent ++ "{\n" ++ foldMap (formatStmt $ indent + 1) consequence ++ "\n"++ makeIndent indent ++"}\n\n"
+formatStmt indent (IfStmt cond consequence (Just statements)) = formatStmt indent (IfStmt cond consequence Nothing) ++ "else {\n" ++ foldMap (formatStmt $ indent+1) statements ++ "\n}\n\n"
+formatStmt indent (WhileStmt condition body) = makeIndent indent ++ "while (" ++ formatExpr condition ++ ")\n{\n" ++ foldMap (formatStmt indent) body ++ "\n}\n" 
+formatStmt indent (ExprStmt expr) = makeIndent indent ++ formatExpr expr ++ ";\n"
+formatStmt indent (VarStmt Nothing identifier expr) = makeIndent indent ++ "var " ++ identifier ++ " = " ++ formatExpr expr ++ ";\n"
+formatStmt indent (VarStmt (Just ty) identifier expr) = makeIndent indent ++ formatType ty ++ " " ++ identifier ++ " = " ++ formatExpr expr ++ ";\n"
 
 formatExpr :: Expr -> String
 formatExpr (BinOp op expr1 expr2) = formatExpr expr1 ++ formatBinOp op ++ formatExpr expr2
 formatExpr (UnaryOp op expr) = formatUnaryOp op ++ formatExpr expr
 formatExpr (AssignExpr variable expr) = formatVariable variable ++ formatExpr expr
-formatExpr (FunctionCall name args) = name ++ "(" ++ foldMap (( "," ++ ) . formatExpr) args  ++ ")"
+formatExpr (FunctionCall name []) = name ++ "()"
+formatExpr (FunctionCall name (first:rest)) = name ++ "(" ++ formatExpr first ++ foldMap ((","++)  .formatExpr) rest ++ ")"
 formatExpr (VariableExpr variable) = formatVariable variable
 formatExpr (LiteralExpr literal) = formatLiteral literal
 
 formatType :: Type -> String
 formatType IntType = "Int"             -- Int
-formatType CharType  = "Char"          -- Char
+formatType CharType  = "Char"          -- Char/
 formatType BoolType  = "Bool"          -- Bool
 formatType VoidType   = "Void"         -- Void
 formatType (TupleType t1 t2) = "(" ++ formatType t1 ++ ", " ++ formatType t2 ++ ")" -- (a, b)
