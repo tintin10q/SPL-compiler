@@ -123,9 +123,11 @@ Our abstract syntax tree is split up into four major inductive types, `Decl`, `S
 - `Expr`: for expressions (e.g. binary expression, assignment, function call);
 - `Literal`: for literals (e.g. numbers, chars, tuples).
 
+We have decided to not allow global variable declarations at the moment, because global variables are evil. Instead, we have made variable declarations a statement. This also has the benefit of allowing variable declarations everywhere in the body of a function, and not just at the start.
+
 ## The parser
 
-We use a parser combinator for parsing. We started with building our own parser combinators. While this was a good learning experience,  we soon realised this would require a significant amount of work and would make it much more difficult to get good error messages. Therefore, we decided that using more mature tools (e.g. an existing parser combinator library) would give us more time to work on cool extensions. 
+We use parser combinators for parsing. We started with building our own parser combinators. While this was a good learning experience,  we soon realised this would require a significant amount of work and would make it much more difficult to get good error messages. Therefore, we decided that using more mature tools (e.g. an existing parser combinator library) would give us more time to work on cool extensions. 
 
 Therefore, we switched to the parser combinator library [megaparsec](https://hackage.haskell.org/package/megaparsec), which is the (informal) successor of [parsec](https://hackage.haskell.org/package/parsec). To become more familiar with the libary, and for occasional tips, we used [this excellent tutorial by Mark Karpov](https://markkarpov.com/tutorial/megaparsec.html), the maintainer of megaparsec.
 
@@ -202,7 +204,7 @@ We use these lexer parsers all throughout the rest of the parser, in places wher
 
 ## Pretty printing
 
-We have not yet implemented the pretty printer. But we do know that with our current lexer design all the comments will be lost. To resolve this we could store the comments somewhere outside of the AST or actually have a lexer step, seperate from the parsing. 
+We have not yet implemented the pretty printer. With our current AST design, all the comments will be lost. To resolve this we could store the comments somewhere outside of the AST or actually have a lexer step, seperate from the parsing. 
 
 ## Testing
 
@@ -218,7 +220,7 @@ We initially did struggle with the left-recusivity of property access (e.g. `a.h
 
 We also wrote many tests for our parsers from the start, which helped reduce bugs.
 
-# appendix
+# Appendix
 
 ## Grammar
 
@@ -246,27 +248,24 @@ Type =
 Typed = ':' Type
 
 Decl =
-    -- a(b : c, d : e) : Bool {
-    --     f();
-    -- }
     Identifier '(' [Identifier [Typed] [',' Identifier [Typed] ]* ] ')' [Typed] '{' Stmt* '}'
 
 Stmt =
     | 'return' [Expr] ';'
-    | 'if' '(' Expr ')' '{' Stmt* '}' [else '{' Stmt* '}']    -- if (a) {b} else {c}
-    | 'while' '(' Expr ')' '{' Stmt* '}'                -- while (a) {b}
-    | Expr  ';'                         -- a;
-    | 'var' [Type] Identifier Expr  ';' -- var hello = 'w':'o':'r':'l':'d':[]
+    | 'if' '(' Expr ')' '{' Stmt* '}' [else '{' Stmt* '}']
+    | 'while' '(' Expr ')' '{' Stmt* '}'               
+    | Expr  ';'
+    | 'var' [Type] Identifier Expr  ';'
 
   
 Expr =
-    | Expr BinOp Expr         -- a ∘ b
-    | UnaryOp Expr            -- ∘ a
-    | Variable '=' Expr       -- a = b
-    | Identifier '(' [Expr] [',' Expr]* ')' -- f()
-    | Variable '.' Variable   -- a
-    | Variable                -- a
-    | Literal                 -- 10
+    | Expr BinOp Expr        
+    | UnaryOp Expr            
+    | Variable '=' Expr       
+    | Identifier '(' [Expr] [',' Expr]* ')'
+    | Variable '.' Variable 
+    | Variable              
+    | Literal             
 
 UnaryOp = '!' -- !a
 
@@ -287,8 +286,8 @@ BinOp =
     | '||'
 
 Variable = 
-    | Identifier -- a
-    | Expr '.' Identifier -- a.b
+    | Identifier
+    | Expr '.' Identifier
 
 Literal =
     | 'true'
@@ -297,10 +296,10 @@ Literal =
     | Float        
     | Char          
     | '('Expr ',' Expr')' 
-    | '[' ']' 
+    | '[]' 
 
 Char = ''' UnicodeChar '''
-Float = Int '.' Int -- Is this ok?
-Int = [ '-' ] digit+
-Identifier = alphaNumLower [''']
+Float = [ '-' | '+' ] Int '.' Int
+Int = [ '-' | '+' ] digit+
+Identifier = (alphaNumLower | '_') (alphaNum | '_') '\''*
 ```

@@ -30,7 +30,6 @@ executable SPL
         Test.Parser.Type
         Test.Test
         Printer
-        Utils
     build-depends:    base ^>=4.17.2.1,
                       hspec ^>=2.11.7,
                       hspec-megaparsec ^>= 2.2.1,
