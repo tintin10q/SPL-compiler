@@ -7,7 +7,6 @@ import Control.Monad (void)
 import Control.Monad.Combinators.Expr
 import qualified Parser.Lexer as L
 import qualified Data.Text as T
-import Utils (optionList)
 
 {--
 
@@ -80,7 +79,7 @@ pFunctionCall = do
     others <- many $ L.tComma *> pExpr
     return $ first:others
   void L.tRightParen
-  return $ FunctionCall functionName $ optionList args
+  return $ FunctionCall functionName $ concat args
 
 -- Parses an assignment expression (e.g. a = 'c', a.b = 'd').
 pAssignExpr :: Parser Expr

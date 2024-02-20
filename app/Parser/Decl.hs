@@ -8,7 +8,6 @@ import qualified Parser.Lexer as L
 import qualified Data.Text as T
 import Parser.Type (pType, pRetType)
 import Parser.Stmt (pStmt)
-import Utils (optionList)
 
 -- Parses any declaration.
 pDecl :: Parser Decl
@@ -32,7 +31,7 @@ pFunDecl = do
     statements <- many pStmt
     void L.tRightBrace
 
-    return $ FunDecl functionName retType (optionList args) statements
+    return $ FunDecl functionName retType (concat args) statements
 
     where 
         pArg = do
