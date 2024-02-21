@@ -204,7 +204,7 @@ We use these lexer parsers all throughout the rest of the parser, in places wher
 
 ## Pretty printing
 
-We have not yet implemented the pretty printer. With our current AST design, all the comments will be lost. To resolve this we could store the comments somewhere outside of the AST or actually have a lexer step, seperate from the parsing. 
+We have implemented a pretty printer. However, since comments are not included in the AST, our pretty printer strips comments, and can therefore not realistically be used for formatting.
 
 ## Testing
 
@@ -224,14 +224,14 @@ We also wrote many tests for our parsers from the start, which helped reduce bug
 
 ## Grammar
 
-| Symbol | Meaning                                |
-|--------|----------------------------------------|
-| \|     | or                                     |
-| 'if'   | Literal if                             |
-| '''    | Literal '                              |
-| [ a ]  | a should appear 0 or 1 time            |
-| a*     | a should appear 0 or more times (many) |
-| a+     | a should appear 1 or more times (some) |
+| Symbol  | Meaning                                |
+|---------|----------------------------------------|
+| `|`     | or                                     |
+| `'if'`  | literal string                         |
+| `'\''`  | literal single quote                   |
+| `[ a ]` | should appear 0 or 1 time              |
+| `a*`    | should appear 0 or more times          |
+| `a+`    | should appear 1 or more times          |
 
 ```
 Program = Decl+
@@ -244,11 +244,9 @@ Type =
     | '(' Identifier ',' Identifier ')'
     | '[' Identifier ']'
     | Identifier  -- a
-  
-Typed = ':' Type
 
 Decl =
-    Identifier '(' [Identifier [Typed] [',' Identifier [Typed] ]* ] ')' [Typed] '{' Stmt* '}'
+    Identifier '(' [Identifier [':' Type] [',' Identifier [':' Type] ]* ] ')' [':' Type] '{' Stmt* '}'
 
 Stmt =
     | 'return' [Expr] ';'
@@ -257,17 +255,20 @@ Stmt =
     | Expr  ';'
     | 'var' [Type] Identifier Expr  ';'
 
-  
 Expr =
-    | Expr BinOp Expr        
-    | UnaryOp Expr            
-    | Variable '=' Expr       
+    | Expr BinOp Expr
+    | UnaryPrefix Expr
+    | UnaryPostfix Expr
+    | Variable '=' Expr 
     | Identifier '(' [Expr] [',' Expr]* ')'
-    | Variable '.' Variable 
     | Variable              
     | Literal             
 
-UnaryOp = '!' -- !a
+UnaryPrefix = 
+    | '!'
+
+UnaryPostfix =
+    | '.' Field
 
 BinOp =
     | '*'
@@ -285,9 +286,11 @@ BinOp =
     | '&&'
     | '||'
 
-Variable = 
-    | Identifier
-    | Expr '.' Identifier
+Variable = Identifier ['.' Field]
+
+Field =
+    | 'hd'
+    | 'tl'
 
 Literal =
     | 'true'
