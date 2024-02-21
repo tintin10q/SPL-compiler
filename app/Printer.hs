@@ -1,90 +1,73 @@
 module Printer where
 import Parser.AST
+import Data.List (intercalate)
 
 tabSize :: Int
 tabSize = 4
 
-makeIndent :: Int -> String
-makeIndent indentSize = replicate (indentSize * tabSize) ' '
+indent :: String -> String
+indent str = unlines $ map (replicate tabSize ' ' ++) $ lines str
 
 formatProgram :: Program -> String
 formatProgram = concatMap formatDecl
 
 formatDecl :: Decl -> String
-formatDecl (FunDecl name Nothing [] body) = 
-       name ++ "()" ++ " {\n" 
-    ++ foldMap (formatStmt 1) body
-    ++ "\n}\n\n" 
-formatDecl (FunDecl name (Just ty) [] body) =
-       name ++ "() : " ++ formatType ty ++ " {\n"
-    ++ foldMap (formatStmt 1) body 
-    ++"\n}\n\n"
-formatDecl (FunDecl name Nothing (first:rest) body) = 
-       name ++ "(" ++ formatFuncArg first ++ formatFuncArgs rest  ++ ")" ++ " {\n" 
-    ++ foldMap (formatStmt 1) body
-    ++ "\n}\n\n" 
-formatDecl (FunDecl name (Just ty) (first:rest) body) =
-       name ++ "(" ++ formatFuncArg first ++ formatFuncArgs rest ++ ") : " ++ formatType ty ++ " {\n" 
-    ++ foldMap (formatStmt 1) body
+formatDecl (FunDecl name Nothing args body) =
+    name ++ "(" ++ formatFuncArgs args  ++ ")" ++ " {\n"
+        ++ indent (foldMap (\x -> formatStmt x ++ "\n") body)
+    ++ "\n}\n\n"
+formatDecl (FunDecl name (Just ty) args body) =
+    name ++ "(" ++ formatFuncArgs args ++ ") : " ++ formatType ty ++ " {\n"
+        ++ indent (foldMap (\x -> formatStmt x ++ "\n") body)
     ++ "\n}\n\n"
 
-formatFuncArg :: (String, Maybe Type) -> String 
-formatFuncArg (str, Nothing) = str 
-formatFuncArg (str, Just ty) = str ++ " : " ++ formatType ty
-
--- Adds comma before
 formatFuncArgs :: [(String, Maybe Type)] -> String
-formatFuncArgs [] = ""
-formatFuncArgs (first:rest) = formatFuncArg first ++ foldMap ( ("," ++) . formatFuncArg) rest
+formatFuncArgs args = intercalate ", " $ map formatSingle args
+    where formatSingle (name, Nothing) = name
+          formatSingle (name, Just ty) = name ++ " : " ++ formatType ty
 
-formatStmt :: Int -> Stmt -> String
-formatStmt indent (ReturnStmt Nothing) = 
-    makeIndent indent ++ "return;"
-formatStmt indent (ReturnStmt (Just expr)) = 
-    makeIndent indent ++ "return " ++ formatExpr expr ++ ";"
-formatStmt indent (IfStmt condition consequence Nothing) = 
-       makeIndent indent       ++ "if (" ++ formatExpr condition ++ ") {\n" 
-    ++ foldMap (formatStmt $ indent + 1) consequence
-    ++ makeIndent indent       ++ "}\n"
-formatStmt indent (IfStmt condition consequence (Just statements)) = 
-       makeIndent indent       ++ "if (" ++ formatExpr condition ++ ") {\n" 
-    ++ foldMap (formatStmt $ indent + 1) consequence
-    ++ makeIndent indent       ++ "} else {\n"
-    ++ foldMap (formatStmt $ indent + 1) statements
-    ++ makeIndent indent       ++ "}\n"
-formatStmt indent (WhileStmt condition body) =
-       makeIndent indent       ++ "while (" ++ formatExpr condition ++ ") {\n" 
-    ++ foldMap (formatStmt $ indent + 1) body
-    ++ makeIndent indent       ++ "}\n" 
-formatStmt indent (ExprStmt expr) = 
-    makeIndent indent ++ formatExpr expr ++ ";\n"
-formatStmt indent (VarStmt Nothing identifier expr) = 
-    makeIndent indent ++ "var " ++ identifier ++ " = " ++ formatExpr expr ++ ";\n"
-formatStmt indent (VarStmt (Just ty) identifier expr) = 
-    makeIndent indent ++ formatType ty ++ " " ++ identifier ++ " = " ++ formatExpr expr ++ ";\n"
+formatStmt :: Stmt -> String
+formatStmt (ReturnStmt Nothing) = "return;"
+formatStmt (ReturnStmt (Just expr)) = "return " ++ formatExpr expr ++ ";"
+formatStmt (IfStmt condition consequence Nothing) =
+    "if (" ++ formatExpr condition ++ ") {\n"
+        ++ indent (foldMap (\x -> formatStmt x ++ "\n") consequence)
+    ++ "}"
+formatStmt (IfStmt condition consequence (Just alternative)) =
+    "if (" ++ formatExpr condition ++ ") {\n"
+        ++ indent (foldMap (\x -> formatStmt x ++ "\n") consequence)
+    ++ "} else {\n"
+        ++ indent (foldMap (\x -> formatStmt x ++ "\n") alternative)
+    ++ "}"
+formatStmt (WhileStmt condition body) =
+    "while (" ++ formatExpr condition ++ ") {\n"
+        ++ indent (foldMap (\x -> formatStmt x ++ "\n") body)
+    ++ "}"
+formatStmt (ExprStmt expr) = formatExpr expr ++ ";"
+formatStmt (VarStmt Nothing identifier expr) = "var " ++ identifier ++ " = " ++ formatExpr expr ++ ";"
+formatStmt (VarStmt (Just ty) identifier expr) = formatType ty ++ " " ++ identifier ++ " = " ++ formatExpr expr ++ ";"
 
 formatExpr :: Expr -> String
 formatExpr (BinOp op expr1 expr2) = formatExpr expr1 ++ formatBinOp op ++ formatExpr expr2
-formatExpr (UnaryOp op expr) = formatUnaryOp op ++ formatExpr expr
-formatExpr (AssignExpr variable expr) = formatVariable variable ++ formatExpr expr
-formatExpr (FunctionCall name []) = name ++ "()"
-formatExpr (FunctionCall name (first:rest)) = name ++ "(" ++ formatExpr first ++ foldMap ((","++)  .formatExpr) rest ++ ")"
+formatExpr (UnaryOp Negate expr) = "!" ++ formatExpr expr
+formatExpr (UnaryOp (FieldAccess field) expr) = formatExpr expr ++ "." ++ formatField field
+formatExpr (AssignExpr variable expr) = formatVariable variable ++ " = " ++ formatExpr expr
+formatExpr (FunctionCall name args) = name ++ "(" ++ intercalate ", " (map formatExpr args) ++ ")"
 formatExpr (VariableExpr variable) = formatVariable variable
 formatExpr (LiteralExpr literal) = formatLiteral literal
 
 formatType :: Type -> String
-formatType IntType = "Int" 
-formatType CharType  = "Char"  
-formatType BoolType  = "Bool"   
+formatType IntType = "Int"
+formatType CharType  = "Char"
+formatType BoolType  = "Bool"
 formatType VoidType   = "Void"
 formatType (TupleType t1 t2) = "(" ++ formatType t1 ++ ", " ++ formatType t2 ++ ")"
 formatType (ListType ty) = "[" ++ formatType ty ++ "]"
 formatType (TypeVar ty) = ty
 
-
 formatVariable :: Variable -> String
 formatVariable (Identifier name Nothing) = name
-formatVariable (Identifier name (Just field)) = name ++ formatField field 
+formatVariable (Identifier name (Just field)) = name ++ "." ++ formatField field
 
 formatBinOp :: BinOp -> String
 formatBinOp Mul = " * "
@@ -101,10 +84,6 @@ formatBinOp Eq  = " == "
 formatBinOp Neq = " != "
 formatBinOp And = " && "
 formatBinOp Or  = " || "
-
-formatUnaryOp :: UnaryOp -> String 
-formatUnaryOp Negate = "!"
-formatUnaryOp (FieldAccess field) = "." ++ formatField field 
 
 formatField :: Field -> String
 formatField HeadField = "hd"

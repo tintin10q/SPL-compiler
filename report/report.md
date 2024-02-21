@@ -123,7 +123,7 @@ Our abstract syntax tree is split up into four major inductive types, `Decl`, `S
 - `Expr`: for expressions (e.g. binary expression, assignment, function call);
 - `Literal`: for literals (e.g. numbers, chars, tuples).
 
-We have decided to not allow global variable declarations at the moment, because global variables are evil. Instead, we have made variable declarations a statement. This also has the benefit of allowing variable declarations everywhere in the body of a function, and not just at the start.
+We have decided to not allow global variable declarations at the moment, because global variables are evil. Instead, we have made variable declarations a statement. This also has the benefit of allowing variable declarations everywhere in the body of a function, and not just at the start. In the future, we might add global variables to make the compiler more flexible (and to make more of the examples in the repository functional).
 
 ## The parser
 
