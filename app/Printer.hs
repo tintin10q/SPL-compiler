@@ -2,14 +2,20 @@ module Printer where
 import Parser.AST
 import Data.List (intercalate)
 
-tabSize :: Int
-tabSize = 4
-
 indent :: String -> String
-indent str = unlines $ map (replicate tabSize ' ' ++) $ lines str
+indent str = unlines $ map (replicate 4 ' ' ++) $ lines str
 
 formatProgram :: Program -> String
 formatProgram = concatMap formatDecl
+
+formatType :: Type -> String
+formatType IntType = "Int"
+formatType CharType = "Char"
+formatType BoolType = "Bool"
+formatType VoidType = "Void"
+formatType (TupleType ty1 ty2) = "(" ++ formatType ty1 ++ ", " ++ formatType ty2 ++ ")"
+formatType (ListType ty) = "[" ++ formatType ty ++ "]"
+formatType (TypeVar var) = var
 
 formatDecl :: Decl -> String
 formatDecl (FunDecl name Nothing args body) =
@@ -47,8 +53,26 @@ formatStmt (ExprStmt expr) = formatExpr expr ++ ";"
 formatStmt (VarStmt Nothing identifier expr) = "var " ++ identifier ++ " = " ++ formatExpr expr ++ ";"
 formatStmt (VarStmt (Just ty) identifier expr) = formatType ty ++ " " ++ identifier ++ " = " ++ formatExpr expr ++ ";"
 
+formatField :: Field -> String
+formatField HeadField = "hd"
+formatField TailField = "tl"
+
 formatExpr :: Expr -> String
 formatExpr (BinOp op expr1 expr2) = formatExpr expr1 ++ formatBinOp op ++ formatExpr expr2
+    where formatBinOp Mul = " * "
+          formatBinOp Div = " / "
+          formatBinOp Mod = " % "
+          formatBinOp Add = " + "
+          formatBinOp Sub = " - "
+          formatBinOp Cons= ":"
+          formatBinOp Gt  = " > "
+          formatBinOp Gte = " >= "
+          formatBinOp Lt  = " < "
+          formatBinOp Lte = " <= "
+          formatBinOp Eq  = " == "
+          formatBinOp Neq = " != "
+          formatBinOp And = " && "
+          formatBinOp Or  = " || "
 formatExpr (UnaryOp Negate expr) = "!" ++ formatExpr expr
 formatExpr (UnaryOp (FieldAccess field) expr) = formatExpr expr ++ "." ++ formatField field
 formatExpr (AssignExpr variable expr) = formatVariable variable ++ " = " ++ formatExpr expr
@@ -56,38 +80,9 @@ formatExpr (FunctionCall name args) = name ++ "(" ++ intercalate ", " (map forma
 formatExpr (VariableExpr variable) = formatVariable variable
 formatExpr (LiteralExpr literal) = formatLiteral literal
 
-formatType :: Type -> String
-formatType IntType = "Int"
-formatType CharType  = "Char"
-formatType BoolType  = "Bool"
-formatType VoidType   = "Void"
-formatType (TupleType t1 t2) = "(" ++ formatType t1 ++ ", " ++ formatType t2 ++ ")"
-formatType (ListType ty) = "[" ++ formatType ty ++ "]"
-formatType (TypeVar ty) = ty
-
 formatVariable :: Variable -> String
 formatVariable (Identifier name Nothing) = name
 formatVariable (Identifier name (Just field)) = name ++ "." ++ formatField field
-
-formatBinOp :: BinOp -> String
-formatBinOp Mul = " * "
-formatBinOp Div = " / "
-formatBinOp Mod = " % "
-formatBinOp Add = " + "
-formatBinOp Sub = " - "
-formatBinOp Cons= ":"
-formatBinOp Gt  = " > "
-formatBinOp Gte = " >= "
-formatBinOp Lt  = " < "
-formatBinOp Lte = " <= "
-formatBinOp Eq  = " == "
-formatBinOp Neq = " != "
-formatBinOp And = " && "
-formatBinOp Or  = " || "
-
-formatField :: Field -> String
-formatField HeadField = "hd"
-formatField TailField = "tl"
 
 formatLiteral :: Literal -> String
 formatLiteral TrueLit = "true"
