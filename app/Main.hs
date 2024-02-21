@@ -12,6 +12,5 @@ main = do
     source <- TIO.readFile file
     case parse pProgram file source of
         Left err -> putStr (errorBundlePretty err)
-        Right ast -> do 
-                        putStr $ formatProgram ast 
+        Right ast -> do putStr $ formatProgram ast 
                         print ast 
