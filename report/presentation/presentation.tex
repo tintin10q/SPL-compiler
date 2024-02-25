@@ -3,6 +3,7 @@
 \usepackage[export]{adjustbox}
 \usepackage{amsmath,amsthm,amssymb,amsfonts}
 \usepackage[backend=biber, style=apa]{biblatex}
+\usepackage{caption}
 \usepackage[T1]{fontenc}
 \usepackage{graphicx}
 \usepackage{lmodern}
@@ -11,6 +12,7 @@
 \usepackage{url}
 \usepackage{xpatch,letltxmacro}
 \usepackage{stmaryrd}
+\usepackage{wrapfig}
 
 \newcommand{\cd}[1]{\texttt{#1}}
 
@@ -30,6 +32,10 @@
 
 \begin{document}
 
+\setbeamercovered{transparent}
+\setbeamercolor{alerted text}{fg=black}
+\setbeamerfont{alerted text}{series=\bfseries}
+
 \frame{\titlepage}
 
 \begin{frame}
@@ -39,6 +45,147 @@
   \only<1>{\includegraphics[width=300px]{figures/compiler_phases.pdf}}
   \only<2>{\includegraphics[width=300px]{figures/compiler_phases_highlighted.pdf}}
   \end{center}
+\end{frame}
+
+\begin{frame}<1>[label=the-goal]
+  \frametitle{The goal}
+
+  \begin{itemize}[<+->]
+    \item \alert<1>{Given some arbitrary string of characters,}
+    \item \alert<2>{analyse this string,}
+    \item \alert<3>{produce an abstract syntax tree,}
+    \item \alert<4>{or give an error.}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{String of characters: Examples}
+
+  \begin{onlyenv}<1>
+    \begin{minted}{text}
+      sum(l:[Int]): Int {
+        if (isEmpty(l.tl)) {
+          return l.hd;
+        }
+
+        return l.hd + sum(l.tl);
+      }
+    \end{minted}
+  \end{onlyenv}
+
+  \begin{onlyenv}<2>
+    \begin{minted}{text}
+      product(list:[Int]): Int {
+        if (isEmpty(list)) {
+          return 1;
+        }
+
+        return list.hd * product(list.tl);
+      }
+    \end{minted}
+  \end{onlyenv}
+
+  \begin{onlyenv}<3>
+    \begin{minted}{text}
+      product(list:[Int]: Int {
+        if (isEmpty(list)) {
+          return 1;
+        }
+
+        return list.hd * product(list.tl);
+      }
+    \end{minted}
+  \end{onlyenv}
+\end{frame}
+
+\againframe<2>{the-goal}
+
+\begin{frame}
+  \frametitle{Analysis: Haskell}
+
+  We chose \textit{Haskell} to implement our parser (and the rest of our compiler):
+
+  \begin{itemize}[<+->]
+    \item Algebraic data types;
+    \item High level of abstraction;
+    \item Good tooling and library support;
+    \item \textbf{Functional parser combinators}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Analysis: Functional parser combinators}
+
+  Parser combinators work through \textit{function composition}.
+
+  \begin{center}
+    \includegraphics[width=300px]{figures/parser_combinator.pdf}
+  \end{center}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Analysis: Megaparsec}
+
+  \begin{figure}
+    \begin{center}
+      \includegraphics[width=0.7\textwidth]{figures/andromeda.jpg}
+      \captionsetup{labelformat=empty}
+      \caption{The Andromeda Galaxy is roughly one \textbf{megaparsec} away (Torben Hansen, CC-BY-2.0).}
+    \end{center}
+  \end{figure}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Analysis: Megaparsec}
+
+  \begin{itemize}[<+->]
+    \item Informal successor of Parsec;
+    \item Does much of the heavy lifting;
+    \item Large collection of combinators;
+    \item Decent error messages out-of-the-box;
+    \item \mintinline{text}{makeExprParser} 
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Analysis: Tokenless parsing}
+
+  % whitespace
+  % symbols
+  % examples
+  % megaparsec only removes whitespace at end
+\end{frame}
+
+\begin{frame}
+  \frametitle{Analysis: Generating expression parsers}
+
+  % field as expression
+\end{frame}
+
+\begin{frame}
+  \frametitle{Analysis: Testing the parser}
+
+  % hspec
+\end{frame}
+
+\againframe<3>{the-goal}
+
+\begin{frame}
+  \frametitle{Abstract syntax tree}
+
+  % started with AST
+\end{frame}
+
+\againframe<4>{the-goal}
+
+\begin{frame}
+  \frametitle{Error reporting}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Pretty printer}
+
+  % comments are hard
 \end{frame}
 
 \begin{frame}

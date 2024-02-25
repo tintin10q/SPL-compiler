@@ -1,0 +1,25 @@
+<mxfile host="app.diagrams.net" modified="2024-02-25T15:15:09.956Z" agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:123.0) Gecko/20100101 Firefox/123.0" etag="D-fAomAsIsUwdMKPj0J2" version="23.1.6" type="device">
+  <diagram name="Page-1" id="DH0VSUAS_0w_N3MlrScq">
+    <mxGraphModel dx="2074" dy="795" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="c7jvHr3cR50x4m3xwNMf-2" value="Parser A" style="rounded=0;whiteSpace=wrap;html=1;fontSize=24;fontFamily=Courier New;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="80" y="360" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c7jvHr3cR50x4m3xwNMf-8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="c7jvHr3cR50x4m3xwNMf-3" target="c7jvHr3cR50x4m3xwNMf-7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c7jvHr3cR50x4m3xwNMf-3" value="Parser B" style="rounded=0;whiteSpace=wrap;html=1;fontSize=24;fontFamily=Courier New;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="340" y="360" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c7jvHr3cR50x4m3xwNMf-6" value="combined with" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="220" y="365" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c7jvHr3cR50x4m3xwNMf-7" value="Parser C" style="rounded=0;whiteSpace=wrap;html=1;fontSize=24;fontFamily=Courier New;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="520" y="360" width="140" height="40" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
