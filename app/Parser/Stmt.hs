@@ -25,34 +25,27 @@ pStmt = choice
 -- Grammar: 'if' '(' expr ')' '{' stmt* '}' ['else' '{' stmt* '}']
 pIfStmt :: Parser Stmt
 pIfStmt = do
-    void L.tIf                    -- 'if'
-    void L.tLeftParen             -- '('
-    condition <- pExpr            -- expr
-    void L.tRightParen            -- ')'
-    void L.tLeftBrace             -- '{'
-    consequent <- many pStmt      -- stmt*
-    void L.tRightBrace            -- '}'
-    alternative <- optional $ do  -- [
-        void L.tElse              -- 'else'
-        void L.tLeftBrace         -- '{'
-        alternative <- many pStmt -- stmt*
-        void L.tRightBrace        -- '}'
-        return alternative        -- ]
-
+    void L.tIf <* void L.tLeftParen         -- 'if' '('
+    condition <- pExpr                      -- expr
+    void L.tRightParen <* void L.tLeftBrace -- ')' '{'
+    consequent <- many pStmt                -- stmt*
+    void L.tRightBrace                      -- '}'
+    alternative <- optional $ do
+        void L.tElse <* void L.tLeftBrace -- 'else' '{'
+        alternative <- many pStmt         -- stmt*
+        void L.tRightBrace                -- '}'
+        return alternative
     return $ IfStmt condition consequent alternative
 
 -- Parses a while statement.
 -- Grammar: 'while' '(' expr ')' '{' stmt* '}'
 pWhileStmt :: Parser Stmt
 pWhileStmt = do
-    void L.tWhile           -- 'while'
-    void L.tLeftParen       -- '('
-    condition <- pExpr      -- expr
-    void L.tRightParen      -- ')'
-    void L.tLeftBrace       -- '{'
-    statement <- many pStmt -- stmt*
-    void L.tRightBrace      -- '}'
-
+    void L.tWhile <* void L.tLeftParen      -- 'while' '('
+    condition <- pExpr                      -- expr
+    void L.tRightParen <* void L.tLeftBrace -- ')' '{'
+    statement <- many pStmt                 -- stmt*
+    void L.tRightBrace                      -- '}'
     return $ WhileStmt condition statement
 
 -- Parses an expression statement.
@@ -67,7 +60,6 @@ pReturnStmt = do
     void L.tReturn         -- 'return'
     expr <- optional pExpr -- [ expr ]
     void L.tSemiColon      -- ';'
-
     return $ ReturnStmt expr
 
 -- Parses a variable declaration.
@@ -79,8 +71,5 @@ pVarStmt = do
     void L.tEq
     expr <- pExpr
     void L.tSemiColon
-
     return $ VarStmt ty identifier expr
-
     where pVarType = (L.tVar $> Nothing) <|> (Just <$> pType)
-

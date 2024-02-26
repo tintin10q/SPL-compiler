@@ -99,10 +99,10 @@ pVariableExpr = VariableExpr <$> pVariable
 -- Parses a variable (e.g. a, a.b., a.b.c).
 pVariable :: Parser Variable
 pVariable = do
-      identifier <- T.unpack <$> L.lexeme L.tIdentifier
-      field <- optional pField
-      return $ Identifier identifier field
-    where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail))
+  identifier <- T.unpack <$> L.lexeme L.tIdentifier
+  field <- optional pField
+  return $ Identifier identifier field
+  where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail))
 
 -- Parse any literal value
 pLiteral :: Parser Literal
@@ -145,10 +145,10 @@ pChar = CharLit <$> L.tChar
 -- Grammar: '(' expr ',' expr ')'
 pTuple :: Parser Literal
 pTuple = L.parens $ do
-    left <- pExpr
-    void L.tComma
-    right <- pExpr
-    return $ TupleLit (left, right)
+  left <- pExpr
+  void L.tComma
+  right <- pExpr
+  return $ TupleLit (left, right)
 
 -- Parses the empty list ([]).
 -- Grammar: '[]'

@@ -3,7 +3,7 @@ module Parser.AST where
 type Program = [Decl]
 
 data Type =
-      IntType             -- Int
+    IntType               -- Int
     | CharType            -- Char
     | BoolType            -- Bool
     | VoidType            -- Void
@@ -12,15 +12,14 @@ data Type =
     | TypeVar String      -- a
     deriving (Eq, Show)
 
-data Decl =
-    -- a(b : c, d : e) : Bool {
-    --     f();
-    -- }
-    FunDecl String (Maybe Type) [(String, Maybe Type)] [Stmt]
+-- a(b : c, d : e) : Bool {
+--     f();
+-- }
+data Decl = FunDecl String (Maybe Type) [(String, Maybe Type)] [Stmt]
   deriving (Eq, Show)
 
 data Stmt =
-      ReturnStmt (Maybe Expr)           -- return a;
+    ReturnStmt (Maybe Expr)             -- return a;
     | IfStmt Expr [Stmt] (Maybe [Stmt]) -- if (a) {b} else {c}
     | WhileStmt Expr [Stmt]             -- while (a) {b}
     | ExprStmt Expr                     -- a;
@@ -28,7 +27,7 @@ data Stmt =
     deriving (Eq, Show)
   
 data Expr =
-      BinOp BinOp Expr Expr      -- a ∘ b
+    BinOp BinOp Expr Expr        -- a ∘ b
     | UnaryOp UnaryOp Expr       -- ∘ a
     | AssignExpr Variable Expr   -- a = b
     | FunctionCall String [Expr] -- f()
@@ -37,38 +36,37 @@ data Expr =
     deriving (Eq, Show)
 
 data UnaryOp = 
-    Negate            -- !a
+  Negate              -- !a
   | FieldAccess Field -- .hd, .tl
   deriving (Eq, Show)
 
 data BinOp =
-      Mul   -- '*'
-    | Div   -- '/'
-    | Mod   -- '%'
-    | Add   -- '+'
-    | Sub   -- '-'
-    | Cons  -- ':'
-    | Gt    -- '>'
-    | Gte   -- '>='
-    | Lt    -- '<'
-    | Lte   -- '<='
-    | Eq    -- '=='
-    | Neq   -- '!='
-    | And   -- '&&'
-    | Or    -- '||'
+    Mul    -- '*'
+    | Div  -- '/'
+    | Mod  -- '%'
+    | Add  -- '+'
+    | Sub  -- '-'
+    | Cons -- ':'
+    | Gt   -- '>'
+    | Gte  -- '>='
+    | Lt   -- '<'
+    | Lte  -- '<='
+    | Eq   -- '=='
+    | Neq  -- '!='
+    | And  -- '&&'
+    | Or   -- '||'
     deriving (Eq, Show)
 
-data Variable = 
-      Identifier String (Maybe Field) -- a, a.hd, a.tl
-    deriving (Eq, Show)
+data Variable = Identifier String (Maybe Field) -- a, a.hd, a.tl
+  deriving (Eq, Show)
 
-data Field =
-      HeadField -- hd
+data Field = 
+    HeadField   -- hd
     | TailField -- tl
     deriving (Eq, Show)
 
 data Literal =
-      TrueLit               -- true
+    TrueLit                 -- true
     | FalseLit              -- false
     | IntLit Int            -- 10, -10, +10
     | FloatLit Float        -- 10.0, -10.0, +10.0
