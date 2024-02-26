@@ -162,11 +162,85 @@
   % field as expression
 \end{frame}
 
-\begin{frame}
+\begin{frame}[fragile]
+  \frametitle{Analysis: Testing the parser}
+
+  hspec example:
+
+    \begin{minted}{text}
+describe "pTrue" $ do
+  it "parses the string 'true' as TrueLit" $ do
+      parse pTrue "test.spl" "false" `shouldParse` TrueLit
+
+  it "doesn't parse anything else" $ do
+      parse pTrue "test.spl" `shouldFailOn` "false"
+      parse pTrue "test.spl" `shouldFailOn` "fa"
+      parse pTrue "test.spl" `shouldFailOn` "tru"
+
+    \end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Analysis: Testing the parser output}
+
+  % hspec example Make an error on purpose with true and false.
+
+    \begin{minted}{text}
+
+pTrue
+  parses the string 'true' as TrueLit [x]
+
+Failures:
+
+  app/Test/Parser/Expr.hs:132:48: 
+  1) Parser.Parser.Parser.Expr.pTrue parses 
+     the string 'true' as TrueLit
+       expected: TrueLit
+       but parsing failed with error:
+         test.spl:1:1:
+           |
+         1 | false
+           | ^^^^
+         unexpected "fals"
+         expecting "true"
+    \end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
   \frametitle{Analysis: Testing the parser}
 
   % hspec example
+
+    \begin{minted}{text}
+describe "pTrue" $ do
+  it "parses the string 'true' as TrueLit" $ do
+      parse pTrue "test.spl" "true" `shouldParse` TrueLit
+    \end{minted}
 \end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Analysis: Testing the parser}
+
+  % hspec example
+
+    \begin{minted}{text}
+  pTrue
+    parses the string 'true' as TrueLit [v]
+    doesn't parse anything else [v]
+  pFalse
+    parses the string 'true' as TrueLit [v]
+    doesn't parse anything else [v]
+  pInt
+    parses an integer [v]
+    parses a signed integer [v]
+    discards trailing whitespace [v]
+
+Finished in 0.0091 seconds
+88 examples, 0 failures
+    \end{minted}
+\end{frame}
+
+
 
 \againframe<3>{the-goal}
 
