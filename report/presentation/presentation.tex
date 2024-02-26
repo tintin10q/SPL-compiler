@@ -50,11 +50,11 @@
 \begin{frame}<1>[label=the-goal]
   \frametitle{The goal}
 
-  \begin{itemize}[<+->]
-    \item \alert<1>{Given some arbitrary string of characters,}
-    \item \alert<2>{analyse this string,}
-    \item \alert<3>{produce an abstract syntax tree,}
-    \item \alert<4>{or give an error.}
+  \begin{itemize}
+    \item \alert<1>{Given some arbitrary string of characters,} \pause
+    \item \pause \alert<3>{analyse this string,} \pause
+    \item \pause \alert<5>{produce an abstract syntax tree,} \pause
+    \item \pause \alert<7>{or give an error.}
   \end{itemize}
 \end{frame}
 
@@ -98,14 +98,14 @@
   \end{onlyenv}
 \end{frame}
 
-\againframe<2>{the-goal}
+\againframe<2-3>{the-goal}
 
 \begin{frame}
   \frametitle{Analysis: Haskell}
 
   We chose \textit{Haskell} to implement our parser (and the rest of our compiler):
 
-  \begin{itemize}[<+->]
+  \begin{itemize}
     \item Algebraic data types;
     \item High level of abstraction;
     \item Good tooling and library support;
@@ -138,7 +138,7 @@
 \begin{frame}
   \frametitle{Analysis: megaparsec}
 
-  \begin{itemize}[<+->]
+  \begin{itemize}
     \item Informal successor of Parsec;
     \item Does much of the heavy lifting;
     \item Large collection of combinators;
@@ -152,14 +152,10 @@
 
   We decided to use a tokenless (lexer-less) parsing approach.
 
-  \begin{itemize}[<+->]
+  \begin{itemize}
     \item Works well with parser combinators
     \item Good support by megaparsec
   \end{itemize}
-  % whitespace
-  % symbols
-  % examples
-  % megaparsec only removes whitespace at end
 \end{frame}
 
 \begin{frame}[fragile]
@@ -268,8 +264,6 @@
                     (VariableExpr (Identifier "b" Nothing))
     \end{minted}
   \end{center}
-
-  
 \end{frame}
 
 \begin{frame}[fragile]
@@ -288,44 +282,42 @@
 \end{frame}
 
 \begin{frame}[fragile]
- \begin{minted}{haskell}
-describe "pTrue" $ do
-  it "parses the string 'true' as TrueLit" $ do
-      parse pTrue "test.spl" "false" `shouldParse` TrueLit
-\end{minted}
+  \begin{minted}{haskell}
+    describe "pTrue" $ do
+      it "parses the string 'true' as TrueLit" $ do
+          parse pTrue "test.spl" "false" `shouldParse` TrueLit
+  \end{minted}
 \end{frame}
 
 \begin{frame}[fragile]
   \frametitle{Analysis: Testing the parser output}
+  
+  \begin{minted}[fontsize=\tiny]{haskell}
+    pTrue
+      parses the string 'true' as TrueLit [x]
 
-  % hspec example Make an error on purpose with true and false.
+    Failures:
 
-    \begin{minted}[fontsize=\tiny]{haskell}
-pTrue
-  parses the string 'true' as TrueLit [x]
-
-Failures:
-
-  app/Test/Parser/Expr.hs:132:48: 
-  1) Parser.Parser.Parser.Expr.pTrue parses 
-     the string 'true' as TrueLit
-       expected: TrueLit
-       but parsing failed with error:
-         test.spl:1:1:
-           |
-         1 | false
-           | ^^^^
-         unexpected "fals"
-         expecting "true"
-    \end{minted}
+      app/Test/Parser/Expr.hs:132:48: 
+      1) Parser.Parser.Parser.Expr.pTrue parses 
+        the string 'true' as TrueLit
+          expected: TrueLit
+          but parsing failed with error:
+            test.spl:1:1:
+              |
+            1 | false
+              | ^^^^
+            unexpected "fals"
+            expecting "true"
+  \end{minted}
 \end{frame}
 
-\againframe<3>{the-goal}
+\againframe<4-5>{the-goal}
 
 \begin{frame}
   \frametitle{Abstract syntax tree: design goals}
 
-  \begin{itemize}[<+->]
+  \begin{itemize}
     \item We started with the design of our AST, and based our parser on that;
     \item Tried to make the AST only be able to represent syntactically valid programs;
     \item Tried to make the AST as simple as possible;
@@ -334,22 +326,21 @@ Failures:
 \end{frame}
 
 \begin{frame}[fragile]
-   \frametitle{Abstract syntax tree: The Skeleton}
-     \begin{onlyenv}<1>
+  \frametitle{Abstract syntax tree: The Skeleton}
+  \begin{onlyenv}<1>
     \begin{minted}{haskell}
-type Program = [Decl] 
-data Decl = ... 
-data Type = ... 
-data Stmt = ... 
-data Expr = ... 
-data UnaryOp = ... 
-data BinOp = ... 
-data Variable = ...
-data Field = ...
-data Literal = ...
+      type Program = [Decl] 
+      data Decl = ... 
+      data Type = ... 
+      data Stmt = ... 
+      data Expr = ... 
+      data UnaryOp = ... 
+      data BinOp = ... 
+      data Variable = ...
+      data Field = ...
+      data Literal = ...
     \end{minted}
   \end{onlyenv}
-
 \end{frame}
 
 \begin{frame}[fragile]
@@ -366,7 +357,7 @@ data Literal = ...
   \end{minted}
 \end{frame}
 
-\againframe<4>{the-goal}
+\againframe<6-7>{the-goal}
 
 \begin{frame}[fragile]
   \frametitle{Error reporting}
