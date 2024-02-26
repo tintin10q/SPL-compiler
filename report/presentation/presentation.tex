@@ -191,7 +191,7 @@
   Token parsers strip whitespace (spaces, tabs, comments) at the end of the input:
 
   \begin{center}
-    \begin{minted}{haskell}
+    \begin{minted}[fontsize=\footnotesize]{haskell}
       whitespace = L.space
         space1
         (L.skipLineComment "//")
@@ -220,11 +220,13 @@
   \frametitle{Analysis: Generating expression parsers}
 
   \begin{center}
-    \begin{minted}{haskell}
+    \begin{minted}[fontsize=\scriptsize]{haskell}
       operatorTable :: [[Operator Parser Expr]]
       operatorTable =
-        [ [ Postfix (UnaryOp (FieldAccess HeadField) <$ try (L.tDot <* L.tHead))
-          , Postfix (UnaryOp (FieldAccess TailField) <$ try (L.tDot <* L.tTail))
+        [ [ Postfix (UnaryOp (FieldAccess HeadField) 
+              <$ try (L.tDot <* L.tHead))
+          , Postfix (UnaryOp (FieldAccess TailField) 
+              <$ try (L.tDot <* L.tTail))
           ]
         , ...
         ]
@@ -248,7 +250,7 @@
   \frametitle{Analysis: Testing the parser}
 
   \begin{center}
-    \begin{minted}[fontsize=\footnotesize]{haskell}
+    \begin{minted}[fontsize=\tiny]{haskell}
       exprSpec :: Spec
       exprSpec = do
         describe "Parser.Expr" $ do
@@ -274,7 +276,7 @@
   \frametitle{Analysis: Testing the parser}
 
   \begin{center}
-    \begin{minted}[fontsize=\footnotesize]{text}
+    \begin{minted}{text}
       Parser.Expr
         pExpr
           parses a term [v]
@@ -331,6 +333,10 @@
   But also has support for custom error messages, and even error recovery. We have not yet implemented this.
 \end{frame}
 
+\begin{frame}
+  \begin{center}Side quest: A pretty printer\end{center}
+\end{frame}
+
 \begin{frame}[fragile]
   \frametitle{Pretty printer}
 
@@ -340,27 +346,27 @@
       if (n == 0) {return 0;}
 
 
-if    (n == 1) {
-   if           (true)           {print('h':'i':[]);}
-return 1;}return (fib(n - 1) + fib(n - 2));  }
+    if    (n == 1) {
+      if           (true)           {print('h':'i':[]);}
+    return 1;}return (fib(n - 1) + fib(n - 2));  }
     \end{minted}
   \end{onlyenv}
 
-\begin{onlyenv}<3>
-  \begin{minted}{text}
-  fib(n : Int) : Int {
-    if (n == 0) {
-        return 0;
-    }
-    if (n == 1) {
-        if (true) {
-            print('h':'i':[]);
+  \begin{onlyenv}<3>
+    \begin{minted}{text}
+      fib(n : Int) : Int {
+        if (n == 0) {
+            return 0;
         }
-        return 1;
-    }
-    return fib(n - 1) + fib(n - 2);
+        if (n == 1) {
+            if (true) {
+                print('h':'i':[]);
+            }
+            return 1;
+        }
+        return fib(n - 1) + fib(n - 2);
 
-  }
+      }
     \end{minted}
   \end{onlyenv}
   \only<2>{\includegraphics[width=55px]{figures/barf.png}}
@@ -368,57 +374,55 @@ return 1;}return (fib(n - 1) + fib(n - 2));  }
 \end{frame}
 
 \begin{frame}[fragile]
-  % comments are hard
   \frametitle{Pretty printer - Comments}
-    \begin{onlyenv}<1>
-  \begin{minted}{text}
+  \begin{onlyenv}<1>
+    \begin{minted}{text}
+      fib(n : Int) : Int {
+        if (n == 0) {return 0;}
+      
+      /*    /| ________________
+      O|===|* >________________>
+            \|                         */
+
+      if    (n == 1) { //                                  h   i 
+        if /* always true? */  (true) /* hi */    {print('h':'i':[]);}
+      return 1;}return (fib(n - 1) + fib(n - 2));  }
+    \end{minted}
+  \end{onlyenv}
+
+  \begin{onlyenv}<2>
+    \begin{minted}{text}
     fib(n : Int) : Int {
-      if (n == 0) {return 0;}
-    
-/*    /| ________________
-O|===|* >________________>
-      \|                         */
+      if (n == 0) {
+          return 0;
+      }
+      if (n == 1) {
+          if (true) {
+              print('h':'i':[]);
+          }
+          return 1;
+      }
+      return fib(n - 1) + fib(n - 2);
 
-if    (n == 1) { //                                  h   i 
-   if /* always true? */  (true) /* hi */    {print('h':'i':[]);}
-return 1;}return (fib(n - 1) + fib(n - 2));  }
+    }
     \end{minted}
   \end{onlyenv}
-\begin{onlyenv}<2>
-  \begin{minted}{text}
-  fib(n : Int) : Int {
-    if (n == 0) {
-        return 0;
-    }
-    if (n == 1) {
-        if (true) {
-            print('h':'i':[]);
-        }
-        return 1;
-    }
-    return fib(n - 1) + fib(n - 2);
 
-  }
-    \end{minted}
-  \end{onlyenv}
   \only<2>{\includegraphics[width=55px]{figures/kinda_sad.png}}
 
   \begin{onlyenv}<3>
-  \begin{minted}{text}
-    type Program = ([Decl], [Comment])
-                        -- start  end 
-    data Comment = Single Int Int Int Int String
-                 | Multi  Int Int Int Int String
-    % Make the symbol parser fix it
-  \end{minted}
+    \begin{minted}{text}
+      type Program = ([Decl], [Comment])
+                          -- start  end 
+      data Comment = Single Int Int Int Int String
+                  | Multi  Int Int Int Int String
+      % Make the symbol parser fix it
+    \end{minted}
   \end{onlyenv}
-
 \end{frame}
-
 
 \begin{frame}
   \begin{center}Questions?\end{center}
 \end{frame}
 
 \end{document}
-
