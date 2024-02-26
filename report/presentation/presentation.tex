@@ -182,11 +182,90 @@
   \frametitle{Error reporting}
 \end{frame}
 
-\begin{frame}
+\begin{frame}[fragile]
   \frametitle{Pretty printer}
 
-  % comments are hard
+  \begin{onlyenv}<1,2>
+  \begin{minted}{text}
+    fib(n : Int) : Int {
+      if (n == 0) {return 0;}
+
+
+if    (n == 1) {
+   if           (true)           {print('h':'i':[]);}
+return 1;}return (fib(n - 1) + fib(n - 2));  }
+    \end{minted}
+  \end{onlyenv}
+
+\begin{onlyenv}<3>
+  \begin{minted}{text}
+  fib(n : Int) : Int {
+    if (n == 0) {
+        return 0;
+    }
+    if (n == 1) {
+        if (true) {
+            print('h':'i':[]);
+        }
+        return 1;
+    }
+    return fib(n - 1) + fib(n - 2);
+
+  }
+    \end{minted}
+  \end{onlyenv}
+  \only<2>{\includegraphics[width=55px]{figures/barf.png}}
+  \only<3>{\includegraphics[width=55px]{figures/happy.png}}
 \end{frame}
+
+\begin{frame}[fragile]
+  % comments are hard
+  \frametitle{Pretty printer - Comments}
+    \begin{onlyenv}<1>
+  \begin{minted}{text}
+    fib(n : Int) : Int {
+      if (n == 0) {return 0;}
+    
+/*    /| ________________
+O|===|* >________________>
+      \|                         */
+
+if    (n == 1) { //                                  h   i 
+   if /* always true? */  (true) /* hi */    {print('h':'i':[]);}
+return 1;}return (fib(n - 1) + fib(n - 2));  }
+    \end{minted}
+  \end{onlyenv}
+\begin{onlyenv}<2>
+  \begin{minted}{text}
+  fib(n : Int) : Int {
+    if (n == 0) {
+        return 0;
+    }
+    if (n == 1) {
+        if (true) {
+            print('h':'i':[]);
+        }
+        return 1;
+    }
+    return fib(n - 1) + fib(n - 2);
+
+  }
+    \end{minted}
+  \end{onlyenv}
+  \only<2>{\includegraphics[width=55px]{figures/kinda_sad.png}}
+
+  \begin{onlyenv}<3>
+  \begin{minted}{text}
+    type Program = ([Decl], [Comment])
+                        -- start  end 
+    data Comment = Single Int Int Int Int String
+                 | Multi  Int Int Int Int String
+    % Make the symbol parser fix it
+  \end{minted}
+  \end{onlyenv}
+
+\end{frame}
+
 
 \begin{frame}
   \begin{center}Questions?\end{center}
