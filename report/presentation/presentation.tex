@@ -303,11 +303,11 @@
 
   \begin{minted}{haskell}
     data Stmt =
-      ReturnStmt (Maybe Expr)           -- return a;
-    | IfStmt Expr [Stmt] (Maybe [Stmt]) -- if (a) {b} else {c}
-    | WhileStmt Expr [Stmt]             -- while (a) {b}
-    | ExprStmt Expr                     -- a;
-    | VarStmt (Maybe Type) String Expr  -- var hello = 'w':'o':'r':'l':'d':[]
+      ReturnStmt (Maybe Expr)
+    | IfStmt Expr [Stmt] (Maybe [Stmt])
+    | WhileStmt Expr [Stmt]
+    | ExprStmt Expr
+    | VarStmt (Maybe Type) String Expr
     deriving (Eq, Show)
   \end{minted}
 \end{frame}
