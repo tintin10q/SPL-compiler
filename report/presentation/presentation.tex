@@ -143,7 +143,7 @@
     \item Does much of the heavy lifting;
     \item Large collection of combinators;
     \item Decent error messages out-of-the-box;
-    \item \mintinline{text}{makeExprParser} 
+    \item \mintinline{text}{makeExprParser}.
   \end{itemize}
 \end{frame}
 
@@ -153,8 +153,8 @@
   We decided to use a tokenless (lexer-less) parsing approach.
 
   \begin{itemize}
-    \item Works well with parser combinators
-    \item Good support by megaparsec
+    \item Works well with parser combinators;
+    \item Good support by megaparsec.
   \end{itemize}
 \end{frame}
 
@@ -270,7 +270,7 @@
   \frametitle{Analysis: Testing the parser}
 
   \begin{center}
-    \begin{minted}[fontsize=\large]{haskell}
+    \begin{minted}{haskell}
       Parser.Expr
         pExpr
           parses a term [v]
@@ -282,7 +282,9 @@
 \end{frame}
 
 \begin{frame}[fragile]
-  \begin{minted}{haskell}
+  \frametitle{Analysis: Testing the parser output}
+  
+  \begin{minted}[fontsize=\footnotesize]{haskell}
     describe "pTrue" $ do
       it "parses the string 'true' as TrueLit" $ do
           parse pTrue "test.spl" "false" `shouldParse` TrueLit
@@ -466,7 +468,7 @@
                   | Multi  Int Int Int Int String
     \end{minted}
   \end{onlyenv}
-  \only<4>{Make the symbol parser fix it}
+  \only<4>{Make the symbol parser fix it.}
 \end{frame}
 
 \begin{frame}
