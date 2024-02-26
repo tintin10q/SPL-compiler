@@ -165,15 +165,211 @@
 \begin{frame}
   \frametitle{Analysis: Testing the parser}
 
-  % hspec
+  % hspec example
 \end{frame}
 
 \againframe<3>{the-goal}
 
-\begin{frame}
+\begin{frame}[fragile]
   \frametitle{Abstract syntax tree}
+  % started with AST early by looking at examples of SPL source
+  \begin{onlyenv}<1>
+    \begin{minted}{text}
+type Program = undefined
+data Type = undefined
+data Decl = undefined
+data Stmt = undefined
+data Expr = undefined
+data UnaryOp = undefined
+data BinOp = undefined
+data Variable = undefined
+data Literal = undefined
+% Field
+    \end{minted}
+  \end{onlyenv}
 
-  % started with AST
+  % started with literals
+\begin{onlyenv}<2>
+ \begin{minted}{text} 
+data Literal =
+      TrueLit               -- true
+    | FalseLit              -- false
+    | IntLit Int            -- 10, -10, +10
+    | FloatLit Float        -- 10.0, -10.0, +10.0
+    | CharLit Char          -- 'a'
+    | TupleLit (Expr, Expr) -- (a, b)
+    | EmptyListLit          -- []
+    deriving (Eq, Show)
+ \end{minted}
+\end{onlyenv}
+
+\begin{onlyenv}<3>
+ \begin{minted}{text}
+data Expr =
+      BinOp BinOp Expr Expr      -- a + b
+    | UnaryOp UnaryOp Expr       -- + a
+    | AssignExpr Variable Expr   -- a = b
+    | FunctionCall String [Expr] -- f()
+    | VariableExpr Variable      -- a, a.tl, a.hd
+    | LiteralExpr Literal        -- 10
+    deriving (Eq, Show) 
+  \end{minted}
+\end{onlyenv}
+
+% We then needed to define operations and variables
+
+\begin{onlyenv}<4>
+
+ \begin{columns}
+  \column{0.5\textwidth}
+    \begin{minted}{text}
+data UnaryOp = 
+    Negate            -- !a
+  | FieldAccess Field -- .hd, .tl
+  deriving (Eq, Show)
+    \end{minted}
+
+\column{0.5\textwidth}
+  \begin{minted}{text}
+data BinOp =
+      Mul   -- '*'
+    | Div   -- '/'
+    | Mod   -- '\%'
+    | Add   -- '+'
+    | Sub   -- '-' 
+    | Cons  -- ':'
+    | Gt    -- '>'
+    | Gte   -- '>='
+    | Lt    -- '<'
+    | Lte   -- '<='
+    | Eq    -- '=='
+    | Neq   -- '!='
+    | And   -- '\&\&'
+    | Or    -- '||'
+    deriving (Eq, Show)
+  \end{minted}
+\end{columns}
+\end{onlyenv}
+
+\begin{onlyenv}<5>
+  \begin{minted}{text}
+data Variable = 
+      Identifier String (Maybe Field) -- a, a.hd, a.tl
+    deriving (Eq, Show)
+
+data Field =
+      HeadField -- hd
+    | TailField -- tl
+    deriving (Eq, Show)
+  \end{minted}
+\end{onlyenv}
+
+\begin{onlyenv}<6>
+  \begin{minted}{text}
+data Stmt =
+  ReturnStmt (Maybe Expr)           -- return a;
+| IfStmt Expr [Stmt] (Maybe [Stmt]) -- if (a) {b} else {c}
+| WhileStmt Expr [Stmt]             -- while (a) {b}
+| ExprStmt Expr                     -- a;
+| VarStmt (Maybe Type) String Expr  -- var hello = 'h':'i':[]
+deriving (Eq, Show)
+  \end{minted}
+\end{onlyenv}
+
+\begin{onlyenv}<7>
+
+  % Add types
+\begin{columns}
+  \column{0.5\textwidth}
+  \begin{minted}{text}
+data Stmt =
+  ReturnStmt (Maybe Expr)           
+| IfStmt Expr [Stmt] (Maybe [Stmt]) 
+| WhileStmt Expr [Stmt]            
+| ExprStmt Expr                   
+| VarStmt (Maybe Type) String Expr
+deriving (Eq, Show)
+\end{minted}
+
+\column{0.5\textwidth}
+  \begin{minted}{text}
+  data Type =
+    IntType          -- Int
+  | CharType         -- Char
+    | BoolType         -- Bool
+  | VoidType         -- Void
+  | TupleType Type Type-- (a, b)
+  | ListType Type       -- [a]
+  | TypeVar String      -- a
+  deriving (Eq, Show)
+  \end{minted}
+\end{columns}
+\end{onlyenv}
+
+\begin{onlyenv}<8,9>
+  \begin{minted}{text}
+    -- a(b : c, d : e) : Bool {
+    --     f();
+    -- }
+    data Decl = 
+      FunDecl String (Maybe Type) [(String, Maybe Type)] [Stmt]
+      deriving (Eq, Show)
+  \end{minted}
+\end{onlyenv}
+\begin{onlyenv}<9>
+  \begin{minted}{text} 
+
+
+
+    type Program = [Decl] 
+  \end{minted}
+\end{onlyenv}
+
+
+
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Abstract syntax tree - example}
+  \begin{onlyenv}<1>
+  \begin{minted}{text}
+    fib(n : Int) : Int {
+      if (n == 0) {
+          return 0;
+      }
+      if (n == 1) {
+          if (true) {
+              print('h':'i':[]);
+          }
+          return 1;
+      }
+      return fib(n - 1) + fib(n - 2);
+    }
+  \end{minted}
+  \end{onlyenv}
+
+  \begin{onlyenv}<2>
+  \begin{minted}{text}
+    [FunDecl "fib" (Just IntType) [("n",Just IntType)] 
+     [IfStmt (BinOp Eq (VariableExpr (Identifier "n" Nothing)) 
+             (LiteralExpr (IntLit 0))) 
+             [ReturnStmt (Just (LiteralExpr (IntLit 0)))] Nothing,
+      IfStmt (BinOp Eq (VariableExpr (Identifier "n" Nothing))
+             (LiteralExpr (IntLit 1))) 
+             [IfStmt (LiteralExpr TrueLit) [
+                ExprStmt (FunctionCall "print" [BinOp Cons (LiteralExpr (CharLit 'h'))
+                 (BinOp Cons (LiteralExpr (CharLit 'i'))
+                  (LiteralExpr EmptyListLit))])] Nothing,
+              ReturnStmt (Just (LiteralExpr (IntLit 1)))] Nothing,
+               ReturnStmt (Just (BinOp Add (FunctionCall "fib"
+                    [BinOp Sub (VariableExpr (Identifier "n" Nothing))
+                    (LiteralExpr (IntLit 1))]) 
+                    (FunctionCall "fib" [BinOp Sub 
+                    (VariableExpr (Identifier "n" Nothing)) 
+                    (LiteralExpr (IntLit 2))])))]]
+  \end{minted}
+\end{onlyenv}
+
 \end{frame}
 
 \againframe<4>{the-goal}
