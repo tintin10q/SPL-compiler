@@ -124,7 +124,7 @@
 \end{frame}
 
 \begin{frame}
-  \frametitle{Analysis: Megaparsec}
+  \frametitle{Analysis: megaparsec}
 
   \begin{figure}
     \begin{center}
@@ -136,7 +136,7 @@
 \end{frame}
 
 \begin{frame}
-  \frametitle{Analysis: Megaparsec}
+  \frametitle{Analysis: megaparsec}
 
   \begin{itemize}[<+->]
     \item Informal successor of Parsec;
@@ -150,36 +150,185 @@
 \begin{frame}
   \frametitle{Analysis: Tokenless parsing}
 
+  We decided to use a tokenless (lexer-less) parsing approach.
+
+  \begin{itemize}[<+->]
+    \item Works well with parser combinators
+    \item Good support by megaparsec
+  \end{itemize}
   % whitespace
   % symbols
   % examples
   % megaparsec only removes whitespace at end
 \end{frame}
 
-\begin{frame}
-  \frametitle{Analysis: Generating expression parsers}
+\begin{frame}[fragile]
+  \frametitle{Analysis: Tokenless parsing}
 
-  % field as expression
+  Tokens are parsed using special \mintinline{text}{symbol} parsers.
+
+  \begin{center}
+    \begin{minted}{haskell}
+      -- ...
+
+      tTrue :: Parser T.Text
+      tTrue = symbol "true"
+
+      tFalse :: Parser T.Text
+      tFalse = symbol "false"
+
+      tEmptyList :: Parser T.Text
+      tEmptyList = symbol "[]"
+
+      -- ...
+    \end{minted}
+  \end{center}
 \end{frame}
 
-\begin{frame}
+\begin{frame}[fragile]
+  \frametitle{Analysis: Tokenless parsing}
+
+  Token parsers strip whitespace (spaces, tabs, comments) at the end of the input:
+
+  \begin{center}
+    \begin{minted}{haskell}
+      whitespace = L.space
+        space1
+        (L.skipLineComment "//")
+        (L.skipBlockComment "/*" "*/")
+
+      tColon :: Parser T.Text
+      tColon = symbol ":"
+
+      -- tColon parses ":", but also ": /* Parsers are fun */"
+    \end{minted}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Analysis: Tokenless parsing}
+
+  \begin{center}
+    \begin{minted}{haskell}
+      pProgram :: Parser Program
+      pProgram = L.whitespace *> some pDecl
+    \end{minted}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Analysis: Generating expression parsers}
+
+  \begin{center}
+    \begin{minted}{haskell}
+      operatorTable :: [[Operator Parser Expr]]
+      operatorTable =
+        [ [ Postfix (UnaryOp (FieldAccess HeadField) <$ try (L.tDot <* L.tHead))
+          , Postfix (UnaryOp (FieldAccess TailField) <$ try (L.tDot <* L.tTail))
+          ]
+        , ...
+        ]
+
+      pTerm :: Parser Expr
+      pTerm = choice
+        [ try $ L.parens pExpr
+        , try pFunctionCall
+        , try pAssignExpr
+        , try pLiteralExpr
+        , try pVariableExpr
+        ]
+
+      pExpr :: Parser Expr
+      pExpr = makeExprParser pTerm operatorTable
+    \end{minted}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile]
   \frametitle{Analysis: Testing the parser}
 
-  % hspec
+  \begin{center}
+    \begin{minted}[fontsize=\footnotesize]{haskell}
+      exprSpec :: Spec
+      exprSpec = do
+        describe "Parser.Expr" $ do
+          describe "pExpr" $ do
+            it "parses a term" $ do
+              parse pExpr "test.spl" "1" 
+                `shouldParse` LiteralExpr (IntLit 1)
+              parse pExpr "test.spl" "a = 'b'" 
+                `shouldParse` AssignExpr (Identifier "a" Nothing) (LiteralExpr $ CharLit 'b')
+              parse pExpr "test.spl" "ident"
+                `shouldParse` VariableExpr (Identifier "ident" Nothing)
+              parse pExpr "test.spl" "(a + b)"
+                `shouldParse` BinOp Add 
+                    (VariableExpr (Identifier "a" Nothing))
+                    (VariableExpr (Identifier "b" Nothing))
+    \end{minted}
+  \end{center}
+
+  
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Analysis: Testing the parser}
+
+  \begin{center}
+    \begin{minted}[fontsize=\footnotesize]{text}
+      Parser.Expr
+        pExpr
+          parses a term [v]
+          parses a simple unary expression [v]
+          parses a simple binary expression [v]
+          parses an expression [v]
+    \end{minted}
+  \end{center}
 \end{frame}
 
 \againframe<3>{the-goal}
 
 \begin{frame}
-  \frametitle{Abstract syntax tree}
+  \frametitle{Abstract syntax tree: design goals}
 
-  % started with AST
+  \begin{itemize}[<+->]
+    \item We started with the design of our AST, and based our parser on that;
+    \item Tried to make the AST only be able to represent syntactically valid programs;
+    \item Tried to make the AST as simple as possible;
+    \item \mintinline{haskell}{data} type is Haskell.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Abstract syntax tree: example}
+
+  \begin{minted}{haskell}
+    data Stmt =
+      ReturnStmt (Maybe Expr)           -- return a;
+    | IfStmt Expr [Stmt] (Maybe [Stmt]) -- if (a) {b} else {c}
+    | WhileStmt Expr [Stmt]             -- while (a) {b}
+    | ExprStmt Expr                     -- a;
+    | VarStmt (Maybe Type) String Expr  -- var hello = 'w':'o':'r':'l':'d':[]
+    deriving (Eq, Show)
+  \end{minted}
 \end{frame}
 
 \againframe<4>{the-goal}
 
-\begin{frame}
+\begin{frame}[fragile]
   \frametitle{Error reporting}
+
+  Megaparsec generates decent error messages out of the box:
+
+  \begin{minted}{text}
+    examples/product_parse_error.spl:1:19:
+      |
+    1 | product(list:[Int]: Int {
+      |                   ^
+    unexpected ':'
+    expecting ')' or ','
+  \end{minted}
+
+  But also has support for custom error messages, and even error recovery. We have not yet implemented this.
 \end{frame}
 
 \begin{frame}[fragile]

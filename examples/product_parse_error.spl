@@ -1,0 +1,7 @@
+product(list:[Int]: Int {
+    if (isEmpty(list)) {
+        return 1;
+    }
+
+    return list.hd * product(list.tl);
+}
