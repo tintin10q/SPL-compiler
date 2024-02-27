@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Test.Parser.Type where
+module Test.Parser.TypeSpec (typeSpec) where
+
+import SPL.Parser.AST (Type(IntType, CharType, BoolType, TupleType, TypeVar, ListType, VoidType))
+import SPL.Parser.Type (pIntType, pCharType, pListType, pTypeVarType, pRetType, pType, pVoidType, pTupleType, pBoolType)
 
 import Test.Hspec (Spec, describe, it)
 import Test.Hspec.Megaparsec (shouldParse, shouldFailOn)
 import Text.Megaparsec (parse)
-import Parser.Type (pIntType, pCharType, pListType, pTypeVarType, pRetType, pType, pVoidType, pTupleType, pBoolType)
-import Parser.AST (Type(IntType, CharType, BoolType, TupleType, TypeVar, ListType, VoidType))
 
 typeSpec :: Spec
 typeSpec = do

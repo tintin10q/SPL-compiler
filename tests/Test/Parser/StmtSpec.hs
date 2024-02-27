@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Test.Parser.Stmt where
+module Test.Parser.StmtSpec (stmtSpec) where
+
+import SPL.Parser.AST
+import SPL.Parser.Stmt
+
 import Test.Hspec (Spec, describe, it)
 import Test.Hspec.Megaparsec (shouldParse, shouldFailOn)
-import Parser.Stmt
-import Parser.AST
 import Text.Megaparsec (parse)
-
 
 stmtSpec :: Spec
 stmtSpec = do

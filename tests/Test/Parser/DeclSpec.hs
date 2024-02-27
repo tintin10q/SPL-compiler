@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Test.Parser.Decl where
+module Test.Parser.DeclSpec (declSpec) where
+
+import SPL.Parser.AST
+import SPL.Parser.Decl (pFunDecl, pDecl)
 
 import Test.Hspec
-import Text.Megaparsec (parse)
-import Parser.AST
 import Test.Hspec.Megaparsec (shouldParse, shouldFailOn)
-import Parser.Decl (pFunDecl, pDecl)
+import Text.Megaparsec (parse)
 
 declSpec :: Spec
 declSpec = do

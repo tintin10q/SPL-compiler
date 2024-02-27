@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Test.Parser.Lexer where
+module Test.Parser.LexerSpec (lexerSpec) where
+
+import SPL.Parser.Lexer (tIdentifier)
 
 import Test.Hspec (describe, it, Spec)
-import Text.Megaparsec (parse)
-import Parser.Lexer (tIdentifier)
 import Test.Hspec.Megaparsec (shouldParse, shouldFailOn)
+import Text.Megaparsec (parse)
 
 lexerSpec :: Spec
 lexerSpec = do

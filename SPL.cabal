@@ -9,32 +9,54 @@ build-type:         Simple
 common warnings
     ghc-options: -Wall
 
-executable SPL
+executable spl-exe
     import:           warnings
     main-is:          Main.hs
+    hs-source-dirs:   app
+    build-depends:    base ^>=4.17.2.1,
+                      text ^>=2.1,
+                      spl-lib
+    default-language: Haskell2010
+
+library spl-lib
+    import:           warnings
+    exposed-modules:
+        SPL.Parser
+        SPL.Parser.AST
+        SPL.Parser.Decl
+        SPL.Parser.Expr
+        SPL.Parser.Lexer
+        SPL.Parser.Parser
+        SPL.Parser.Type
+        SPL.Parser.Stmt
+        SPL.Parser.Program
+        SPL.Printer
+    build-depends:    base ^>=4.17.2.1,
+                      megaparsec ^>=9.6.1,
+                      parser-combinators ^>= 1.3.0,
+                      text ^>=2.1
+    hs-source-dirs:   src
+    default-language: Haskell2010
+
+test-suite tests
+    import:           warnings
+    type:             exitcode-stdio-1.0
+    main-is:          Main.hs
     other-modules:
-        Parser.AST
-        Parser.Decl
-        Parser.Expr
-        Parser.Lexer
-        Parser.Parser
-        Parser.Program
-        Parser.Type
-        Parser.Stmt
-        Test.Parser.Decl
-        Test.Parser.Expr
-        Test.Parser.Lexer
-        Test.Parser.Parser
-        Test.Parser.Program
-        Test.Parser.Stmt
-        Test.Parser.Type
-        Test.Test
-        Printer
+        Test.Parser.DeclSpec
+        Test.Parser.ExprSpec
+        Test.Parser.LexerSpec
+        Test.Parser.ParserSpec
+        Test.Parser.ProgramSpec
+        Test.Parser.StmtSpec
+        Test.Parser.TypeSpec
     build-depends:    base ^>=4.17.2.1,
                       hspec ^>=2.11.7,
                       hspec-megaparsec ^>= 2.2.1,
                       megaparsec ^>=9.6.1,
                       parser-combinators ^>= 1.3.0,
-                      text ^>=2.1
-    hs-source-dirs:   app
+                      text ^>=2.1,
+                      spl-lib
+    hs-source-dirs:   tests
     default-language: Haskell2010
+

@@ -1,12 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
-module Parser.Lexer where
+module SPL.Parser.Lexer where
 
-import Parser.Parser (Parser)
+import SPL.Parser.Parser (Parser)
+
+import Text.Megaparsec (between, many, (<|>))
 import Text.Megaparsec.Char
 import qualified Data.Text as T
 import qualified Text.Megaparsec.Char.Lexer as L
-import Text.Megaparsec (between, many, (<|>))
 
 -- Helpers
 

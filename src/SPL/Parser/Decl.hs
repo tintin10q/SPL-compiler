@@ -1,13 +1,14 @@
-module Parser.Decl where
+module SPL.Parser.Decl where
 
-import Parser.AST
-import Parser.Parser (Parser)
-import Text.Megaparsec (optional, many)
+import SPL.Parser.AST
+import SPL.Parser.Parser (Parser)
+import SPL.Parser.Stmt (pStmt)
+import SPL.Parser.Type (pType, pRetType)
+import qualified SPL.Parser.Lexer as L
+
 import Control.Monad (void)
-import qualified Parser.Lexer as L
+import Text.Megaparsec (optional, many)
 import qualified Data.Text as T
-import Parser.Type (pType, pRetType)
-import Parser.Stmt (pStmt)
 
 -- Parses any declaration.
 pDecl :: Parser Decl

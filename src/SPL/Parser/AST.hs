@@ -1,4 +1,4 @@
-module Parser.AST where
+module SPL.Parser.AST where
 
 type Program = [Decl]
 

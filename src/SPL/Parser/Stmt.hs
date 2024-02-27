@@ -1,15 +1,17 @@
-module Parser.Stmt where
+module SPL.Parser.Stmt where
 
-import Parser.AST
-import Parser.Parser (Parser)
-import Parser.Expr (pExpr)
-import Text.Megaparsec (choice, try, optional, many)
-import Control.Monad (void)
-import qualified Parser.Lexer as L
-import qualified Data.Text as T
-import Data.Functor (($>))
+import SPL.Parser.AST
+import SPL.Parser.Expr (pExpr)
+import SPL.Parser.Parser (Parser)
+import SPL.Parser.Type (pType)
+import qualified SPL.Parser.Lexer as L
+
 import Control.Applicative ((<|>))
-import Parser.Type (pType)
+import Control.Monad (void)
+import Data.Functor (($>))
+import Text.Megaparsec (choice, try, optional, many)
+import qualified Data.Text as T
+
 
 -- Parses any statement.
 pStmt :: Parser Stmt

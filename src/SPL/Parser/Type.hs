@@ -1,11 +1,12 @@
-module Parser.Type where
+module SPL.Parser.Type where
 
-import Parser.AST
-import Parser.Parser
-import Text.Megaparsec (try, choice)
-import qualified Parser.Lexer as L
-import qualified Data.Text as T
+import SPL.Parser.AST
+import SPL.Parser.Parser
+import qualified SPL.Parser.Lexer as L
+
 import Control.Monad (void)
+import Text.Megaparsec (choice)
+import qualified Data.Text as T
 
 -- Parses a return type (which is a regular type, with 'void')
 pRetType :: Parser Type

@@ -1,11 +1,12 @@
-module Parser.Expr where
+module SPL.Parser.Expr where
 
-import Parser.AST
-import Parser.Parser (Parser)
-import Text.Megaparsec (choice, try, (<|>), many, optional)
+import SPL.Parser.AST
+import SPL.Parser.Parser (Parser)
+import qualified SPL.Parser.Lexer as L
+
 import Control.Monad (void)
 import Control.Monad.Combinators.Expr
-import qualified Parser.Lexer as L
+import Text.Megaparsec (choice, try, (<|>), many, optional)
 import qualified Data.Text as T
 
 {--

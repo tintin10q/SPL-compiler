@@ -1,8 +1,8 @@
-module Parser.Parser where
+module SPL.Parser.Parser (Parser) where
 
+import Data.Text (Text)
 import Data.Void
 import Text.Megaparsec
-import Data.Text (Text)
 
 type Parser = Parsec Void Text
 --                   ^    ^

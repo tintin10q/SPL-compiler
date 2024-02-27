@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Test.Parser.Expr where
+module Test.Parser.ExprSpec (exprSpec) where
+
+import SPL.Parser.AST
+import SPL.Parser.Expr
 
 import Test.Hspec
-import Text.Megaparsec (parse)
-import Parser.AST
 import Test.Hspec.Megaparsec (shouldParse, shouldFailOn)
-import Parser.Expr
+import Text.Megaparsec (parse)
 
 exprSpec :: Spec
 exprSpec = do

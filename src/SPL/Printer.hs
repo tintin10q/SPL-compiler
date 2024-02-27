@@ -1,5 +1,7 @@
-module Printer where
-import Parser.AST
+module SPL.Printer where
+
+import SPL.Parser.AST
+
 import Data.List (intercalate)
 
 indent :: String -> String

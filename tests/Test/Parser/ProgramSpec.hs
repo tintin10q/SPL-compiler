@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Test.Parser.Program where
+module Test.Parser.ProgramSpec (programSpec) where
+
+import SPL.Parser.AST
+import SPL.Parser.Program (pProgram)
 
 import Test.Hspec (Spec, describe, it)
 import Test.Hspec.Megaparsec (shouldParse)
 import Text.Megaparsec (parse)
-import Parser.Program (pProgram)
-import Parser.AST
 
 programSpec :: Spec
 programSpec = do
