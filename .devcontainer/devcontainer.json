@@ -20,7 +20,9 @@
             "**/CVS": true,
             "**/.DS_Store": true,
             "**/Thumbs.db": true,
-            ".devcontainer": true
+            ".devcontainer": true,
+	    ".vscode": true,
+	    "dist-newstyle": true
           },
           "haskell.manageHLS": "GHCup",
           "haskell.openDocumentationInHackage": false,
