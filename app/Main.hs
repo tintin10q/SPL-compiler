@@ -1,7 +1,7 @@
 module Main where
 
 import SPL.Parser
-import SPL.Printer
+-- import SPL.Printer
 
 import System.Environment (getArgs)
 
@@ -13,5 +13,5 @@ main = do
     source <- TIO.readFile file
     case parse file source of
         Left err -> putStr (formatError err)
-        Right ast -> do putStr $ formatProgram ast 
+        Right ast -> do -- putStr $ formatProgram ast 
                         print ast 

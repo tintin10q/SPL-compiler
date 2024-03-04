@@ -3,7 +3,7 @@ module SPL.Printer where
 import SPL.Parser.AST
 
 import Data.List (intercalate)
-
+{-
 indent :: String -> String
 indent str = unlines $ map (replicate 4 ' ' ++) $ lines str
 
@@ -60,7 +60,7 @@ formatField HeadField = "hd"
 formatField TailField = "tl"
 
 formatExpr :: Expr -> String
-formatExpr (BinOp op expr1 expr2) = formatExpr expr1 ++ formatBinOp op ++ formatExpr expr2
+formatExpr (BinOpExpr op expr1 expr2) = formatExpr expr1 ++ formatBinOp op ++ formatExpr expr2
     where formatBinOp Mul = " * "
           formatBinOp Div = " / "
           formatBinOp Mod = " % "
@@ -75,10 +75,10 @@ formatExpr (BinOp op expr1 expr2) = formatExpr expr1 ++ formatBinOp op ++ format
           formatBinOp Neq = " != "
           formatBinOp And = " && "
           formatBinOp Or  = " || "
-formatExpr (UnaryOp Negate expr) = "!" ++ formatExpr expr
-formatExpr (UnaryOp (FieldAccess field) expr) = formatExpr expr ++ "." ++ formatField field
+formatExpr (UnaryOpExpr Negate expr) = "!" ++ formatExpr expr
+formatExpr (UnaryOpExpr (FieldAccess field) expr) = formatExpr expr ++ "." ++ formatField field
 formatExpr (AssignExpr variable expr) = formatVariable variable ++ " = " ++ formatExpr expr
-formatExpr (FunctionCall name args) = name ++ "(" ++ intercalate ", " (map formatExpr args) ++ ")"
+formatExpr (FunctionCallExpr name args) = name ++ "(" ++ intercalate ", " (map formatExpr args) ++ ")"
 formatExpr (VariableExpr variable) = formatVariable variable
 formatExpr (LiteralExpr literal) = formatLiteral literal
 
@@ -94,3 +94,4 @@ formatLiteral (FloatLit n) = show n
 formatLiteral (CharLit c) = show c
 formatLiteral (TupleLit (expr1, expr2)) = "(" ++ formatExpr expr1 ++ "," ++ formatExpr expr2 ++ ")"
 formatLiteral EmptyListLit = "[]"
+-}

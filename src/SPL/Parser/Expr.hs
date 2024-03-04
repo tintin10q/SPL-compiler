@@ -6,7 +6,7 @@ import qualified SPL.Parser.Lexer as L
 
 import Control.Monad (void)
 import Control.Monad.Combinators.Expr
-import Text.Megaparsec (choice, try, (<|>), many, optional)
+import Text.Megaparsec (choice, try, (<|>), many, optional, getSourcePos)
 import qualified Data.Text as T
 
 {--
@@ -31,29 +31,43 @@ Expression parsers.
 -- Operator precedence and associativity: https://rosettacode.org/wiki/Operator_precedence#Haskell
 operatorTable :: [[Operator Parser Expr]]
 operatorTable =
-    [ [ Postfix (UnaryOp (FieldAccess HeadField) <$ try (L.tDot <* L.tHead))
-      , Postfix (UnaryOp (FieldAccess TailField) <$ try (L.tDot <* L.tTail))
+    [ [ Postfix (unary (UnaryOpExpr (FieldAccess HeadField)) (try (L.tDot <* L.tHead)))
+      , Postfix (unary (UnaryOpExpr (FieldAccess TailField)) (try (L.tDot <* L.tTail)))
       ]
-    , [ Prefix (UnaryOp Negate <$ L.tExcl)
+    , [ Prefix (unary (UnaryOpExpr Negate) L.tExcl)
       ]
-    , [ InfixL (BinOp Mul <$ L.tStar)
-      , InfixL (BinOp Div <$ L.tSlash)
-      , InfixL (BinOp Mod <$ L.tPercent)
+    , [ InfixL (binary (BinOpExpr Mul) L.tStar)
+      , InfixL (binary (BinOpExpr Div) L.tSlash)
+      , InfixL (binary (BinOpExpr Mod) L.tPercent)
       ]
-    , [ InfixL (BinOp Add <$ L.tPlus)
-      , InfixL (BinOp Sub <$ L.tMin)
+    , [ InfixL (binary (BinOpExpr Add) L.tPlus)
+      , InfixL (binary (BinOpExpr Sub) L.tMin)
       ]
-    , [ InfixR (BinOp Cons <$ L.tColon)]
-    , [ InfixN (BinOp Gt <$ L.tGt)
-      , InfixN (BinOp Gte <$ L.tGte)
-      , InfixN (BinOp Lt <$ L.tLt)
-      , InfixN (BinOp Lte <$ L.tLte)
-      , InfixN (BinOp Eq <$ L.tDoubleEq)
-      , InfixN (BinOp Neq <$ L.tExclEq)
+    , [ InfixR (binary (BinOpExpr Cons) L.tColon)]
+    , [ InfixN (binary (BinOpExpr Gt) L.tGt)
+      , InfixN (binary (BinOpExpr Gte) L.tGte)
+      , InfixN (binary (BinOpExpr Lt) L.tLt)
+      , InfixN (binary (BinOpExpr Lte) L.tLte)
+      , InfixN (binary (BinOpExpr Eq) L.tDoubleEq)
+      , InfixN (binary (BinOpExpr Neq) L.tExclEq)
       ]
-    , [ InfixR (BinOp And <$ L.tDoubleAmpersand) ]
-    , [ InfixR (BinOp Or <$ L.tDoublePipe) ]
-    ]
+    , [ InfixR $ binary (BinOpExpr And) L.tDoubleAmpersand  ]
+    , [ InfixR $ binary (BinOpExpr Or) L.tDoublePipe ]
+    ] where
+        unary :: (Expr -> ExprU) -> Parser a -> Parser (Expr -> Expr)
+        unary f p = do
+          startPos <- getSourcePos
+          void p
+          endPos <- getSourcePos
+          return $ \e -> Expr (mkAnnotation startPos endPos, f e)
+
+        binary :: (Expr -> Expr -> ExprU) -> Parser a -> Parser (Expr -> Expr -> Expr)
+        binary f p = do
+          startPos <- getSourcePos
+          void p
+          endPos <- getSourcePos
+          return $ \l r -> Expr (mkAnnotation startPos endPos, f l r)
+
 
 -- Parses an expression. For operator precedence, see operatorTable.
 pExpr :: Parser Expr
@@ -64,14 +78,14 @@ pExpr = makeExprParser pTerm operatorTable
 pTerm :: Parser Expr
 pTerm = choice
   [ try $ L.parens pExpr
-  , try pFunctionCall
-  , try pAssignExpr
-  , try pLiteralExpr
-  , try pVariableExpr
+  , try $ annotated pFunctionCall
+  , try $ annotated pAssignExpr
+  , try $ annotated pLiteralExpr
+  , try $ annotated pVariableExpr
   ]
 
 -- Parses a function call expression (e.g. foo(), bar('a', 'b', 'c')).
-pFunctionCall :: Parser Expr
+pFunctionCall :: Parser ExprU
 pFunctionCall = do
   functionName <- T.unpack <$> L.tIdentifier
   void L.tLeftParen
@@ -80,25 +94,25 @@ pFunctionCall = do
     others <- many $ L.tComma *> pExpr
     return $ first:others
   void L.tRightParen
-  return $ FunctionCall functionName $ concat args
+  return $ FunctionCallExpr functionName $ concat args
 
 -- Parses an assignment expression (e.g. a = 'c', a.b = 'd').
-pAssignExpr :: Parser Expr
+pAssignExpr :: Parser ExprU
 pAssignExpr = do
-  variable <- pVariable
+  variable <- annotated pVariable
   void L.tEq
   AssignExpr variable <$> pExpr
 
 -- Parses a literal expression (e.g. 10, 'a', []).
-pLiteralExpr :: Parser Expr
-pLiteralExpr = LiteralExpr <$> pLiteral
+pLiteralExpr :: Parser ExprU
+pLiteralExpr = LiteralExpr <$> annotated pLiteral
 
 -- Parses a variable expression (e.g. a, a.b, a.b.c).
-pVariableExpr :: Parser Expr
-pVariableExpr = VariableExpr <$> pVariable
+pVariableExpr :: Parser ExprU
+pVariableExpr = VariableExpr <$> annotated pVariable
 
 -- Parses a variable (e.g. a, a.b., a.b.c).
-pVariable :: Parser Variable
+pVariable :: Parser VariableU
 pVariable = do
   identifier <- T.unpack <$> L.lexeme L.tIdentifier
   field <- optional pField
@@ -106,7 +120,7 @@ pVariable = do
   where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail))
 
 -- Parse any literal value
-pLiteral :: Parser Literal
+pLiteral :: Parser LiteralU
 pLiteral = choice
     [ try pTrue
     , try pFalse
@@ -119,32 +133,32 @@ pLiteral = choice
 
 -- Parse true.
 -- Grammar: 'true'
-pTrue :: Parser Literal
+pTrue :: Parser LiteralU
 pTrue = TrueLit <$ L.tTrue
 
 -- Parse false.
 -- Grammar: 'false'
-pFalse :: Parser Literal
+pFalse :: Parser LiteralU
 pFalse = FalseLit <$ L.tFalse
 
 -- Parses a signed floating point number (e.g. 12.0, -12.0, +12.0).
-pFloat :: Parser Literal
+pFloat :: Parser LiteralU
 pFloat = FloatLit <$> L.tFloat
 
 -- Parse a signed integer (e.g. 12, -12, +12).
 -- Grammar (simplified): [('-' | '+')] digit+
-pInt :: Parser Literal
+pInt :: Parser LiteralU
 pInt = IntLit <$> L.tInteger
 
 -- Parses a character surrounded by quotes, including escape sequences
 -- such as '\n' and '\t'.
 -- Grammar: '\'' any char '\''
-pChar :: Parser Literal
+pChar :: Parser LiteralU
 pChar = CharLit <$> L.tChar
 
 -- Parses a tuple of exactly two expressions.
 -- Grammar: '(' expr ',' expr ')'
-pTuple :: Parser Literal
+pTuple :: Parser LiteralU
 pTuple = L.parens $ do
   left <- pExpr
   void L.tComma
@@ -153,5 +167,5 @@ pTuple = L.parens $ do
 
 -- Parses the empty list ([]).
 -- Grammar: '[]'
-pEmptyList :: Parser Literal
+pEmptyList :: Parser LiteralU
 pEmptyList = EmptyListLit <$ L.tEmptyList

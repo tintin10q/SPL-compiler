@@ -15,7 +15,7 @@ import qualified Data.Text as T
 
 -- Parses any statement.
 pStmt :: Parser Stmt
-pStmt = choice
+pStmt = annotated $ choice
     [ try pIfStmt
     , try pWhileStmt
     , try pReturnStmt
@@ -25,7 +25,7 @@ pStmt = choice
 
 -- Parses an if statement.
 -- Grammar: 'if' '(' expr ')' '{' stmt* '}' ['else' '{' stmt* '}']
-pIfStmt :: Parser Stmt
+pIfStmt :: Parser StmtU
 pIfStmt = do
     void L.tIf <* void L.tLeftParen         -- 'if' '('
     condition <- pExpr                      -- expr
@@ -41,7 +41,7 @@ pIfStmt = do
 
 -- Parses a while statement.
 -- Grammar: 'while' '(' expr ')' '{' stmt* '}'
-pWhileStmt :: Parser Stmt
+pWhileStmt :: Parser StmtU
 pWhileStmt = do
     void L.tWhile <* void L.tLeftParen      -- 'while' '('
     condition <- pExpr                      -- expr
@@ -52,12 +52,12 @@ pWhileStmt = do
 
 -- Parses an expression statement.
 -- Grammar: expr ';'
-pExprStmt :: Parser Stmt
+pExprStmt :: Parser StmtU
 pExprStmt = ExprStmt <$> pExpr <* L.tSemiColon
 
 -- Parses a return statement.
 -- Grammar: 'return' [ expr ] ';'
-pReturnStmt :: Parser Stmt
+pReturnStmt :: Parser StmtU
 pReturnStmt = do
     void L.tReturn         -- 'return'
     expr <- optional pExpr -- [ expr ]
@@ -66,7 +66,7 @@ pReturnStmt = do
 
 -- Parses a variable declaration.
 -- Grammar: ('var' | type) identifier '=' expr ';'
-pVarStmt :: Parser Stmt
+pVarStmt :: Parser StmtU
 pVarStmt = do
     ty <- pVarType
     identifier <- T.unpack <$> L.tIdentifier

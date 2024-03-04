@@ -12,12 +12,12 @@ import qualified Data.Text as T
 pRetType :: Parser Type
 pRetType = choice
     [ pType
-    , pVoidType
+    , annotated pVoidType
     ]
 
 -- Parses any (regular) type.
 pType :: Parser Type
-pType = choice
+pType = annotated $ choice
     [ pIntType
     , pCharType
     , pBoolType
@@ -28,22 +28,22 @@ pType = choice
 
 -- Parses the integer type.
 -- Grammar: 'Int'
-pIntType :: Parser Type
+pIntType :: Parser TypeU
 pIntType = IntType <$ L.tIntType
 
 -- Parses the char type.
 -- Grammar: 'char'
-pCharType :: Parser Type
+pCharType :: Parser TypeU
 pCharType = CharType <$ L.tCharType
 
 -- Parses the boolean type.
 -- Grammar: 'Bool'
-pBoolType :: Parser Type
+pBoolType :: Parser TypeU
 pBoolType = BoolType <$ L.tBoolType
 
 -- Parses the tuple type.
 -- Grammar: '(' type ',' type ')'
-pTupleType :: Parser Type
+pTupleType :: Parser TypeU
 pTupleType = do
     void L.tLeftParen
     tyLeft <- pType
@@ -55,7 +55,7 @@ pTupleType = do
 
 -- Parses the list type.
 -- Grammar: '[' type ']'
-pListType :: Parser Type
+pListType :: Parser TypeU
 pListType = do
     void L.tLeftSquareBracket
     ty <- pType
@@ -65,11 +65,10 @@ pListType = do
 
 -- Parses a type variable.
 -- Grammar: identifier
-pTypeVarType :: Parser Type
+pTypeVarType :: Parser TypeU
 pTypeVarType = TypeVar . T.unpack <$> L.tIdentifier
 
 -- Parses the void type.
 -- Grammar: 'Void'
-pVoidType :: Parser Type
+pVoidType :: Parser TypeU
 pVoidType = VoidType <$ L.tVoidType
-
