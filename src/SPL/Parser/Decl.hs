@@ -16,17 +16,14 @@ pDecl = pFunDecl
 
 -- Parses a function declaration.
 pFunDecl :: Parser Decl
-pFunDecl = do
+pFunDecl = annotated $ do
     functionName <- T.unpack <$> L.tIdentifier
-
     void L.tLeftParen
     args <- optional pArgs
     void L.tRightParen
-
     retType <- optional $ do
         void L.tColon
         pRetType
-        
     void L.tLeftBrace
     statements <- many pStmt
     void L.tRightBrace
