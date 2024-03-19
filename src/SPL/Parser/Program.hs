@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 module SPL.Parser.Program where
 
 import SPL.Parser.AST
@@ -9,5 +10,5 @@ import Control.Applicative (some)
 
 -- Parses any program.
 -- Grammar: decl+
-pProgram :: Parser Program
+pProgram :: Parser (Program ParserP)
 pProgram = L.whitespace *> some pDecl
