@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
-module SPL.Parser.Parser (srcSpan, Parser) where
+module SPL.Parser.Parser (srcSpan, SourceSpan, Parser) where
 
 import SPL.Parser.AST
 
@@ -33,13 +33,3 @@ type instance AssignExpr ParserP = SourceSpan
 type instance FunctionCallExpr ParserP = SourceSpan
 type instance VariableExpr ParserP = SourceSpan
 type instance LiteralExpr ParserP = SourceSpan
-
-type instance TrueLit ParserP = SourceSpan
-type instance FalseLit ParserP = SourceSpan
-type instance IntLit ParserP = SourceSpan
-type instance FloatLit ParserP = SourceSpan
-type instance CharLit ParserP = SourceSpan
-type instance TupleLit ParserP = SourceSpan
-type instance EmptyListLit ParserP = SourceSpan
-
-type instance Identifier ParserP = SourceSpan

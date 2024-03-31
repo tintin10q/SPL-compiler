@@ -11,6 +11,7 @@ class Emptiable n where
 data Phase
   = EmptyP
   | ParserP
+  | TypecheckP
 
 type Program (p :: Phase) = [Decl p]
 
@@ -82,9 +83,9 @@ type instance VarStmt EmptyP = ()
 data Expr (p :: Phase) =
   BinOpExpr (BinOpExpr p) BinOp (Expr p) (Expr p)
   | UnaryOpExpr (UnaryOpExpr p) UnaryOp (Expr p)
-  | AssignExpr (AssignExpr p) (Variable p) (Expr p)
+  | AssignExpr (AssignExpr p) Variable (Expr p)
   | FunctionCallExpr (FunctionCallExpr p) String [Expr p]
-  | VariableExpr (VariableExpr p) (Variable p)
+  | VariableExpr (VariableExpr p) Variable
   | LiteralExpr (LiteralExpr p) (Literal p)
 deriving instance Eq (Expr EmptyP)
 deriving instance Show (Expr EmptyP)
@@ -92,9 +93,9 @@ deriving instance Show (Expr EmptyP)
 instance Emptiable Expr where
   empty (BinOpExpr _ op left right) = BinOpExpr () op (empty left) (empty right)
   empty (UnaryOpExpr _ op expr) = UnaryOpExpr () op (empty expr)
-  empty (AssignExpr _ variable val) = AssignExpr () (empty variable) (empty val)
+  empty (AssignExpr _ variable val) = AssignExpr () variable (empty val)
   empty (FunctionCallExpr _ name args) = FunctionCallExpr () name (empty <$> args)
-  empty (VariableExpr _ var) = VariableExpr () (empty var)
+  empty (VariableExpr _ variable) = VariableExpr () variable
   empty (LiteralExpr _ literal) = LiteralExpr () (empty literal)
 
 type family BinOpExpr (p :: Phase)
@@ -116,53 +117,25 @@ type family LiteralExpr (p :: Phase)
 type instance LiteralExpr EmptyP = ()
 
 data Literal (p :: Phase) =
-  TrueLit (TrueLit p)
-  | FalseLit (FalseLit p)
-  | IntLit (IntLit p) Int
-  | FloatLit (FloatLit p) Float
-  | CharLit (CharLit p) Char
-  | TupleLit (TupleLit p) (Expr p, Expr p)
-  | EmptyListLit (EmptyListLit p)
+  TrueLit
+  | FalseLit
+  | IntLit Int
+  | FloatLit Float
+  | CharLit Char
+  | TupleLit (Expr p, Expr p)
+  | EmptyListLit
 deriving instance Eq (Literal EmptyP)
 deriving instance Show (Literal EmptyP)
 
 instance Emptiable Literal where
-  empty (TrueLit _) = TrueLit ()
-  empty (FalseLit _) = FalseLit ()
-  empty (IntLit _ i) = IntLit () i
-  empty (FloatLit _ f) = FloatLit () f
-  empty (CharLit _ c) = CharLit () c
-  empty (TupleLit _ (e1, e2)) = TupleLit () (empty e1, empty e2)
-  empty (EmptyListLit _) = EmptyListLit ()
+  empty TrueLit = TrueLit
+  empty FalseLit = FalseLit
+  empty (IntLit i) = IntLit i
+  empty (FloatLit f) = FloatLit f
+  empty (CharLit c) = CharLit c
+  empty (TupleLit (e1, e2)) = TupleLit (empty e1, empty e2)
+  empty EmptyListLit = EmptyListLit
 
-type family TrueLit (p :: Phase)
-type instance TrueLit EmptyP = ()
-
-type family FalseLit (p :: Phase)
-type instance FalseLit EmptyP = ()
-
-type family IntLit (p :: Phase)
-type instance IntLit EmptyP = ()
-
-type family FloatLit (p :: Phase)
-type instance FloatLit EmptyP = ()
-
-type family CharLit (p :: Phase)
-type instance CharLit EmptyP = ()
-
-type family TupleLit (p :: Phase)
-type instance TupleLit EmptyP = ()
-
-type family EmptyListLit (p :: Phase)
-type instance EmptyListLit EmptyP = ()
-
-data Variable (p :: Phase)
-  = Identifier (Identifier p) String (Maybe Field)
-deriving instance Eq (Variable EmptyP)
-deriving instance Show (Variable EmptyP)
-
-instance Emptiable Variable where
-  empty (Identifier _ name field) = Identifier () name field
-
-type family Identifier (p :: Phase)
-type instance Identifier EmptyP = ()
+data Variable
+  = Identifier String (Maybe Field)
+  deriving (Eq, Show)

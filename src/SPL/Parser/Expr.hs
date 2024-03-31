@@ -114,13 +114,11 @@ pVariableExpr = do
   return $ VariableExpr (srcSpan posStart posEnd) v
 
 -- Parses a variable (e.g. a, a.b., a.b.c).
-pVariable :: Parser (Variable ParserP)
+pVariable :: Parser Variable
 pVariable = do
-  posStart <- getSourcePos
   identifier <- T.unpack <$> L.lexeme L.tIdentifier
   field <- optional pField
-  posEnd <- getSourcePos
-  return $ Identifier (srcSpan posStart posEnd) identifier field
+  return $ Identifier identifier field
   where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail))
 
 -- Parse any literal value
@@ -139,63 +137,49 @@ pLiteral = choice
 -- Grammar: 'true'
 pTrue :: Parser (Literal ParserP)
 pTrue = do
-  posStart <- getSourcePos
   void L.tTrue
-  posEnd <- getSourcePos
-  return $ TrueLit (srcSpan posStart posEnd)
+  return TrueLit
 
 -- Parse false.
 -- Grammar: 'false'
 pFalse :: Parser (Literal ParserP)
 pFalse = do
-  posStart <- getSourcePos
   void L.tFalse
-  posEnd <- getSourcePos
-  return $ FalseLit (srcSpan posStart posEnd)
+  return FalseLit
 
 -- Parses a signed floating point number (e.g. 12.0, -12.0, +12.0).
 pFloat :: Parser (Literal ParserP)
 pFloat = do
-  posStart <- getSourcePos
   f <- L.tFloat
-  posEnd <- getSourcePos
-  return $ FloatLit (srcSpan posStart posEnd) f
+  return $ FloatLit f
 
 -- Parse a signed integer (e.g. 12, -12, +12).
 -- Grammar (simplified): [('-' | '+')] digit+
 pInt :: Parser (Literal ParserP)
 pInt = do
-  posStart <- getSourcePos
   i <- L.tInteger
-  posEnd <- getSourcePos
-  return $ IntLit (srcSpan posStart posEnd) i
+  return $ IntLit i
 
 -- Parses a character surrounded by quotes, including escape sequences
 -- such as '\n' and '\t'.
 -- Grammar: '\'' any char '\''
 pChar :: Parser (Literal ParserP)
 pChar = do
-  posStart <- getSourcePos
   c <- L.tChar
-  posEnd <- getSourcePos
-  return $ CharLit (srcSpan posStart posEnd) c
+  return $ CharLit c
 
 -- Parses a tuple of exactly two expressions.
 -- Grammar: '(' expr ',' expr ')'
 pTuple :: Parser (Literal ParserP)
 pTuple = L.parens $ do
-  posStart <- getSourcePos
   left <- pExpr
   void L.tComma
   right <- pExpr
-  posEnd <- getSourcePos
-  return $ TupleLit (srcSpan posStart posEnd) (left, right)
+  return $ TupleLit (left, right)
 
 -- Parses the empty list ([]).
 -- Grammar: '[]'
 pEmptyList :: Parser (Literal ParserP)
 pEmptyList = do
-  posStart <- getSourcePos
   void L.tEmptyList
-  posEnd <- getSourcePos
-  return $ EmptyListLit (srcSpan posStart posEnd)
+  return EmptyListLit
