@@ -12,11 +12,11 @@ import Text.Megaparsec (optional, many, getSourcePos)
 import qualified Data.Text as T
 
 -- Parses any declaration.
-pDecl :: Parser (Decl ParserP)
+pDecl :: Parser (Decl ParsedP)
 pDecl = pFunDecl
 
 -- Parses a function declaration.
-pFunDecl :: Parser (Decl ParserP)
+pFunDecl :: Parser (Decl ParsedP)
 pFunDecl = do
     posStart <- getSourcePos
     functionName <- T.unpack <$> L.tIdentifier

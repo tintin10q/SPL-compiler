@@ -15,7 +15,7 @@ import qualified Data.Text as T
 
 
 -- Parses any statement.
-pStmt :: Parser (Stmt ParserP)
+pStmt :: Parser (Stmt ParsedP)
 pStmt = choice
     [ try pIfStmt
     , try pWhileStmt
@@ -26,7 +26,7 @@ pStmt = choice
 
 -- Parses an if statement.
 -- Grammar: 'if' '(' expr ')' '{' stmt* '}' ['else' '{' stmt* '}']
-pIfStmt :: Parser (Stmt ParserP)
+pIfStmt :: Parser (Stmt ParsedP)
 pIfStmt = do
     posStart <- getSourcePos
     void L.tIf <* void L.tLeftParen         -- 'if' '('
@@ -44,7 +44,7 @@ pIfStmt = do
 
 -- Parses a while statement.
 -- Grammar: 'while' '(' expr ')' '{' stmt* '}'
-pWhileStmt :: Parser (Stmt ParserP)
+pWhileStmt :: Parser (Stmt ParsedP)
 pWhileStmt = do
     posStart <- getSourcePos
     void L.tWhile <* void L.tLeftParen      -- 'while' '('
@@ -57,7 +57,7 @@ pWhileStmt = do
 
 -- Parses an expression statement.
 -- Grammar: expr ';'
-pExprStmt :: Parser (Stmt ParserP)
+pExprStmt :: Parser (Stmt ParsedP)
 pExprStmt = do
   posStart <- getSourcePos
   expr <- pExpr
@@ -67,7 +67,7 @@ pExprStmt = do
 
 -- Parses a return statement.
 -- Grammar: 'return' [ expr ] ';'
-pReturnStmt :: Parser (Stmt ParserP)
+pReturnStmt :: Parser (Stmt ParsedP)
 pReturnStmt = do
     posStart <- getSourcePos
     void L.tReturn         -- 'return'
@@ -78,7 +78,7 @@ pReturnStmt = do
 
 -- Parses a variable declaration.
 -- Grammar: ('var' | type) identifier '=' expr ';'
-pVarStmt :: Parser (Stmt ParserP)
+pVarStmt :: Parser (Stmt ParsedP)
 pVarStmt = do
     posStart <- getSourcePos
     ty <- pVarType

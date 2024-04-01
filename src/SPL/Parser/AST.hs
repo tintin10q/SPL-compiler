@@ -10,8 +10,8 @@ class Emptiable n where
 
 data Phase
   = EmptyP
-  | ParserP
-  | TypecheckP
+  | ParsedP
+  | TypecheckedP
 
 type Program (p :: Phase) = [Decl p]
 
@@ -40,14 +40,19 @@ data Field = HeadField | TailField
 
 data Decl (p :: Phase) =
   FunDecl (FunDecl p) String (Maybe Type) [(String, Maybe Type)] [Stmt p]
+  | VarDecl (VarDecl p) String (Maybe Type) (Maybe (Expr p))
 deriving instance Eq (Decl EmptyP)
 deriving instance Show (Decl EmptyP)
 
 type family FunDecl (p :: Phase)
 type instance FunDecl EmptyP = ()
 
+type family VarDecl (p :: Phase)
+type instance VarDecl EmptyP = ()
+
 instance Emptiable Decl where
   empty (FunDecl _ name ty args body) = FunDecl () name ty args (empty <$> body)
+  empty (VarDecl _ name ty val) = VarDecl () name ty (empty <$> val)
 
 data Stmt (p :: Phase) =
   ReturnStmt (ReturnStmt p) (Maybe (Expr p))

@@ -19,17 +19,18 @@ newtype SourceSpan = SourceSpan (SourcePos, SourcePos)
 srcSpan :: SourcePos -> SourcePos -> SourceSpan
 srcSpan start end = SourceSpan (start, end)
 
-type instance FunDecl ParserP = SourceSpan
+type instance FunDecl ParsedP = SourceSpan
+type instance VarDecl ParsedP = SourceSpan
 
-type instance ReturnStmt ParserP = SourceSpan
-type instance IfStmt ParserP = SourceSpan
-type instance WhileStmt ParserP = SourceSpan
-type instance ExprStmt ParserP = SourceSpan
-type instance VarStmt ParserP = SourceSpan
+type instance ReturnStmt ParsedP = SourceSpan
+type instance IfStmt ParsedP = SourceSpan
+type instance WhileStmt ParsedP = SourceSpan
+type instance ExprStmt ParsedP = SourceSpan
+type instance VarStmt ParsedP = SourceSpan
 
-type instance BinOpExpr ParserP = SourceSpan
-type instance UnaryOpExpr ParserP = SourceSpan
-type instance AssignExpr ParserP = SourceSpan
-type instance FunctionCallExpr ParserP = SourceSpan
-type instance VariableExpr ParserP = SourceSpan
-type instance LiteralExpr ParserP = SourceSpan
+type instance BinOpExpr ParsedP = SourceSpan
+type instance UnaryOpExpr ParsedP = SourceSpan
+type instance AssignExpr ParsedP = SourceSpan
+type instance FunctionCallExpr ParsedP = SourceSpan
+type instance VariableExpr ParsedP = SourceSpan
+type instance LiteralExpr ParsedP = SourceSpan

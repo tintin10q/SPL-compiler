@@ -10,5 +10,5 @@ import Control.Applicative (some)
 
 -- Parses any program.
 -- Grammar: decl+
-pProgram :: Parser (Program ParserP)
+pProgram :: Parser (Program ParsedP)
 pProgram = L.whitespace *> some pDecl

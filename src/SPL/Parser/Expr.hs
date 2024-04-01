@@ -32,7 +32,7 @@ Expression parsers.
 --
 -- More info: https://markkarpov.com/tutorial/megaparsec.html#parsing-expressions
 -- Operator precedence and associativity: https://rosettacode.org/wiki/Operator_precedence#Haskell
-operatorTable :: [[Operator Parser (Expr ParserP)]]
+operatorTable :: [[Operator Parser (Expr ParsedP)]]
 operatorTable = undefined
     -- [ [ Postfix (unary (UnaryOpExpr (FieldAccess HeadField)) (try (L.tDot <* L.tHead)))
     --   , Postfix (unary (UnaryOpExpr (FieldAccess TailField)) (try (L.tDot <* L.tTail)))
@@ -59,12 +59,12 @@ operatorTable = undefined
     -- ]
 
 -- Parses an expression. For operator precedence, see operatorTable.
-pExpr :: Parser (Expr ParserP)
+pExpr :: Parser (Expr ParsedP)
 pExpr = makeExprParser pTerm operatorTable
 
 -- Parses a term expression (everything that is not a binary 
 -- or unary 'opped' expression).
-pTerm :: Parser (Expr ParserP)
+pTerm :: Parser (Expr ParsedP)
 pTerm = choice
   [ try $ L.parens pExpr
   , try pFunctionCall
@@ -74,7 +74,7 @@ pTerm = choice
   ]
 
 -- Parses a function call expression (e.g. foo(), bar('a', 'b', 'c')).
-pFunctionCall :: Parser (Expr ParserP)
+pFunctionCall :: Parser (Expr ParsedP)
 pFunctionCall = do
   posStart <- getSourcePos
   functionName <- T.unpack <$> L.tIdentifier
@@ -88,7 +88,7 @@ pFunctionCall = do
   return $ FunctionCallExpr (srcSpan posStart posEnd) functionName $ concat args
 
 -- Parses an assignment expression (e.g. a = 'c', a.b = 'd').
-pAssignExpr :: Parser (Expr ParserP)
+pAssignExpr :: Parser (Expr ParsedP)
 pAssignExpr = do
   posStart <- getSourcePos
   variable <- pVariable
@@ -98,7 +98,7 @@ pAssignExpr = do
   return $ AssignExpr (srcSpan posStart posEnd) variable expr
 
 -- Parses a literal expression (e.g. 10, 'a', []).
-pLiteralExpr :: Parser (Expr ParserP)
+pLiteralExpr :: Parser (Expr ParsedP)
 pLiteralExpr =  do
   posStart <- getSourcePos
   lit <- pLiteral
@@ -106,7 +106,7 @@ pLiteralExpr =  do
   return $ LiteralExpr (srcSpan posStart posEnd) lit
 
 -- Parses a variable expression (e.g. a, a.b, a.b.c).
-pVariableExpr :: Parser (Expr ParserP)
+pVariableExpr :: Parser (Expr ParsedP)
 pVariableExpr = do
   posStart <- getSourcePos
   v <- pVariable
@@ -122,7 +122,7 @@ pVariable = do
   where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail))
 
 -- Parse any literal value
-pLiteral :: Parser (Literal ParserP)
+pLiteral :: Parser (Literal ParsedP)
 pLiteral = choice
     [ try pTrue
     , try pFalse
@@ -135,27 +135,27 @@ pLiteral = choice
 
 -- Parse true.
 -- Grammar: 'true'
-pTrue :: Parser (Literal ParserP)
+pTrue :: Parser (Literal ParsedP)
 pTrue = do
   void L.tTrue
   return TrueLit
 
 -- Parse false.
 -- Grammar: 'false'
-pFalse :: Parser (Literal ParserP)
+pFalse :: Parser (Literal ParsedP)
 pFalse = do
   void L.tFalse
   return FalseLit
 
 -- Parses a signed floating point number (e.g. 12.0, -12.0, +12.0).
-pFloat :: Parser (Literal ParserP)
+pFloat :: Parser (Literal ParsedP)
 pFloat = do
   f <- L.tFloat
   return $ FloatLit f
 
 -- Parse a signed integer (e.g. 12, -12, +12).
 -- Grammar (simplified): [('-' | '+')] digit+
-pInt :: Parser (Literal ParserP)
+pInt :: Parser (Literal ParsedP)
 pInt = do
   i <- L.tInteger
   return $ IntLit i
@@ -163,14 +163,14 @@ pInt = do
 -- Parses a character surrounded by quotes, including escape sequences
 -- such as '\n' and '\t'.
 -- Grammar: '\'' any char '\''
-pChar :: Parser (Literal ParserP)
+pChar :: Parser (Literal ParsedP)
 pChar = do
   c <- L.tChar
   return $ CharLit c
 
 -- Parses a tuple of exactly two expressions.
 -- Grammar: '(' expr ',' expr ')'
-pTuple :: Parser (Literal ParserP)
+pTuple :: Parser (Literal ParsedP)
 pTuple = L.parens $ do
   left <- pExpr
   void L.tComma
@@ -179,7 +179,7 @@ pTuple = L.parens $ do
 
 -- Parses the empty list ([]).
 -- Grammar: '[]'
-pEmptyList :: Parser (Literal ParserP)
+pEmptyList :: Parser (Literal ParsedP)
 pEmptyList = do
   void L.tEmptyList
   return EmptyListLit
