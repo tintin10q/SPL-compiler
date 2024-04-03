@@ -32,29 +32,14 @@ type FunEnv = [(String, [Type], Type)]
 freshVar :: String -> [String] -> String
 freshVar x vs = x ++ show (length $ filter (isPrefixOf x) vs)
 
--- Assigns a list of types (reflexive transitive closure (almost) of "assignTypes").
-assignTypes
-  :: String                               -- The namespace to use for generating fresh variables
-  -> [String]                             -- Bookkeeping for generating new *unique* type variables
-  -> [(String, Type)]                     -- The context of known type variables
-  -> [Maybe Type]                         -- The type to assign
-  -> ([String], [(String, Type)], [Type]) -- A tuple containing (1) the new context
-                                          --                    (2) the new list of generated variables
-                                          --                    (3) the assigned types
-assignTypes _ vs ctx [] = (vs, ctx, [])
-assignTypes ns vs ctx (t:ts) =
-  let (vs', ctx', t')    = assignType (freshVar ns vs) vs ctx t
-      (vs'', ctx'', ts') = assignTypes ns vs' ctx' ts
-  in (vs'', ctx'', t':ts')
-
 -- Assigns a type.
 assignType
   :: String                               -- A fresh type variable
   -> [String]                             -- Bookkeeping for generating new *unique* type variables
   -> [(String, Type)]                     -- The current context of type variables to fresh type variables
   -> Maybe Type                           -- The type to assign
-  -> ([String], [(String, Type)], Type)   -- A tuple containing (1) the new context
-                                          --                    (2) the new list of generated variables
+  -> ([String], [(String, Type)], Type)   -- A tuple containing (1) the new list of generated variables
+                                          --                    (2) the new context
                                           --                    (3) the assigned type
 assignType fv vs ctx t = case t of
   -- In case of Nothing, generate a completely fresh type variable
@@ -71,6 +56,20 @@ assignType fv vs ctx t = case t of
   -- In case of a fully annotated type, use that directly without modifying the context
   Just t' -> (vs, ctx, t')
 
+-- Assigns a list of types (reflexive transitive closure (almost) of "assignTypes").
+assignTypes
+  :: String                               -- The namespace to use for generating fresh variables
+  -> [String]                             -- Bookkeeping for generating new *unique* type variables
+  -> [(String, Type)]                     -- The context of known type variables
+  -> [Maybe Type]                         -- The types to assign
+  -> ([String], [Type])                   -- A tuple containing (1) the new list of generated variables
+                                          --                    (2) the assigned types
+assignTypes _ vs _ [] = (vs, [])
+assignTypes ns vs ctx (t:ts) =
+  let (vs', ctx', t') = assignType (freshVar ns vs) vs ctx t
+      (vs'', ts')     = assignTypes ns vs' ctx' ts
+  in (vs'', t':ts')
+
 -- Generate the environment of function declarations.
 funEnv :: Program p -> FunEnv
 funEnv = funEnv' [] []
@@ -83,11 +82,11 @@ funEnv = funEnv' [] []
     funEnv' _ _ [] = []
     funEnv' vs ctx (decl:decls) = case decl of
       -- Skip in case of VarDecl
-      VarDecl{} -> funEnv' vs ctx decls
-      FunDecl _ name returnTy args _stmts ->
+      VarDecl {} -> funEnv' vs ctx decls
+      FunDecl _ name returnTy args _ ->
         -- Assign a type for the return type.
-        let (vs', ctx', ts) = assignTypes "f" vs ctx (returnTy:map snd args)
-        in (name, tail ts, head ts):funEnv' vs' ctx' decls
+        let (vs', ts) = assignTypes "f" vs ctx (returnTy:map snd args)
+        in (name, tail ts, head ts):funEnv' vs' [] decls
 
 typecheck :: Program ParsedP -> Either String (Program TypecheckedP)
 typecheck = undefined

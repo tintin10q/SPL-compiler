@@ -1,34 +1,179 @@
-// Various versions of the identity function
-
-// Identity for integers
-// The type signature forces the function to have a more concrete type than it could have.
 id_int(x:Int) : Int
 {
 }
 
-
-// Polymorphic identity with type signature
-id_poly_with(x:a) : a
+id_poly_with(x:a, y:a, z:b) : a
 {
 }
 
-
-// Polymorphic identity without type signature
-// Type checking should figure out the type forall a . a -> a
-id_poly_without(x)
+id_poly_without(x:a, z:b)
 {
 }
 
-
-// Clumsy polymorphic identity
-// Type checking should give type forall a . a -> a
 id_poly_wtf(x)
 {
-}
-
-
-// Clumsy identity for integers
-// Type checking should give type Int -> Int
-id_int_wtf(x)
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
+{
+}id_poly_with(x:a, y:a, z:b) : a
 {
 }
