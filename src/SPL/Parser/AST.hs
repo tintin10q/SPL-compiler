@@ -15,8 +15,8 @@ data Phase
 
 type Program (p :: Phase) = [Decl p]
 
-data Type =
-  IntType
+data Type
+  = IntType
   | CharType
   | BoolType
   | VoidType
@@ -38,8 +38,8 @@ data BinOp =
 data Field = HeadField | TailField
   deriving (Eq, Show)
 
-data Decl (p :: Phase) =
-  FunDecl (FunDecl p) String (Maybe Type) [(String, Maybe Type)] [Stmt p]
+data Decl (p :: Phase) 
+  = FunDecl (FunDecl p) String (Maybe Type) [(String, Maybe Type)] [Stmt p]
   | VarDecl (VarDecl p) String (Maybe Type) (Maybe (Expr p))
 deriving instance Eq (Decl EmptyP)
 deriving instance Show (Decl EmptyP)

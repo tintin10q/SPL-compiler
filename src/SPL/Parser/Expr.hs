@@ -33,7 +33,7 @@ Expression parsers.
 -- More info: https://markkarpov.com/tutorial/megaparsec.html#parsing-expressions
 -- Operator precedence and associativity: https://rosettacode.org/wiki/Operator_precedence#Haskell
 operatorTable :: [[Operator Parser (Expr ParsedP)]]
-operatorTable = undefined
+operatorTable = [[]]
     -- [ [ Postfix (unary (UnaryOpExpr (FieldAccess HeadField)) (try (L.tDot <* L.tHead)))
     --   , Postfix (unary (UnaryOpExpr (FieldAccess TailField)) (try (L.tDot <* L.tTail)))
     --   ]

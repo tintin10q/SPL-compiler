@@ -6,6 +6,7 @@ import SPL.Parser
 import System.Environment (getArgs)
 
 import qualified Data.Text.IO as TIO
+import SPL.Parser.AST (empty)
 
 main :: IO ()
 main = do
@@ -14,4 +15,4 @@ main = do
     case parse file source of
         Left err -> putStr (formatError err)
         Right ast -> do -- putStr $ formatProgram ast 
-                        print ast 
+                        print $ map empty ast 
