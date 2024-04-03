@@ -32,63 +32,62 @@ type FunEnv = [(String, [Type], Type)]
 freshVar :: String -> [String] -> String
 freshVar x vs = x ++ show (length $ filter (isPrefixOf x) vs)
 
--- Generate the environment of function declarations. The first argument,
--- "vs" is the list of type variables, and the second argument the program
--- to get the declarations of.
+-- Assigns a list of types (reflexive transitive closure (almost) of "assignTypes").
+assignTypes
+  :: String                               -- The namespace to use for generating fresh variables
+  -> [String]                             -- Bookkeeping for generating new *unique* type variables
+  -> [(String, Type)]                     -- The context of known type variables
+  -> [Maybe Type]                         -- The type to assign
+  -> ([String], [(String, Type)], [Type]) -- A tuple containing (1) the new context
+                                          --                    (2) the new list of generated variables
+                                          --                    (3) the assigned types
+assignTypes _ vs ctx [] = (vs, ctx, [])
+assignTypes ns vs ctx (t:ts) =
+  let (vs', ctx', t')    = assignType (freshVar ns vs) vs ctx t
+      (vs'', ctx'', ts') = assignTypes ns vs' ctx' ts
+  in (vs'', ctx'', t':ts')
+
+-- Assigns a type.
+assignType
+  :: String                               -- A fresh type variable
+  -> [String]                             -- Bookkeeping for generating new *unique* type variables
+  -> [(String, Type)]                     -- The current context of type variables to fresh type variables
+  -> Maybe Type                           -- The type to assign
+  -> ([String], [(String, Type)], Type)   -- A tuple containing (1) the new context
+                                          --                    (2) the new list of generated variables
+                                          --                    (3) the assigned type
+assignType fv vs ctx t = case t of
+  -- In case of Nothing, generate a completely fresh type variable
+  Nothing -> (fv:vs, ctx, TypeVar fv)
+  -- In case of a type variable,
+  --  * check if we have a type for it, 
+  --  * otherwise generate one
+  Just (TypeVar v) ->
+    case lookup v ctx of
+      -- We have a type for it
+      Just t' -> (vs, ctx, t')
+      -- We need to generate a fresh type variable
+      Nothing -> (fv:vs, (v, TypeVar fv):ctx, TypeVar fv)
+  -- In case of a fully annotated type, use that directly without modifying the context
+  Just t' -> (vs, ctx, t')
+
+-- Generate the environment of function declarations.
 funEnv :: Program p -> FunEnv
 funEnv = funEnv' [] []
   where
     funEnv'
-      :: [(String, String)] -- The context of type variables to types
-      -> [String]           -- The generated type variables, used for generating new unique ones
-      -> Program p          -- The declarations to generate an environment for
+      :: [String]         -- Bookkeeping for generating new *unique* type variables
+      -> [(String, Type)] -- The context of known type variables
+      -> Program p        -- The declarations to generate an environment for
       -> FunEnv
     funEnv' _ _ [] = []
-    funEnv' ctx vars (d:ds) = case d of
+    funEnv' vs ctx (decl:decls) = case decl of
       -- Skip in case of VarDecl
-      VarDecl{} -> funEnv' ctx vars ds
-      FunDecl _ name returnTy args _ ->
+      VarDecl{} -> funEnv' vs ctx decls
+      FunDecl _ name returnTy args _stmts ->
         -- Assign a type for the return type.
-        let (ctx', vars', returnTy') = assignType (freshVar "f") ctx vars returnTy
-            (ctx'', vars'', argTys) = assignTypes (freshVar "f") ctx' vars' (map snd args)
-        in (name, argTys, returnTy'):funEnv' ctx'' vars'' ds
-
--- The reflexive transitive closure of "assignType".
-assignTypes
-  :: ([String] -> String)
-  -> [(String, String)]
-  -> [String]
-  -> [Maybe Type]
-  -> ([(String, String)], [String], [Type])
-assignTypes _ ctx vs [] = (ctx, vs, [])
-assignTypes fresh ctx vs (t:ts) =
-  let (ctx', vs', t') = assignType fresh ctx vs t
-      (ctxFinal, vsFinal, ts') = assignTypes fresh ctx' vs' ts
-  in (ctxFinal, vsFinal, t':ts')
-
--- Assigns a type to the given Maybe Type
-assignType
-  :: ([String] -> String)                 -- A function for generating new unique type variables
-  -> [(String, String)]                   -- The current context of type variables to fresh type variables
-  -> [String]                             -- The list of generated type variables (used for generating new *unique* variables)
-  -> Maybe Type                           -- The Maybe Type to generate a type for
-  -> ([(String, String)], [String], Type) -- A tuple containing (1) the new context
-                                          --                    (2) the new list of generated variables
-                                          --                    (3) the assigned type
-assignType fresh ctx vs t = case t of
-  -- In case of Nothing, generate a completely fresh type variable
-  Nothing -> 
-    let fv = fresh vs
-    in (ctx, fv:vs, TypeVar fv)
-  -- In case of a type variable, check if we have a fresh type variable for it, otherwise generate one
-  Just (TypeVar v) ->
-    case lookup v ctx of
-      Just v' -> (ctx, vs, TypeVar v')
-      Nothing ->
-        let fv = fresh vs
-        in ((v, fv):ctx, fv:vs, TypeVar fv)
-  -- In case of a fully annotated type, use that directly without modifying the context
-  Just t' -> (ctx, vs, t')
+        let (vs', ctx', ts) = assignTypes "f" vs ctx (returnTy:map snd args)
+        in (name, tail ts, head ts):funEnv' vs' ctx' decls
 
 typecheck :: Program ParsedP -> Either String (Program TypecheckedP)
 typecheck = undefined
