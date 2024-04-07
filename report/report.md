@@ -1,6 +1,6 @@
 ---
 title: "Compiler Construction"
-subtitle: "Lexical Analyses (Interim Report)"
+subtitle: "Semantic Analyses (Interim Report)"
 date: \today
 author:
 - "Marijn van Wezel (s1040392)"
@@ -114,7 +114,7 @@ This section describes the lexical analyses phase of the compiler (parsing).
 
 We designed the abstract syntax tree immediately the first week. It was the first thing that we did in the project and we spent quite some time on it. We used a bottom-up approach to construct the AST. We started with the simple constructs (e.g. literals), and worked up to larger constructs such as function declarations. The program is just a list of function declarations.
 
-Since we did not have a grammar yet, we looked at the available examples in the GitLab repository to figure out the syntax of SPL. We used our ast as a grammer for the most part but we did write an extended BNF grammer in the appendix.
+Since we did not have a grammar yet, we looked at the available examples in the GitLab repository to figure out the syntax of SPL. We used our AST as a grammer for the most part but we did write an extended BNF grammer in the appendix.
 
 Our abstract syntax tree is split up into four major inductive types, `Decl`, `Stmt`, `Expr` and `Literal`, with some helper inductives (e.g. for the types and binary operators) as well. These inductive types have the following meaning:
 
@@ -221,6 +221,144 @@ We initially did struggle with the left-recusivity of property access (e.g. `a.h
 
 We also wrote many tests for our parsers from the start, which helped reduce bugs.
 
+# Semantic analyses
+
+This section describes the semantic analyses phase of the compiler (typechecking, etc). We are currently behind on schedule with our compiler, and have therefore not fully implemented this phase yet. We will try to catch up in the coming weeks. In this section, we explain what we have done so far, and the problems that we are currently tackling.
+
+## Trees that grow
+
+We wanted a flexible system to annotate trees with additional metadata that extends to the multiple phases of the compiler. To achieve this, we have implemented a variation of Trees that Grow [@DBLP:journals/corr/NajdJ16].
+
+The approach to annotate our AST is based on type families. This works by adding a parameter to each (relevant) `data` type that determines the phase of the compiler. Using type families you can create seperate instances of `data` based on the phase of the compiler while keeping the general structure of the AST the same. Without type families you would need to build a seperate similar but distint trees for every phase of the compiler.
+
+By using the `DataKinds` language extension, the phase is also a `data` type:
+
+```hs
+data Phase
+  = EmptyP        -- Empty phase, used for testing
+  | ParsedP       -- Phase after parsing with location information
+  | TypecheckedP  -- Phase after full typechecking
+```
+
+Next, we add to each constructor of the `data` type a new field that has a type family with the phase as its typed. Since type families are functions from type to type, we can control the actual type of that field through the phase.
+
+To explain this concept fully, we will look at how to implement this approach for a simplified version of expressions in SPL, where only binary expressions and literals are allowed. We start with the naive approach of using separate `data` types for each phase, then we introduce type families.
+
+```hs
+data ExprEmpty
+  = BinOpExprEmpty BinOp ExprEmpty ExprEmpty
+  | LiteralExprEmpty Literal
+
+data ExprParsed
+  = BinOpExprParsed SourcePos BinOp ExprParsed ExprParsed
+  | LiteralExprParsed SourcePos Literal
+
+data ExprTypechecked
+  = BinOpExprTypechecked SourcePos Type BinOp ExprTypechecked ExprTypechecked
+  | LiteralExprTypechecked SourcePos Type Literal 
+```
+
+The above approach is clumpsy, and requires us to make modifications in many places to make changes to the AST, since it requires us to keep all these different `data` types in sync. Additionally, it forces us to use long names for the different data constructors and makes it impossible to make functions that work on generic ASTs (e.g. functions that are agnostic to the phase of the AST).
+
+Trees that Grow [@DBLP:journals/corr/NajdJ16] solves this by introducing a type family, which is a function from type to type, for each field of the `data` type. The only argument to these type families will be the phase of the AST. The type families for this example will therefore be:
+
+```hs
+type family BinOpExpr (p :: Phase)
+type family LiteralExpr (p :: Phase)
+```
+
+Any fields specific to a particular phase of the compiler will then be replaced by a field of the associated type family, like so:
+
+```hs
+data Expr (p :: Phase)
+  = BinOpExpr (BinOpExpr p) BinOp (Expr p) (Expr p)
+  | LiteralExpr (LiteralExpr p) Literal
+```
+
+Finally, for each phase we can create an instance of the type family that determines the actual type for that field:
+
+```hs
+type instance BinOpExpr EmptyP = ()
+type instance BinOpExpr ParsedP = SourcePos
+type instance BinOpExpr TypecheckedP = (SourcePos, Type)
+
+type instance LiteralExpr EmptyP = ()
+type instance LiteralExpr ParsedP = SourcePos
+type instance LiteralExpr TypecheckedP = (SourcePos, Type)
+```
+
+This gives us a lot of control over the actual contents of the AST for each type, since it allows us to assign a different type for each constructor in the AST for each phase of the compiler, while keeping the overall structure of the AST identical. Furthermore, it allows us to write functions that work on any phase by simply ignoring the field with the type family.
+
+## Error messages
+
+In the typecheck phase we have to unify the types that variables have with the types of expressions and the uses of the variables. This unification operation may fail, and as such our `unify` function returns an `Either`.
+
+Because we have the location for each node in the AST, we can use this location to generate decent error messages that point to a specific location in the source code. However, since we have not yet finished the typechecking phase completely, we have not yet implemented generation of these error messages. Currently, the error is a simple string that explains *how* the unification failed (e.g. "Cannot unify `Int` with `Bool`.").glorious .
+
+## Polymorphism, inference and overloading
+
+We are planning on supporting polymorphism, inference and overloading. However, since we have not fully implemented typechecking yet, we cannot talk about this yet.
+
+### Type variable instantiation
+
+We have already made the choice to have type variables be local to their (function) declaration, meaning that the "same" type variable used in different declarations will actually be different during typechecking. For example, in the following code, the `a` in `f1`'s signature is different from the `a` in `f2`'s signature:
+
+```c
+id1(v: a): a {
+  return v + v;
+}
+
+id2(v: a): a {
+  return v;
+}
+```
+
+This means that when we determine the `a` in `id1` to be an `Int`, we do **not** update the `a` in `id2`. In practice, this is implemented by having a phase that instantiated the tree with *unique* type variables first.
+
+This mirrors the functionality of Haskell.
+
+### Polymorphism
+
+We have not yet implemented polymorphism.
+
+### Inference
+
+We have not yet implemented inference.
+
+### Overloading
+
+We have not yet implemented overloading.
+
+## Problems
+
+In this section, we explain the problems that we are currently tackling.
+
+### Missing type information (`InstantiatedP` phase)
+
+The first problem that we faced was missing type information. In the AST, we used `Maybe Type` for annotating the AST with type information during parsing. For example you can say `f() { return 4; }`. The return type of this function declaration is (during parsing) `None`.
+
+We added the `InstantiatedP` phase to deal with this. In the `InstantiatedP` phase we replace all the `Nothing` types with a unique type variable. 
+
+When adding fresh type variables in the `InstantiatedP` phase we make sure that the type variables of function arguments and the return value refer to the same types, but only in the context of that function. This idea is best explained with an example:
+
+```spl
+foo(arg1 : a, arg2 : b) : a {}
+bar(arg1 : b, arg2 : b) : a {}
+```
+
+Will be converted into:
+
+```spl
+foo(arg1 : f0, arg2 : f1) : f0 {}
+bar(arg1 : f2, arg2 : f2) : f3 {}
+```
+
+This means that if you use the same polymorphic type variable name in multiple functions (like arg2 in both `foo` and `bar`) then the type variable only corresponds to the same type within that same function (see also `Type variable instantiation` above). So within `foo`, arg1 and the return type should have the same type. But we made sure that this does NOT have to be the same type as the return type of `bar`. Because we made the sensible choice that the `a` in the return type of `bar` should be a different type variable. 
+
+### Empty list types
+
+When we where assigning types to expressions we started by making a function that assigned a type to literals. We hit a problem when we had to type the empty list literal. What type do we assign to this expression? We have not figured that out yet.
+
 # Appendix
 
 ## Grammar
@@ -297,7 +435,6 @@ Literal =
     | 'true'
     | 'false'
     | Int            
-    | Float        
     | Char          
     | '('Expr ',' Expr')' 
     | '[]' 

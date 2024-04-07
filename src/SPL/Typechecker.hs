@@ -183,12 +183,12 @@ inferDecl ctx (VarDecl loc name ty expr) = undefined
 inferDecl ctx (FunDecl loc name returnTy args body) = undefined
 
 inferExpr :: Program InstantiatedP -> Context -> Expr InstantiatedP -> Either String (Context, Type)
-inferExpr ctx (BinOpExpr pos op left right) = undefined
-inferExpr ctx (UnaryOpExpr pos op expr) = undefined
-inferExpr ctx (AssignExpr pos var expr) = undefined
-inferExpr ctx (FunctionCallExpr pos name body) = undefined
-inferExpr ctx (VariableExpr pos var) = undefined
-inferExpr ctx (LiteralExpr pos lit) = undefined
+inferExpr p ctx (BinOpExpr pos op left right) = undefined
+inferExpr p ctx (UnaryOpExpr pos op expr) = undefined
+inferExpr p ctx (AssignExpr pos var expr) = undefined
+inferExpr p ctx (FunctionCallExpr pos name body) = undefined
+inferExpr p ctx (VariableExpr pos var) = undefined
+inferExpr p ctx (LiteralExpr pos lit) = undefined
 
 inferLit :: Program InstantiatedP -> Context -> Literal InstantiatedP -> Either String (Context, Type)
 inferLit _ ctx TrueLit = Right (ctx, BoolType)
