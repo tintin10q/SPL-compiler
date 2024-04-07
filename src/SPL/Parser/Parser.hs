@@ -20,7 +20,9 @@ srcSpan :: SourcePos -> SourcePos -> SourceSpan
 srcSpan start end = SourceSpan (start, end)
 
 type instance FunDecl ParsedP = SourceSpan
+type instance FunDeclT ParsedP = Maybe Type
 type instance VarDecl ParsedP = SourceSpan
+type instance VarDeclT ParsedP = Maybe Type
 
 type instance ReturnStmt ParsedP = SourceSpan
 type instance IfStmt ParsedP = SourceSpan

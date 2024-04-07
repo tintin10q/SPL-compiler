@@ -2,16 +2,22 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module SPL.Parser.AST where
 
+class Convertable n (p1 :: Phase) (p2 :: Phase) where
+  -- We use this to explicitly change the phase of a node in a case that it won't fail anyway
+  convert :: n p1 -> n p2
+
 class Emptiable n where
-  -- Converts an AST node to the unannotated version of that node
+  -- Converts an AST node to the unannotated version of that node, special case of Convertabl
   empty :: n p -> n EmptyP
 
 data Phase
-  = EmptyP
-  | ParsedP
-  | TypecheckedP
+  = EmptyP       -- Empty phase, used for testing
+  | ParsedP      -- Phase after parsing with location information
+  | AnnotatedP   -- Phase after fully annotating the tree with type variables
+  | TypecheckedP -- Phase after full typechecking
 
 type Program (p :: Phase) = [Decl p]
 
@@ -39,20 +45,27 @@ data Field = HeadField | TailField
   deriving (Eq, Show)
 
 data Decl (p :: Phase) 
-  = FunDecl (FunDecl p) String (Maybe Type) [(String, Maybe Type)] [Stmt p]
-  | VarDecl (VarDecl p) String (Maybe Type) (Maybe (Expr p))
+  = FunDecl (FunDecl p) String (FunDeclT p) [(String, FunDeclT p)] [Stmt p]
+  | VarDecl (VarDecl p) String (VarDeclT p) (Expr p)
 deriving instance Eq (Decl EmptyP)
 deriving instance Show (Decl EmptyP)
 
 type family FunDecl (p :: Phase)
 type instance FunDecl EmptyP = ()
 
+type family FunDeclT (p :: Phase)
+type instance FunDeclT EmptyP = ()
+
 type family VarDecl (p :: Phase)
 type instance VarDecl EmptyP = ()
 
+type family VarDeclT (p :: Phase)
+type instance VarDeclT EmptyP = ()
+
 instance Emptiable Decl where
-  empty (FunDecl _ name ty args body) = FunDecl () name ty args (empty <$> body)
-  empty (VarDecl _ name ty val) = VarDecl () name ty (empty <$> val)
+  -- Emptying the type here is not ideal, but it seems to be the only way with type families
+  empty (FunDecl _ name _ args body) = FunDecl () name () (map (\(n, _) -> (n, ())) args) (empty <$> body)
+  empty (VarDecl _ name _ val) = VarDecl () name () (empty val)
 
 data Stmt (p :: Phase) =
   ReturnStmt (ReturnStmt p) (Maybe (Expr p))
@@ -64,7 +77,7 @@ deriving instance Eq (Stmt EmptyP)
 deriving instance Show (Stmt EmptyP)
 
 instance Emptiable Stmt where
-  empty (ReturnStmt _ stmt) = ReturnStmt () (empty <$> stmt)
+  empty (ReturnStmt _ expr) = ReturnStmt () (empty <$> expr)
   empty (IfStmt _ condition consequent alternative) = IfStmt () (empty condition) (map empty consequent) (map empty <$> alternative)
   empty (WhileStmt _ condition body) = WhileStmt () (empty condition) (empty <$> body)
   empty (ExprStmt _ expr) = ExprStmt () (empty expr)

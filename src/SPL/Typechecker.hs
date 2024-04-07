@@ -1,10 +1,30 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 module SPL.Typechecker where
 
 import SPL.Parser.AST
 import SPL.Parser.Parser (SourceSpan)
 import Data.List
+
+type instance FunDecl AnnotatedP = SourceSpan
+type instance FunDeclT AnnotatedP = Type
+type instance VarDecl AnnotatedP = SourceSpan
+type instance VarDeclT AnnotatedP = Type
+
+type instance ReturnStmt AnnotatedP = SourceSpan
+type instance IfStmt AnnotatedP = SourceSpan
+type instance WhileStmt AnnotatedP = SourceSpan
+type instance ExprStmt AnnotatedP = SourceSpan
+type instance VarStmt AnnotatedP = SourceSpan
+
+type instance BinOpExpr AnnotatedP = SourceSpan
+type instance UnaryOpExpr AnnotatedP = SourceSpan
+type instance AssignExpr AnnotatedP = SourceSpan
+type instance FunctionCallExpr AnnotatedP = SourceSpan
+type instance VariableExpr AnnotatedP = SourceSpan
+type instance LiteralExpr AnnotatedP = SourceSpan
 
 type instance FunDecl TypecheckedP = SourceSpan
 type instance VarDecl TypecheckedP = SourceSpan
@@ -22,6 +42,41 @@ type instance FunctionCallExpr TypecheckedP = (SourceSpan, Type)
 type instance VariableExpr TypecheckedP = (SourceSpan, Type)
 type instance LiteralExpr TypecheckedP = (SourceSpan, Type)
 
+instance Convertable Stmt ParsedP AnnotatedP where
+  convert (ReturnStmt pos expr) =
+    ReturnStmt pos (convert <$> expr)
+  convert (IfStmt pos condition consequent alternative) =
+    IfStmt pos (convert condition) (convert <$> consequent) (map convert <$> alternative)
+  convert (WhileStmt pos condition body) =
+    WhileStmt pos (convert condition) (convert <$> body)
+  convert (ExprStmt pos expr) =
+    ExprStmt pos (convert expr)
+  convert (VarStmt pos ty name expr) =
+    VarStmt pos ty name (convert expr)
+
+instance Convertable Expr ParsedP AnnotatedP where
+  convert (BinOpExpr pos op left right) =
+    BinOpExpr pos op (convert left) (convert right)
+  convert (UnaryOpExpr pos op expr) =
+    UnaryOpExpr pos op (convert expr)
+  convert (AssignExpr pos x expr) =
+    AssignExpr pos x (convert expr)
+  convert (FunctionCallExpr pos name args) =
+    FunctionCallExpr pos name (convert <$> args)
+  convert (VariableExpr pos x) =
+    VariableExpr pos x
+  convert (LiteralExpr pos lit) =
+    LiteralExpr pos (convert lit)
+
+instance Convertable Literal ParsedP AnnotatedP where
+  convert TrueLit = TrueLit
+  convert FalseLit = FalseLit
+  convert (IntLit n) = IntLit n
+  convert (FloatLit f) = FloatLit f
+  convert (CharLit c) = CharLit c
+  convert (TupleLit (l, r)) = TupleLit (convert l, convert r)
+  convert EmptyListLit = EmptyListLit
+
 type TypeSubst = [(String, Type)]
 
 type VarEnv = [(String, Type)]
@@ -33,7 +88,7 @@ freshVar :: String -> [String] -> String
 freshVar x vs = x ++ show (length $ filter (isPrefixOf x) vs)
 
 -- Assigns a type.
-assignType
+annotateType
   :: String                               -- A fresh type variable
   -> [String]                             -- Bookkeeping for generating new *unique* type variables
   -> [(String, Type)]                     -- The current context of type variables to fresh type variables
@@ -41,7 +96,7 @@ assignType
   -> ([String], [(String, Type)], Type)   -- A tuple containing (1) the new list of generated variables
                                           --                    (2) the new context
                                           --                    (3) the assigned type
-assignType fv vs ctx t = case t of
+annotateType fv vs ctx t = case t of
   -- In case of Nothing, generate a completely fresh type variable
   Nothing -> (fv:vs, ctx, TypeVar fv)
   -- In case of a type variable,
@@ -56,37 +111,37 @@ assignType fv vs ctx t = case t of
   -- In case of a fully annotated type, use that directly without modifying the context
   Just t' -> (vs, ctx, t')
 
--- Assigns a list of types (reflexive transitive closure (almost) of "assignTypes").
-assignTypes
-  :: String                               -- The namespace to use for generating fresh variables
-  -> [String]                             -- Bookkeeping for generating new *unique* type variables
-  -> [(String, Type)]                     -- The context of known type variables
-  -> [Maybe Type]                         -- The types to assign
-  -> ([String], [Type])                   -- A tuple containing (1) the new list of generated variables
-                                          --                    (2) the assigned types
-assignTypes _ vs _ [] = (vs, [])
-assignTypes ns vs ctx (t:ts) =
-  let (vs', ctx', t') = assignType (freshVar ns vs) vs ctx t
-      (vs'', ts')     = assignTypes ns vs' ctx' ts
-  in (vs'', t':ts')
-
--- Generate the environment of function declarations.
-funEnv :: Program p -> FunEnv
-funEnv = funEnv' [] []
+annotate :: Program ParsedP -> Program AnnotatedP
+annotate = annotate' [] []
   where
-    funEnv'
-      :: [String]         -- Bookkeeping for generating new *unique* type variables
-      -> [(String, Type)] -- The context of known type variables
-      -> Program p        -- The declarations to generate an environment for
-      -> FunEnv
-    funEnv' _ _ [] = []
-    funEnv' vs ctx (decl:decls) = case decl of
-      -- Skip in case of VarDecl
-      VarDecl {} -> funEnv' vs ctx decls
-      FunDecl _ name returnTy args _ ->
+    annotate'
+      :: [String]           -- Bookkeeping for generating new *unique* type variables
+      -> [(String, Type)]   -- The context of known type variables
+      -> Program ParsedP    -- The declarations to generate an environment for
+      -> Program AnnotatedP
+    annotate' _ _ [] = []
+    annotate' vs ctx (decl:decls) = case decl of
+      VarDecl loc name Nothing expr ->
+        let fv = freshVar "global" vs in
+          let annotatedVar = VarDecl loc name (TypeVar fv) (convert expr) in
+            annotatedVar : annotate' (fv : vs) ctx decls
+      VarDecl loc name (Just ty) expr ->
+        VarDecl loc name ty (convert expr) : annotate' vs ctx decls
+      FunDecl loc name returnTy args body ->
         -- Assign a type for the return type.
-        let (vs', ts) = assignTypes "f" vs ctx (returnTy:map snd args)
-        in (name, tail ts, head ts):funEnv' vs' [] decls
+        let (vs', ctx', annotatedRetTy) = annotateType "f" vs ctx returnTy in
+          let annotatedFun = FunDecl loc name annotatedRetTy (annotateArgs vs' ctx' args) (convert <$> body) in
+            annotatedFun : annotate' vs' [] decls
+        where
+          annotateArgs
+            :: [String]               -- Bookkeeping for generating new *unique* type variables
+            -> [(String, Type)]       -- The context of known type variables 
+            -> [(String, Maybe Type)] -- The arguments to annotate
+            -> [(String, Type)]
+          annotateArgs _ _ [] = []
+          annotateArgs vs' ctx' ((argName, curTy):args') = 
+            let (vs'', ctx'', annotatedArgTy) = annotateType (freshVar "f" vs) vs' ctx' curTy in
+              (argName, annotatedArgTy):annotateArgs vs'' ctx'' args'
 
 typecheck :: Program ParsedP -> Either String (Program TypecheckedP)
 typecheck = undefined
