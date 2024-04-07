@@ -14,5 +14,4 @@ main = do
     source <- TIO.readFile file
     case parse file source of
         Left err -> putStr (formatError err)
-        Right ast -> do -- putStr $ formatProgram ast 
-                        print $ map empty ast 
+        Right ast -> print ast 

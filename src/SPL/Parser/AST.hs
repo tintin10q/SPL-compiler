@@ -14,10 +14,10 @@ class Emptiable n where
   empty :: n p -> n EmptyP
 
 data Phase
-  = EmptyP       -- Empty phase, used for testing
-  | ParsedP      -- Phase after parsing with location information
-  | AnnotatedP   -- Phase after fully annotating the tree with type variables
-  | TypecheckedP -- Phase after full typechecking
+  = EmptyP        -- Empty phase, used for testing
+  | ParsedP       -- Phase after parsing with location information
+  | InstantiatedP -- Phase after fully instantiating all type variables
+  | TypecheckedP  -- Phase after full typechecking
 
 type Program (p :: Phase) = [Decl p]
 
@@ -138,7 +138,6 @@ data Literal (p :: Phase) =
   TrueLit
   | FalseLit
   | IntLit Int
-  | FloatLit Float
   | CharLit Char
   | TupleLit (Expr p, Expr p)
   | EmptyListLit
@@ -149,7 +148,6 @@ instance Emptiable Literal where
   empty TrueLit = TrueLit
   empty FalseLit = FalseLit
   empty (IntLit i) = IntLit i
-  empty (FloatLit f) = FloatLit f
   empty (CharLit c) = CharLit c
   empty (TupleLit (e1, e2)) = TupleLit (empty e1, empty e2)
   empty EmptyListLit = EmptyListLit

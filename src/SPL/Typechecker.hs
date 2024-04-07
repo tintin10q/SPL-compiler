@@ -2,29 +2,43 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
 module SPL.Typechecker where
 
 import SPL.Parser.AST
 import SPL.Parser.Parser (SourceSpan)
 import Data.List
 
-type instance FunDecl AnnotatedP = SourceSpan
-type instance FunDeclT AnnotatedP = Type
-type instance VarDecl AnnotatedP = SourceSpan
-type instance VarDeclT AnnotatedP = Type
+type instance FunDecl InstantiatedP = SourceSpan
+type instance FunDeclT InstantiatedP = Type
+type instance VarDecl InstantiatedP = SourceSpan
+type instance VarDeclT InstantiatedP = Type
 
-type instance ReturnStmt AnnotatedP = SourceSpan
-type instance IfStmt AnnotatedP = SourceSpan
-type instance WhileStmt AnnotatedP = SourceSpan
-type instance ExprStmt AnnotatedP = SourceSpan
-type instance VarStmt AnnotatedP = SourceSpan
+deriving instance Eq (Decl InstantiatedP)
+deriving instance Show (Decl InstantiatedP)
 
-type instance BinOpExpr AnnotatedP = SourceSpan
-type instance UnaryOpExpr AnnotatedP = SourceSpan
-type instance AssignExpr AnnotatedP = SourceSpan
-type instance FunctionCallExpr AnnotatedP = SourceSpan
-type instance VariableExpr AnnotatedP = SourceSpan
-type instance LiteralExpr AnnotatedP = SourceSpan
+type instance ReturnStmt InstantiatedP = SourceSpan
+type instance IfStmt InstantiatedP = SourceSpan
+type instance WhileStmt InstantiatedP = SourceSpan
+type instance ExprStmt InstantiatedP = SourceSpan
+type instance VarStmt InstantiatedP = SourceSpan
+
+deriving instance Eq (Stmt InstantiatedP)
+deriving instance Show (Stmt InstantiatedP)
+
+type instance BinOpExpr InstantiatedP = SourceSpan
+type instance UnaryOpExpr InstantiatedP = SourceSpan
+type instance AssignExpr InstantiatedP = SourceSpan
+type instance FunctionCallExpr InstantiatedP = SourceSpan
+type instance VariableExpr InstantiatedP = SourceSpan
+type instance LiteralExpr InstantiatedP = SourceSpan
+
+deriving instance Eq (Expr InstantiatedP)
+deriving instance Show (Expr InstantiatedP)
+
+deriving instance Eq (Literal InstantiatedP)
+deriving instance Show (Literal InstantiatedP)
 
 type instance FunDecl TypecheckedP = SourceSpan
 type instance VarDecl TypecheckedP = SourceSpan
@@ -42,7 +56,7 @@ type instance FunctionCallExpr TypecheckedP = (SourceSpan, Type)
 type instance VariableExpr TypecheckedP = (SourceSpan, Type)
 type instance LiteralExpr TypecheckedP = (SourceSpan, Type)
 
-instance Convertable Stmt ParsedP AnnotatedP where
+instance Convertable Stmt ParsedP InstantiatedP where
   convert (ReturnStmt pos expr) =
     ReturnStmt pos (convert <$> expr)
   convert (IfStmt pos condition consequent alternative) =
@@ -54,7 +68,7 @@ instance Convertable Stmt ParsedP AnnotatedP where
   convert (VarStmt pos ty name expr) =
     VarStmt pos ty name (convert expr)
 
-instance Convertable Expr ParsedP AnnotatedP where
+instance Convertable Expr ParsedP InstantiatedP where
   convert (BinOpExpr pos op left right) =
     BinOpExpr pos op (convert left) (convert right)
   convert (UnaryOpExpr pos op expr) =
@@ -68,88 +82,127 @@ instance Convertable Expr ParsedP AnnotatedP where
   convert (LiteralExpr pos lit) =
     LiteralExpr pos (convert lit)
 
-instance Convertable Literal ParsedP AnnotatedP where
+instance Convertable Literal ParsedP InstantiatedP where
   convert TrueLit = TrueLit
   convert FalseLit = FalseLit
   convert (IntLit n) = IntLit n
-  convert (FloatLit f) = FloatLit f
   convert (CharLit c) = CharLit c
   convert (TupleLit (l, r)) = TupleLit (convert l, convert r)
   convert EmptyListLit = EmptyListLit
 
-type TypeSubst = [(String, Type)]
-
-type VarEnv = [(String, Type)]
-type FunEnv = [(String, [Type], Type)]
+type Bookkeeping = [String]
+type Context = [(String, Type)]
 
 -- Generate a fresh variable based on the given namespace "x" and
 -- the already generated free variables "vs".
 freshVar :: String -> [String] -> String
 freshVar x vs = x ++ show (length $ filter (isPrefixOf x) vs)
 
--- Assigns a type.
-annotateType
+-- Instantiates a type.
+instantiateType
   :: String                               -- A fresh type variable
-  -> [String]                             -- Bookkeeping for generating new *unique* type variables
-  -> [(String, Type)]                     -- The current context of type variables to fresh type variables
-  -> Maybe Type                           -- The type to assign
-  -> ([String], [(String, Type)], Type)   -- A tuple containing (1) the new list of generated variables
+  -> Bookkeeping                          -- Bookkeeping for generating new *unique* type variables
+  -> Context                              -- The current context of type variables to fresh type variables
+  -> Maybe Type                           -- The type to instantiate
+  -> (Bookkeeping, Context, Type)         -- A tuple containing (1) the new list of generated variables
                                           --                    (2) the new context
                                           --                    (3) the assigned type
-annotateType fv vs ctx t = case t of
+instantiateType fv bookkeeping ctx t = case t of
   -- In case of Nothing, generate a completely fresh type variable
-  Nothing -> (fv:vs, ctx, TypeVar fv)
+  Nothing -> (fv:bookkeeping, ctx, TypeVar fv)
   -- In case of a type variable,
   --  * check if we have a type for it, 
   --  * otherwise generate one
   Just (TypeVar v) ->
     case lookup v ctx of
       -- We have a type for it
-      Just t' -> (vs, ctx, t')
+      Just t' -> (bookkeeping, ctx, t')
       -- We need to generate a fresh type variable
-      Nothing -> (fv:vs, (v, TypeVar fv):ctx, TypeVar fv)
+      Nothing -> (fv:bookkeeping, (v, TypeVar fv):ctx, TypeVar fv)
   -- In case of a fully annotated type, use that directly without modifying the context
-  Just t' -> (vs, ctx, t')
+  Just t' -> (bookkeeping, ctx, t')
 
-annotate :: Program ParsedP -> Program AnnotatedP
-annotate = annotate' [] []
+instantiate :: Program ParsedP -> Program InstantiatedP
+instantiate = instantiate' [] []
   where
-    annotate'
-      :: [String]           -- Bookkeeping for generating new *unique* type variables
-      -> [(String, Type)]   -- The context of known type variables
+    instantiate'
+      :: Bookkeeping        -- Bookkeeping for generating new *unique* type variables
+      -> Context            -- The context of known type variables
       -> Program ParsedP    -- The declarations to generate an environment for
-      -> Program AnnotatedP
-    annotate' _ _ [] = []
-    annotate' vs ctx (decl:decls) = case decl of
+      -> Program InstantiatedP
+    instantiate' _ _ [] = []
+    instantiate' bookkeeping ctx (decl:decls) = case decl of
       VarDecl loc name Nothing expr ->
-        let fv = freshVar "global" vs in
-          let annotatedVar = VarDecl loc name (TypeVar fv) (convert expr) in
-            annotatedVar : annotate' (fv : vs) ctx decls
+        let fv = freshVar "g" bookkeeping 
+            instantiatedVar = VarDecl loc name (TypeVar fv) (convert expr)
+        in instantiatedVar : instantiate' (fv : bookkeeping) ctx decls
       VarDecl loc name (Just ty) expr ->
-        VarDecl loc name ty (convert expr) : annotate' vs ctx decls
+        -- If the variable has a specified type, use that directly
+        VarDecl loc name ty (convert expr) : instantiate' bookkeeping ctx decls
       FunDecl loc name returnTy args body ->
-        -- Assign a type for the return type.
-        let (vs', ctx', annotatedRetTy) = annotateType "f" vs ctx returnTy in
-          let annotatedFun = FunDecl loc name annotatedRetTy (annotateArgs vs' ctx' args) (convert <$> body) in
-            annotatedFun : annotate' vs' [] decls
+        -- Annotate the type for the return type first.
+        let (bookkeeping', ctx', instantiatedReturnTy) = instantiateType (freshVar "f" bookkeeping) bookkeeping ctx returnTy
+            -- Using the new bookkeeping (bookkeeping') and context (ctx'), annotate the arguments
+            (bookkeeping'', _, instantiatedArgs) = instantiateArgs bookkeeping' ctx' args
+            -- Update the FunDecl to use the annotated types
+            instantiatedFun = FunDecl loc name instantiatedReturnTy instantiatedArgs (convert <$> body)
+        -- Recursively annotate the other functions using the newest bookkeeping (bookkeeping'') with a fresh (empty) context
+        in instantiatedFun : instantiate' bookkeeping'' [] decls
         where
-          annotateArgs
-            :: [String]               -- Bookkeeping for generating new *unique* type variables
-            -> [(String, Type)]       -- The context of known type variables 
-            -> [(String, Maybe Type)] -- The arguments to annotate
-            -> [(String, Type)]
-          annotateArgs _ _ [] = []
-          annotateArgs vs' ctx' ((argName, curTy):args') = 
-            let (vs'', ctx'', annotatedArgTy) = annotateType (freshVar "f" vs) vs' ctx' curTy in
-              (argName, annotatedArgTy):annotateArgs vs'' ctx'' args'
+          instantiateArgs
+            :: Bookkeeping                                    -- Bookkeeping for generating new *unique* type variables
+            -> Context                                        -- The context of known type variables 
+            -> [(String, Maybe Type)]                         -- The arguments to annotate
+            -> (Bookkeeping, Context, [(String, Type)])       -- A tuple containing (1) the new list of generated variables
+                                                              --                    (2) the new context
+                                                              --                    (3) the annotated args
+          instantiateArgs bookkeeping ctx [] = (bookkeeping, ctx, [])
+          instantiateArgs bookkeeping ctx ((argName, ty):args') =
+            -- Annotate the first argument
+            let (bookkeeping', ctx', instantiatedTy) = instantiateType (freshVar "f" bookkeeping) bookkeeping ctx ty
+                -- Recursively annotate the next arguments using the new bookkeeping (bookkeeping') and new context (ctx')
+                (bookkeeping'', ctx'', annotatedArgs) = instantiateArgs bookkeeping' ctx' args'
+            -- Return the newest bookkeeping (bookkeeping'') and newest context (ctx'') and the annotated arguments
+            in (bookkeeping'', ctx'', (argName, instantiatedTy):annotatedArgs)
 
-typecheck :: Program ParsedP -> Either String (Program TypecheckedP)
-typecheck = undefined
+-- typecheck :: Program ParsedP -> Either String (Program TypecheckedP)
+-- typecheck parsedProgram = case instantiatedProgram of
+--   [] -> Right []
+--   (decl:decls) -> undefined
+--   where instantiatedProgram = instantiate parsedProgram
 
-typecheckDecl :: Program ParsedP -> Decl ParsedP -> Decl TypecheckedP
-typecheckDecl = undefined
+infer :: Context -> Program InstantiatedP -> Either String (Context, Program TypecheckedP)
+infer ctx [] = Right (ctx, [])
+infer ctx (p:ps) = do
+  (ctx', p') <- inferDecl ctx p
+  (ctx'', ps') <- infer ctx' ps
+  return (ctx'', p':ps')
 
-unify :: Type -> Type -> Either String TypeSubst
+inferDecl :: Context -> Decl InstantiatedP -> Either String (Context, Decl TypecheckedP)
+inferDecl ctx (VarDecl loc name ty expr) = undefined
+inferDecl ctx (FunDecl loc name returnTy args body) = undefined
+
+inferExpr :: Program InstantiatedP -> Context -> Expr InstantiatedP -> Either String (Context, Type)
+inferExpr ctx (BinOpExpr pos op left right) = undefined
+inferExpr ctx (UnaryOpExpr pos op expr) = undefined
+inferExpr ctx (AssignExpr pos var expr) = undefined
+inferExpr ctx (FunctionCallExpr pos name body) = undefined
+inferExpr ctx (VariableExpr pos var) = undefined
+inferExpr ctx (LiteralExpr pos lit) = undefined
+
+inferLit :: Program InstantiatedP -> Context -> Literal InstantiatedP -> Either String (Context, Type)
+inferLit _ ctx TrueLit = Right (ctx, BoolType)
+inferLit _ ctx FalseLit = Right (ctx, BoolType)
+inferLit _ ctx (IntLit _) = Right (ctx, IntType)
+inferLit _ ctx (CharLit _) = Right (ctx, CharType)
+inferLit p ctx (TupleLit (left, right)) = do
+  (ctx', left') <- inferExpr p ctx left
+  (ctx'', right') <- inferExpr p ctx' right
+  return (ctx'', TupleType left' right')  
+inferLit _ ctx EmptyListLit = undefined
+
+
+unify :: Type -> Type -> Either String Context
 unify IntType IntType = Right []
 unify CharType CharType = Right []
 unify BoolType BoolType = Right []
@@ -168,7 +221,7 @@ unify (TupleType s1 s2) (TupleType t1 t2) = do
   unify (subst u s2) (subst u t2)
 unify x y = Left $ "Cannot unify " ++ show x ++ " with " ++ show y ++ "."
 
-subst :: TypeSubst -> Type -> Type
+subst :: Context -> Type -> Type
 subst [] t = t
 subst (x:xs) t = subst xs (substSingle t)
   where
