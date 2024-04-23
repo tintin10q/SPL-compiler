@@ -3,7 +3,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-module SPL.Parser.Parser (srcSpan, SourceSpan, Parser) where
+module SPL.Parser.Parser (srcSpan, SourceSpan, Parser, showlocation) where
 
 import SPL.Parser.AST
 
@@ -19,6 +19,9 @@ type Parser = Parsec Void Text
 
 newtype SourceSpan = SourceSpan (SourcePos, SourcePos)
   deriving (Eq, Show)
+
+
+showlocation (SourceSpan (start, end)) = show start ++ ":" ++ show end
 
 srcSpan :: SourcePos -> SourcePos -> SourceSpan
 srcSpan start end = SourceSpan (start, end)

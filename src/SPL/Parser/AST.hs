@@ -28,7 +28,8 @@ data Type
   | VoidType
   | TupleType Type Type
   | ListType Type
-  | TypeVar String
+  | TypeVar { name :: String, rigid :: Bool }
+  | FunType [Type] Type
   deriving (Eq, Show)
 
 data UnaryOp = Negate | FieldAccess Field
@@ -41,8 +42,6 @@ data BinOp =
   And | Or
   deriving (Eq, Show)
 
-data Field = HeadField | TailField
-  deriving (Eq, Show)
 
 data Decl (p :: Phase) 
   = FunDecl (FunDecl p) String (FunDeclT p) [(String, FunDeclT p)] [Stmt p]
@@ -151,6 +150,9 @@ instance Emptiable Literal where
   empty (CharLit c) = CharLit c
   empty (TupleLit (e1, e2)) = TupleLit (empty e1, empty e2)
   empty EmptyListLit = EmptyListLit
+
+data Field = HeadField | TailField
+  deriving (Eq, Show)
 
 data Variable
   = Identifier String (Maybe Field)
