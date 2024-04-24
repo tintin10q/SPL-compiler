@@ -66,7 +66,9 @@ pListType = do
 -- Parses a type variable.
 -- Grammar: identifier
 pTypeVarType :: Parser Type
-pTypeVarType = TypeVar . T.unpack <$> L.tIdentifier
+pTypeVarType = do
+    tvName <- T.unpack <$> L.tIdentifier
+    return $ TypeVar tvName True
 
 -- Parses the void type.
 -- Grammar: 'Void'

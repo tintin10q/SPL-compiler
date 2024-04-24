@@ -4,19 +4,29 @@
 module SPL.Parser.Expr where
 
 import SPL.Parser.AST
-import SPL.Parser.Parser (srcSpan, Parser)
+import SPL.Parser.Parser (srcSpan, Parser, SourceSpan, startPos, endPos)
 import qualified SPL.Parser.Lexer as L
 
 import Control.Monad (void)
 import Control.Monad.Combinators.Expr
 import Text.Megaparsec (choice, try, (<|>), many, optional, getSourcePos)
 import qualified Data.Text as T
+import Data.Functor (($>))
 
 {--
 
 Expression parsers.
 
 --}
+
+exprSpan :: Expr ParsedP -> SourceSpan
+exprSpan expr = case expr of
+  BinOpExpr srcSpan _ _ _ -> srcSpan
+  UnaryOpExpr srcSpan _ _ -> srcSpan
+  AssignExpr srcSpan _ _ -> srcSpan
+  FunctionCallExpr srcSpan _ _ -> srcSpan
+  VariableExpr srcSpan _ -> srcSpan
+  LiteralExpr srcSpan _ -> srcSpan
 
 -- Operator table ordered in decreasing precedence (i.e. the higher
 -- in the list, the greater the binding strength of the set of
@@ -33,30 +43,34 @@ Expression parsers.
 -- More info: https://markkarpov.com/tutorial/megaparsec.html#parsing-expressions
 -- Operator precedence and associativity: https://rosettacode.org/wiki/Operator_precedence#Haskell
 operatorTable :: [[Operator Parser (Expr ParsedP)]]
-operatorTable = [[]]
-    -- [ [ Postfix (unary (UnaryOpExpr (FieldAccess HeadField)) (try (L.tDot <* L.tHead)))
-    --   , Postfix (unary (UnaryOpExpr (FieldAccess TailField)) (try (L.tDot <* L.tTail)))
-    --   ]
-    -- , [ Prefix (unary (UnaryOpExpr Negate) L.tExcl)
-    --   ]
-    -- , [ InfixL (binary (BinOpExpr Mul) L.tStar)
-    --   , InfixL (binary (BinOpExpr Div) L.tSlash)
-    --   , InfixL (binary (BinOpExpr Mod) L.tPercent)
-    --   ]
-    -- , [ InfixL (binary (BinOpExpr Add) L.tPlus)
-    --   , InfixL (binary (BinOpExpr Sub) L.tMin)
-    --   ]
-    -- , [ InfixR (binary (BinOpExpr Cons) L.tColon)]
-    -- , [ InfixN (binary (BinOpExpr Gt) L.tGt)
-    --   , InfixN (binary (BinOpExpr Gte) L.tGte)
-    --   , InfixN (binary (BinOpExpr Lt) L.tLt)
-    --   , InfixN (binary (BinOpExpr Lte) L.tLte)
-    --   , InfixN (binary (BinOpExpr Eq) L.tDoubleEq)
-    --   , InfixN (binary (BinOpExpr Neq) L.tExclEq)
-    --   ]
-    -- , [ InfixR $ binary (BinOpExpr And) L.tDoubleAmpersand  ]
-    -- , [ InfixR $ binary (BinOpExpr Or) L.tDoublePipe ]
-    -- ]
+operatorTable =
+    [ [ Postfix (unary (FieldAccess HeadField) (try (L.tDot <* L.tHead)))
+      , Postfix (unary (FieldAccess TailField) (try (L.tDot <* L.tTail)))
+      ]
+    , [ Prefix (unary Negate L.tExcl)
+      ]
+    , [ InfixL (binary Mul L.tStar)
+      , InfixL (binary Div L.tSlash)
+      , InfixL (binary Mod L.tPercent)
+      ]
+    , [ InfixL (binary Add L.tPlus)
+      , InfixL (binary Sub L.tMin)
+      ]
+    , [ InfixR (binary Cons L.tColon)]
+    , [ InfixN (binary Gt L.tGt)
+      , InfixN (binary Gte L.tGte)
+      , InfixN (binary Lt L.tLt)
+      , InfixN (binary Lte L.tLte)
+      , InfixN (binary Eq L.tDoubleEq)
+      , InfixN (binary Neq L.tExclEq)
+      ]
+    , [ InfixR $ binary And L.tDoubleAmpersand  ]
+    , [ InfixR $ binary Or L.tDoublePipe ]
+    ]
+    where binary def pSymbol = pSymbol $> \e1 e2 ->
+            BinOpExpr (srcSpan (startPos $ exprSpan e1) (endPos $ exprSpan e2)) def e1 e2
+          unary def pSymbol = pSymbol $> \e ->
+            UnaryOpExpr (exprSpan e) def e
 
 -- Parses an expression. For operator precedence, see operatorTable.
 pExpr :: Parser (Expr ParsedP)
@@ -126,7 +140,6 @@ pLiteral :: Parser (Literal ParsedP)
 pLiteral = choice
     [ try pTrue
     , try pFalse
-    , try pFloat
     , try pInt
     , try pChar
     , try pTuple
@@ -147,26 +160,18 @@ pFalse = do
   void L.tFalse
   return FalseLit
 
--- Parses a signed floating point number (e.g. 12.0, -12.0, +12.0).
-pFloat :: Parser (Literal ParsedP)
-pFloat = do
-  f <- L.tFloat
-  return $ FloatLit f
-
 -- Parse a signed integer (e.g. 12, -12, +12).
 -- Grammar (simplified): [('-' | '+')] digit+
 pInt :: Parser (Literal ParsedP)
 pInt = do
-  i <- L.tInteger
-  return $ IntLit i
+  IntLit <$> L.tInteger
 
 -- Parses a character surrounded by quotes, including escape sequences
 -- such as '\n' and '\t'.
 -- Grammar: '\'' any char '\''
 pChar :: Parser (Literal ParsedP)
 pChar = do
-  c <- L.tChar
-  return $ CharLit c
+  CharLit <$> L.tChar
 
 -- Parses a tuple of exactly two expressions.
 -- Grammar: '(' expr ',' expr ')'

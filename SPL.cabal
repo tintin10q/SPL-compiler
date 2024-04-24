@@ -14,7 +14,7 @@ executable spl-exe
     main-is:          Main.hs
     hs-source-dirs:   app
     build-depends:    base ^>=4.17.2.1,
-                      text ^>=2.1,
+                      text ^>=2.0,
                       spl-lib
     default-language: Haskell2010
 
@@ -34,11 +34,11 @@ library spl-lib
         SPL.Typechecker
         SPL.Typechecker2
     build-depends:    base ^>=4.17.2.1,
-                      megaparsec ^>=9.6.1,
-                      containers ^>= 0.6.8,
+                      megaparsec,
+                      containers,
                       parser-combinators ^>= 1.3.0,
                       mtl ^>= 2.2.2,
-                      text ^>=2.1,
+                      text ^>=2.0,
                       pretty ^>= 1.1.3.6
     hs-source-dirs:   src
     default-language: Haskell2010
@@ -58,11 +58,11 @@ test-suite tests
     build-depends:    base ^>=4.17.2.1,
                       hspec ^>=2.11.7,
                       hspec-megaparsec ^>= 2.2.1,
-                      megaparsec ^>=9.6.1,
-                      containers ^>= 0.6.8,
+                      megaparsec,
+                      containers,
                       mtl ^>= 2.2.2,
                       parser-combinators ^>= 1.3.0,
-                      text ^>=2.1,
+                      text ^>=2.0,
                       pretty ^>= 1.1.3.6,
                       spl-lib
     hs-source-dirs:   tests

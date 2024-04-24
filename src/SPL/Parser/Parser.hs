@@ -3,7 +3,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-module SPL.Parser.Parser (srcSpan, SourceSpan, Parser, showlocation) where
+module SPL.Parser.Parser (srcSpan, SourceSpan, Parser, show, startPos, endPos) where
 
 import SPL.Parser.AST
 
@@ -18,10 +18,16 @@ type Parser = Parsec Void Text
 -- Until we start dealing with custom parsing errors when you see Parser in the chapter, assume this type.
 
 newtype SourceSpan = SourceSpan (SourcePos, SourcePos)
-  deriving (Eq, Show)
+  deriving (Eq)
 
+startPos :: SourceSpan -> SourcePos
+startPos (SourceSpan (start, _)) = start
 
-showlocation (SourceSpan (start, end)) = show start ++ ":" ++ show end
+endPos :: SourceSpan -> SourcePos
+endPos (SourceSpan (_, end)) = end
+
+instance Show SourceSpan where
+  show (SourceSpan (start, end)) = show start ++ ":" ++ show end
 
 srcSpan :: SourcePos -> SourcePos -> SourceSpan
 srcSpan start end = SourceSpan (start, end)
