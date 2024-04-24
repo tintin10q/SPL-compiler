@@ -1,30 +1,63 @@
 {-# LANGUAGE DataKinds #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Redundant bracket" #-}
+{-# LANGUAGE FlexibleInstances #-}
 module SPL.Typechecker2 where
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 import Control.Monad.Except
-import Control.Monad.Reader
 import Control.Monad.State
 
 import SPL.Parser.AST
-import SPL.Parser.Parser (show, SourceSpan)
-import qualified Text.PrettyPrint as PP
 import Data.Maybe (fromMaybe)
+import SPL.Parser.Parser (SourceSpan)
 
 
 data Scheme = Scheme [String] Type
 
--- ti , -- ti :: TypeEnv → Exp → (Subst, Type) 
-
+type FunEnv = Map.Map String Scheme
+type VarEnv = Map.Map String Type
 type Subst = Map.Map String Type
+
+nullSubst :: Subst
+nullSubst = Map.empty
+
+composeSubst :: Subst -> Subst -> Subst
+composeSubst s1 s2 = Map.map (apply s1) s2 `Map.union` s1
+
+data TIEnv = TIEnv {}
+type TIState = Int
+type TI a = ExceptT String (State TIState) a
+
+runTI :: TI a -> (Either String a, TIState)
+runTI t = runState (runExceptT t) initTIState
+    where initTIState = 0
+
+newTyVar :: TI Type
+newTyVar = do
+    s <- get
+    put (s + 1)
+    return $ TypeVar (reverse $ toTyVar s) False
+    where toTyVar c | c < 26 = [toEnum (97 + c)]
+                    | otherwise = let (n ,r ) = c `divMod` 26 in toEnum (97 + r) : toTyVar (n - 1)
 
 class Types a where
     ftv :: a -> Set.Set String
     apply :: Subst -> a -> a
+
+class Typecheck a where
+    {-# MINIMAL tc | ti #-}
+    tc :: (FunEnv, VarEnv) -> a -> Type -> TI Subst
+    tc env a t = do
+        (s1, inferredT) <- ti env a
+        s2 <- unify t inferredT
+        return $ s1 `composeSubst` s2
+    ti :: (FunEnv, VarEnv) -> a -> TI (Subst, Type)
+    ti env a = do
+        t <- newTyVar
+        s <- tc env a t
+        return (s, apply s t)
 
 instance Types Type where
     ftv (TupleType t1 t2) = Set.union (ftv t1) (ftv t2)
@@ -46,38 +79,9 @@ instance Types a => Types [a] where
     apply s = map (apply s)
     ftv = foldr (Set.union . ftv) Set.empty
 
-nullSubst :: Subst
-nullSubst = Map.empty
-
-composeSubst :: Subst -> Subst -> Subst
-composeSubst s1 s2 = Map.map (apply s1) s2 `Map.union` s1
-
--- Map from function names to the type scheme
-newtype FunEnv = FunEnv (Map.Map String Scheme)
-newtype VarEnv = VarEnv (Map.Map String Type)
-
 instance Types FunEnv where
-    ftv (FunEnv env) = ftv (Map.elems env)
-    apply s (FunEnv env) = FunEnv (Map.map (apply s) env)
-
-remove :: FunEnv -> String -> FunEnv
-remove (FunEnv env) var = FunEnv (Map.delete var env )
-
-data TIEnv = TIEnv {}
-type TIState = Int
-type TI a = ExceptT String (State TIState) a
-
-runTI :: TI a -> (Either String a, TIState)
-runTI t = runState (runExceptT t) initTIState
-    where initTIState = 0
-
-newTyVar :: TI Type
-newTyVar = do
-    s <- get
-    put (s + 1)
-    return $ TypeVar (reverse $ toTyVar s) False
-    where toTyVar c | c < 26 = [toEnum (97 + c)]
-                    | otherwise = let (n ,r ) = c `divMod` 26 in toEnum (97 + r) : toTyVar (n - 1)
+    ftv env = ftv (Map.elems env)
+    apply s = Map.map (apply s)
 
 -- The instantiation function replaces all bound type variables in
 --  a type scheme with fresh type variables. 
@@ -116,30 +120,18 @@ unify BoolType BoolType = return nullSubst
 unify CharType CharType = return nullSubst
 unify t1 t2 = throwError $ "types do not unify: " ++ show t1 ++ " vs. " ++ show t2
 
-generalize :: FunEnv  -> Type -> Scheme
-generalize env t = Scheme vars t
-    where vars = Set.toList $ ftv t `Set.difference` ftv env
-
--- Inference --
-
-tiLit :: (FunEnv, VarEnv) -> Literal ParsedP -> TI (Subst, Type)
-tiLit _ (IntLit _) = return (nullSubst, IntType)
-tiLit _ TrueLit = return (nullSubst, BoolType)  -- We zouden hier een True of False type kunnen doen das maybe wel cool
-tiLit _ FalseLit = return (nullSubst, BoolType)  -- We zouden hier een True of False type kunnen doen das maybe wel cool
-tiLit _ (CharLit _) = return (nullSubst, CharType)
-tiLit _ EmptyListLit = do
-        var <- newTyVar
-        return (nullSubst, ListType var) -- ListType with typevar inside!
-tiLit env (TupleLit (e1, e2)) = do
-    (s1, t1) <- ti env e1
-    (s2, t2) <- ti env e2
-    return (s1 `composeSubst` s2, TupleType t1 t2)
-
-tc :: (FunEnv, VarEnv) -> Expr ParsedP -> Type -> TI Subst -- Thanks Quinten
-tc env expr given = do
-    (s1, inferred) <- ti env expr
-    s2 <- unify given inferred
-    return $ s1 `composeSubst` s2
+instance Typecheck (Literal ParsedP) where
+    ti _env (IntLit _) = return (nullSubst, IntType)
+    ti _env TrueLit = return (nullSubst, BoolType)
+    ti _env FalseLit = return (nullSubst, BoolType)
+    ti _env (CharLit _) = return (nullSubst, CharType)
+    ti _env EmptyListLit = do
+            var <- newTyVar
+            return (nullSubst, ListType var) -- ListType with typevar inside!
+    ti env (TupleLit (e1, e2)) = do
+        (s1, t1) <- ti env e1
+        (s2, t2) <- ti env e2
+        return (s1 `composeSubst` s2, TupleType t1 t2)
 
 -- Check if the type of 2 expr can be CheckType and then return ResultType
 --   ResultType -> CheckType -> ...
@@ -157,79 +149,76 @@ tcBinOpIdentity t = tcBinOp t t
 tcBinOpBoolean :: Type -> (FunEnv, VarEnv) -> Expr ParsedP -> Expr ParsedP -> TI (Subst, Type)
 tcBinOpBoolean = tcBinOp BoolType
 
-
--- throwError "Invalid operation at " ++ show meta ++ "\nArguments to " ++ show op ++ "should have types of" ++ show t
-
-ti :: (FunEnv, VarEnv) -> Expr ParsedP -> TI (Subst, Type)
-ti env (LiteralExpr _ lit) = tiLit env lit
-ti env (BinOpExpr meta Mul e1 e2) = tcBinOpIdentity IntType env e1 e2
-ti env (BinOpExpr meta Mod e1 e2) = tcBinOpIdentity IntType env e1 e2
-ti env (BinOpExpr meta Add e1 e2) = tcBinOpIdentity IntType env e1 e2
-ti env (BinOpExpr meta Div e1 e2) = tcBinOpIdentity IntType env e1 e2
-ti env (BinOpExpr meta Sub e1 e2) = tcBinOpIdentity IntType env e1 e2
-    -- These next ones are polymorf, they can either be char or int
-ti env (BinOpExpr meta Gt e1 e2) = do {tcBinOpBoolean IntType env e1 e2}
-                                   `catchError` \_ -> tcBinOpIdentity CharType env e1 e2
-                                   `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to > should be either Int or Char"
-ti env (BinOpExpr meta Gte e1 e2) =  do {tcBinOpBoolean IntType env e1 e2}
-                                     `catchError` \_ -> tcBinOpIdentity CharType env e1 e2
-                                     `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to >= should be either Int or Char"
-ti env (BinOpExpr meta Lt e1 e2) =  do {tcBinOpBoolean IntType env e1 e2 }
+instance Typecheck (Expr ParsedP) where
+    ti env (LiteralExpr _ lit) = ti env lit
+    ti env (BinOpExpr _meta Mul e1 e2) = tcBinOpIdentity IntType env e1 e2
+    ti env (BinOpExpr _meta Mod e1 e2) = tcBinOpIdentity IntType env e1 e2
+    ti env (BinOpExpr _meta Add e1 e2) = tcBinOpIdentity IntType env e1 e2
+    ti env (BinOpExpr _meta Div e1 e2) = tcBinOpIdentity IntType env e1 e2
+    ti env (BinOpExpr _meta Sub e1 e2) = tcBinOpIdentity IntType env e1 e2
+        -- These next ones are polymorf, they can either be char or int
+    ti env (BinOpExpr meta Gt e1 e2) = do {tcBinOpBoolean IntType env e1 e2}
                                     `catchError` \_ -> tcBinOpIdentity CharType env e1 e2
-                                    `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to < should be either Int or Char"
-ti env (BinOpExpr meta Lte e1 e2) = do {tcBinOpBoolean IntType env e1 e2 }
-                                    `catchError` \_ -> tcBinOpBoolean CharType env e1 e2
-                                    `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to <= should be either Int or Char"
-ti env (BinOpExpr meta Eq e1 e2) = do
-                                     (s1, t1) <- ti env e1
-                                     (s2, t2) <- ti env e2
-                                     s3 <- unify t1 t2
-                                     let s = s1 `composeSubst` s2 `composeSubst` s3
-                                     return (s, t1)
-ti env (BinOpExpr meta Neq e1 e2) = tcBinOpIdentity BoolType env e1 e2
-ti env (BinOpExpr meta And e1 e2) = tcBinOpIdentity BoolType env e1 e2
-ti env (BinOpExpr meta Or e1 e2) = tcBinOpIdentity BoolType env e1 e2
-ti env (BinOpExpr meta Cons e1 e2) = do
+                                    `catchError` \_ -> throwError $ "Invalid operation at " ++ show (meta :: SourceSpan) ++ "\nArguments to > should be either Int or Char"
+    ti env (BinOpExpr meta Gte e1 e2) =  do {tcBinOpBoolean IntType env e1 e2}
+                                        `catchError` \_ -> tcBinOpIdentity CharType env e1 e2
+                                        `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to >= should be either Int or Char"
+    ti env (BinOpExpr meta Lt e1 e2) =  do {tcBinOpBoolean IntType env e1 e2 }
+                                        `catchError` \_ -> tcBinOpIdentity CharType env e1 e2
+                                        `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to < should be either Int or Char"
+    ti env (BinOpExpr meta Lte e1 e2) = do {tcBinOpBoolean IntType env e1 e2 }
+                                        `catchError` \_ -> tcBinOpBoolean CharType env e1 e2
+                                        `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to <= should be either Int or Char"
+    ti env (BinOpExpr _meta Eq e1 e2) = do
                                         (s1, t1) <- ti env e1
                                         (s2, t2) <- ti env e2
-                                        s3 <- case t2 of
-                                                ListType u1 -> unify t1 u1
-                                                _ -> throwError $
-                                                    "Couldn't match expected type " ++ show (ListType t1) ++ 
-                                                    " with " ++ show t2 ++ " at " ++ show meta ++ 
-                                                    ". You tried to cons " ++ show t1 ++ " with " ++ show t2 ++ 
-                                                    ", but this is not legal."
+                                        s3 <- unify t1 t2
                                         let s = s1 `composeSubst` s2 `composeSubst` s3
-                                        return (s, ListType t1)
+                                        return (s, t1)
+    ti env (BinOpExpr _meta Neq e1 e2) = tcBinOpIdentity BoolType env e1 e2
+    ti env (BinOpExpr _meta And e1 e2) = tcBinOpIdentity BoolType env e1 e2
+    ti env (BinOpExpr _meta Or e1 e2) = tcBinOpIdentity BoolType env e1 e2
+    ti env (BinOpExpr meta Cons e1 e2) = do
+                                            (s1, t1) <- ti env e1
+                                            (s2, t2) <- ti env e2
+                                            s3 <- case t2 of
+                                                    ListType u1 -> unify t1 u1
+                                                    _ -> throwError $
+                                                        "Couldn't match expected type " ++ show (ListType t1) ++
+                                                        " with " ++ show t2 ++ " at " ++ show meta ++
+                                                        ". You tried to cons " ++ show t1 ++ " with " ++ show t2 ++
+                                                        ", but this is not legal."
+                                            let s = s1 `composeSubst` s2 `composeSubst` s3
+                                            return (s, ListType t1)
 
-ti env (UnaryOpExpr _ Negate e) = do
-        (s1, t) <- ti env e
-        s2 <- unify BoolType t -- Check if its a bool, again here we could actually negate the bool maybe, like dependent types but only for bools?
-        return (s1 `composeSubst` s2, t)
-ti env (UnaryOpExpr _ (FieldAccess field) expr) = undefined
-ti env@(_, VarEnv varenv) (AssignExpr meta (Identifier var _) expr) = do
-                                       (s, t) <- ti env expr
-                                       let varTM = (Map.lookup var varenv)
-                                       varT <- case varTM of
-                                            Nothing -> throwError $ "Undefined variable " ++ show var ++ " at " ++ show meta ++ "."
-                                            Just varT -> return varT 
-                                       s' <- unify varT t
-                                       return (s `composeSubst` s', varT)
--- Todo Variables can have fields but I am just going to take the type of the String, I am leaving the warning
-ti (FunEnv funenv, _) (VariableExpr _ (Identifier var field)) = case Map.lookup var funenv of
-                                        Nothing -> throwError $ "unbound variable: " ++ var
-                                        Just sigma -> do 
-                                            t <- instantiate sigma
-                                            return (nullSubst, t)
-ti env@(FunEnv funenv, _) (FunctionCallExpr _ name args) = do
-    let schemeM = Map.lookup name funenv
-    scheme <- case schemeM of
-                Nothing -> throwError $ "Function " ++ name ++ " undefined."
-                Just scheme -> return scheme
-    funType <- instantiate scheme
-    case funType of
-        FunType argsT rT -> do
-            s1 <- zipWithM (tc env) args argsT
-            let s = foldr composeSubst nullSubst s1
-            return (s, apply s rT)
-        _ -> error $ "Function environment contains something other than a FunType: " ++ show funType ++ "!!!!!"
+    ti env (UnaryOpExpr _ Negate e) = do
+            (s1, t) <- ti env e
+            s2 <- unify BoolType t -- Check if its a bool, again here we could actually negate the bool maybe, like dependent types but only for bools?
+            return (s1 `composeSubst` s2, t)
+    ti _env (UnaryOpExpr _ (FieldAccess _field) _expr) = undefined
+    ti env@(_, varenv) (AssignExpr meta (Identifier var _) expr) = do
+                                        (s, t) <- ti env expr
+                                        let varTM = Map.lookup var varenv
+                                        varT <- case varTM of
+                                                Nothing -> throwError $ "Undefined variable " ++ show var ++ " at " ++ show meta ++ "."
+                                                Just varT -> return varT
+                                        s' <- unify varT t
+                                        return (s `composeSubst` s', varT)
+    -- Todo Variables can have fields but I am just going to take the type of the String, I am leaving the warning
+    ti (funenv, _) (VariableExpr _ (Identifier var _field)) = case Map.lookup var funenv of
+                                            Nothing -> throwError $ "unbound variable: " ++ var
+                                            Just sigma -> do
+                                                t <- instantiate sigma
+                                                return (nullSubst, t)
+    ti env@(funenv, _) (FunctionCallExpr _ funcName args) = do
+        let schemeM = Map.lookup funcName funenv
+        scheme <- case schemeM of
+                    Nothing -> throwError $ "Function " ++ funcName ++ " undefined."
+                    Just scheme -> return scheme
+        funType <- instantiate scheme
+        case funType of
+            FunType argsT rT -> do
+                s1 <- zipWithM (tc env) args argsT
+                let s = foldr composeSubst nullSubst s1
+                return (s, apply s rT)
+            _ -> error $ "Function environment contains something other than a FunType: " ++ show funType ++ "!!!!!"
