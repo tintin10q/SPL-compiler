@@ -8,12 +8,26 @@ import SPL.Parser.Type (pType, pRetType)
 import qualified SPL.Parser.Lexer as L
 
 import Control.Monad (void)
-import Text.Megaparsec (optional, many, getSourcePos)
+import Text.Megaparsec (optional, many, getSourcePos, (<|>))
 import qualified Data.Text as T
+import SPL.Parser.Expr (pExpr)
+import Data.Functor (($>))
 
 -- Parses any declaration.
 pDecl :: Parser (Decl ParsedP)
-pDecl = pFunDecl
+pDecl = pFunDecl <|> pVarDecl
+
+pVarDecl :: Parser (Decl ParsedP)
+pVarDecl = do
+    posStart <- getSourcePos
+    ty <- pVarType
+    identifier <- T.unpack <$> L.tIdentifier
+    void L.tEq
+    expr <- pExpr
+    void L.tSemiColon
+    posEnd <- getSourcePos
+    return $ VarDecl (srcSpan posStart posEnd) identifier ty expr
+    where pVarType = (L.tVar $> Nothing) <|> (Just <$> pType)
 
 -- Parses a function declaration.
 pFunDecl :: Parser (Decl ParsedP)
