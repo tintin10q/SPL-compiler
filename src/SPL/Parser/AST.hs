@@ -3,6 +3,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+-- {-# LANGUAGE DeriveFoldable #-}
 module SPL.Parser.AST where
 
 class Convertable n (p1 :: Phase) (p2 :: Phase) where
@@ -32,6 +33,7 @@ data Type
   | FunType [Type] Type
   deriving (Eq, Show)
 
+
 data UnaryOp = Negate | FieldAccess Field
   deriving (Eq, Show)
 
@@ -43,14 +45,16 @@ data BinOp =
   deriving (Eq, Show)
 
 
-data Decl (p :: Phase) 
+data Decl (p :: Phase)
   = FunDecl (FunDecl p) String (FunDeclT p) [(String, FunDeclT p)] [Stmt p]
   | VarDecl (VarDecl p) String (VarDeclT p) (Expr p)
 deriving instance Eq (Decl EmptyP)
 deriving instance Show (Decl EmptyP)
 
+
 type family FunDecl (p :: Phase)
 type instance FunDecl EmptyP = ()
+
 
 type family FunDeclT (p :: Phase)
 type instance FunDeclT EmptyP = ()
@@ -75,6 +79,7 @@ data Stmt (p :: Phase) =
 deriving instance Eq (Stmt EmptyP)
 deriving instance Show (Stmt EmptyP)
 
+
 instance Emptiable Stmt where
   empty (ReturnStmt _ expr) = ReturnStmt () (empty <$> expr)
   empty (IfStmt _ condition consequent alternative) = IfStmt () (empty condition) (map empty consequent) (map empty <$> alternative)
@@ -96,6 +101,8 @@ type instance ExprStmt EmptyP = ()
 
 type family VarStmt (p :: Phase)
 type instance VarStmt EmptyP = ()
+
+
 
 data Expr (p :: Phase) =
   BinOpExpr (BinOpExpr p) BinOp (Expr p) (Expr p)
@@ -151,9 +158,12 @@ instance Emptiable Literal where
   empty (TupleLit (e1, e2)) = TupleLit (empty e1, empty e2)
   empty EmptyListLit = EmptyListLit
 
+
 data Field = HeadField | TailField
   deriving (Eq, Show)
 
 data Variable
   = Identifier String (Maybe Field)
   deriving (Eq, Show)
+
+

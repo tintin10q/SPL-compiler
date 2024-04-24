@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 module SPL.Typechecker2 where
 
 import qualified Data.Map as Map
@@ -222,3 +223,10 @@ instance Typecheck (Expr ParsedP) where
                 let s = foldr composeSubst nullSubst s1
                 return (s, apply s rT)
             _ -> error $ "Function environment contains something other than a FunType: " ++ show funType ++ "!!!!!"
+
+
+type instance BinOpExpr TypecheckedP = Type
+type instance UnaryOpExpr TypecheckedP = Type
+type instance FunctionCallExpr TypecheckedP = Type
+type instance LiteralExpr TypecheckedP = Type
+type instance VarDeclT TypecheckedP = Type
