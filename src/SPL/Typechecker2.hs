@@ -257,26 +257,39 @@ instance Typecheck a => Typecheck [a] where
     tc = error "Tc does not make sense yet for lists of things idk good luck with it"
 
 instance Typecheck (Stmt ParsedP) where
-  ti env (ReturnStmt meta (Just e)) = ti env e
-  ti env (ReturnStmt meta Nothing) = return (nullSubst, VoidType)
-  ti env (IfStmt meta cond consequent (Just alternative)) = do
-                                    s1 <- tc env cond BoolType
-                                    (s2, _) <- ti env consequent
-                                    (s3, _) <- ti env alternative
-                                    let s = s1 `composeSubst` s2  `composeSubst` s3
-                                    return (s, VoidType)
-  ti env (IfStmt meta cond consequent Nothing) = do
-                                    s1 <- tc env cond BoolType
-                                    (s2, _) <- ti env consequent
-                                    let s = s1 `composeSubst` s2
-                                    return (s, VoidType)
+  ti env (ReturnStmt _ (Just e)) = ti env e
+  ti _env (ReturnStmt _ Nothing) = return (nullSubst, VoidType)
+  ti env (IfStmt _ cond consequent (Just alternative)) =
+    do
+      s1 <- tc env cond BoolType
+      (s2, _) <- ti env consequent
+      (s3, _) <- ti env alternative
+      let s = s1 `composeSubst` s2  `composeSubst` s3
+      return (s, VoidType)
+  ti env (IfStmt _ cond consequent Nothing) =
+    do
+      s1 <- tc env cond BoolType
+      (s2, _) <- ti env consequent
+      let s = s1 `composeSubst` s2
+      return (s, VoidType)
+  ti env (WhileStmt _ cond stmts) = 
+    do
+      s1 <- tc env cond BoolType
+      (s2, _) <- ti env stmts
+      let s = s1 `composeSubst` s2
+      return (s, VoidType)
+  ti env (ExprStmt _ e) = ti env e
 
-  ti env (WhileStmt meta cond stmts) =  do
-                                    s1 <- tc env cond BoolType
-                                    (s2, _) <- ti env stmts
-                                    let s = s1 `composeSubst` s2
-                                    return (s, VoidType)
-  ti env (ExprStmt meta e) = ti env e 
+buildVarEnv :: Program ParsedP -> TI (Subst, VarEnv)
+buildVarEnv p = buildVarEnv' p Map.empty
+  where buildVarEnv' :: Program ParsedP -> VarEnv -> TI (Subst, VarEnv)
+        buildVarEnv' [] env = return (nullSubst, env)
+        buildVarEnv' (FunDecl {}:ds) env = buildVarEnv' ds env
+        buildVarEnv' (VarDecl _ name _ expr:ds) env = do
+          (s1, ty) <- ti (Map.empty, env) expr
+          (s2, env'') <- buildVarEnv' ds (Map.insert name ty env)
+
+          return (s1 `composeSubst` s2, env'')
 
 type instance BinOpExpr TypecheckedP = (Type, SourceSpan)
 type instance UnaryOpExpr TypecheckedP = (Type, SourceSpan)

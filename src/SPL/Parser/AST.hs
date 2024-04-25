@@ -32,7 +32,7 @@ data Type
   | ListType Type
   | TypeVar { name :: String, rigid :: Bool }
   | FunType [Type] Type
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
 
 data UnaryOp = Negate | FieldAccess Field
