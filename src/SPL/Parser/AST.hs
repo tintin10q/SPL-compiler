@@ -3,6 +3,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE InstanceSigs #-}
 -- {-# LANGUAGE DeriveFoldable #-}
 module SPL.Parser.AST where
 
@@ -46,15 +47,13 @@ data BinOp =
 
 
 data Decl (p :: Phase)
-  = FunDecl (FunDecl p) String (FunDeclT p) [(String, FunDeclT p)] [Stmt p]
+  = FunDecl (FunDecl p) String (FunDeclT p) [(String, FunDeclT p)] [FunVarDecl p] [Stmt p]
   | VarDecl (VarDecl p) String (VarDeclT p) (Expr p)
 deriving instance Eq (Decl EmptyP)
 deriving instance Show (Decl EmptyP)
 
-
 type family FunDecl (p :: Phase)
 type instance FunDecl EmptyP = ()
-
 
 type family FunDeclT (p :: Phase)
 type instance FunDeclT EmptyP = ()
@@ -67,15 +66,28 @@ type instance VarDeclT EmptyP = ()
 
 instance Emptiable Decl where
   -- Emptying the type here is not ideal, but it seems to be the only way with type families
-  empty (FunDecl _ name _ args body) = FunDecl () name () (map (\(n, _) -> (n, ())) args) (empty <$> body)
+  empty (FunDecl _ name _ args decls body) = FunDecl () name () (map (\(n, _) -> (n, ())) args) (empty <$> decls) (empty <$> body)
   empty (VarDecl _ name _ val) = VarDecl () name () (empty val)
+
+data FunVarDecl p = FunVarDeclConstr (FunVarDeclConstr p) String (FunVarDeclT p) (Expr p) 
+deriving instance Eq (FunVarDecl EmptyP)
+deriving instance Show (FunVarDecl EmptyP)
+
+type family FunVarDeclConstr (p :: Phase)
+type instance FunVarDeclConstr EmptyP = ()
+
+instance Emptiable FunVarDecl where
+  empty :: FunVarDecl p -> FunVarDecl EmptyP
+  empty (FunVarDeclConstr meta name _ e) = FunVarDeclConstr () name () (empty e) 
+
+type family FunVarDeclT (p :: Phase)
+type instance FunVarDeclT EmptyP = ()
 
 data Stmt (p :: Phase) =
   ReturnStmt (ReturnStmt p) (Maybe (Expr p))
   | IfStmt (IfStmt p) (Expr p) [Stmt p] (Maybe [Stmt p])
   | WhileStmt (WhileStmt p) (Expr p) [Stmt p]
   | ExprStmt (ExprStmt p) (Expr p)
-  | VarStmt (VarStmt p) (Maybe Type) String (Expr p)
 deriving instance Eq (Stmt EmptyP)
 deriving instance Show (Stmt EmptyP)
 
@@ -85,7 +97,6 @@ instance Emptiable Stmt where
   empty (IfStmt _ condition consequent alternative) = IfStmt () (empty condition) (map empty consequent) (map empty <$> alternative)
   empty (WhileStmt _ condition body) = WhileStmt () (empty condition) (empty <$> body)
   empty (ExprStmt _ expr) = ExprStmt () (empty expr)
-  empty (VarStmt _ ty name val) = VarStmt () ty name (empty val)
 
 type family ReturnStmt (p :: Phase)
 type instance ReturnStmt EmptyP = ()

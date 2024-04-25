@@ -24,7 +24,9 @@ data VarData = VarData {
                         updateCode :: Code, -- Code to update value we find on stack in the storage,
                         loadCode :: Code, -- Code to push variable onto the stack
                         length :: Int,  -- Length of the variable
+                        allocatedLength :: Int,  -- Length of the variable
                         name :: String, -- name of the variabe 
+                        offset :: Int, -- Ofset in the heap
                         typeof :: Type } -- Type of the variable
 
 -- Map from a variable name to the code required to get the value on the stack
@@ -50,10 +52,10 @@ throw error = [LDS i | i <- chars] <> [TRAP 1 | _ <- chars] <> [HALT]
 -- The generated update code assumes the value to save is on the stack before the update code. 
 -- The value will be consumed
 genSaveGlobalCode :: Decl TypecheckedP -> (Int -> VarData)
-genSaveGlobalCode (VarDecl _ name t e) = case t of 
-                                            IntType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 1 name IntType
-                                            CharType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 1 name CharType
-                                            BoolType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 1 name BoolType
+genSaveGlobalCode (VarDecl _ name t e) = case fst t of 
+                                            IntType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 1 0 name offset IntType
+                                            CharType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 1 0 name offset CharType
+                                            BoolType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 1 0 name offset BoolType
                                             _ -> undefined
 genSaveGlobalCode _ = undefined
 
