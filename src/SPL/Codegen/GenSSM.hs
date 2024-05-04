@@ -130,7 +130,7 @@ instance GenSSM (Expr TypecheckedP) where
   generate env (AssignExpr _ variable expr) = undefined
   generate env (FunctionCallExpr (t, _) func args) = undefined
   generate env (VariableExpr _ variable) = undefined
-  generate env (LiteralExpr (t, _) literal) = undefined
+  generate env (LiteralExpr (t, _) literal) = generate env literal
 
 instance GenSSM (Literal TypecheckedP) where
   generate _ TrueLit = [LDS 1] -- There is also a True and False but its just a bit pattern https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#True
@@ -139,4 +139,4 @@ instance GenSSM (Literal TypecheckedP) where
   generate _ (CharLit char)  = [LDS $ ord char] -- Here we forget that it was a char
   generate env (TupleLit (e1, e2)) = [LDH 0] <> generate env e1
                                     <> [LDH 1] <> generate env e2 -- Wrong but yeah maybe store in heap?
-  generate _ EmptyListLit = [HALT]
+  generate _ EmptyListLit = [LDC 0, STH]

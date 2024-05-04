@@ -31,7 +31,7 @@ data Instr
     | SWP | SWPR Reg | SWPRR Reg Reg | LDRR Reg Reg  -- Various swaps
     | JSR | TRAP Int | NOP | HALT                    -- Other instructions
     | LABEL String                                   -- Pseudo-instruction for generating a label
-    | LDH Int | STH Int | STMH Int                   -- Heap variables
+    | LDH Int | STH | STMH Int                       -- Heap variables
     | Annotate Reg Int Int AnnotateColor String      -- Meta instruction to add color https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#annote
     deriving Show
 
@@ -60,7 +60,7 @@ instrSize i = case i of {
                   LDR  _   -> 2;    LDL   _   -> 2;    LDS  _    -> 2;   LDA  _ -> 2;   LDC  _ -> 2;
                   LDLA _   -> 2;    LDSA  _   -> 2;    LDAA _    -> 2;   STR  _ -> 2;   STL  _ -> 2;
                   STS  _   -> 2;    STA   _   -> 2;    AJS  _    -> 2;   LINK _ -> 2;   TRAP _ -> 2;
-                  SWPR _   -> 2;    LABEL _   -> 0;    LDH  _    -> 2;   STH  _ -> 2;   _ -> 1;
+                  SWPR _   -> 2;    LABEL _   -> 0;    LDH  _    -> 2;   _ -> 1;
               }
 
 -- For prettyprinting SSM code
