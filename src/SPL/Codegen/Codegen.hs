@@ -9,5 +9,4 @@ import SPL.Parser.AST
 
 class (GenWASM a, GenSSM a) => CodeGeneratable a
 
-
 instance CodeGeneratable (Program TypecheckedP)

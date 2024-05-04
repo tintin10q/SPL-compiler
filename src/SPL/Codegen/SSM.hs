@@ -31,7 +31,7 @@ data Instr
     | SWP | SWPR Reg | SWPRR Reg Reg | LDRR Reg Reg  -- Various swaps
     | JSR | TRAP Int | NOP | HALT                    -- Other instructions
     | LABEL String                                   -- Pseudo-instruction for generating a label
-    | LDH Int | STH Int                              -- Heap variables
+    | LDH Int | STH Int | STMH Int                   -- Heap variables
     | Annotate Reg Int Int AnnotateColor String      -- Meta instruction to add color https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#annote
     deriving Show
 

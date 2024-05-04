@@ -78,9 +78,6 @@ genSaveGlobalCode _ = undefined
 -- At the moment there is actually no direct list index.
 -- So you can only find an item in a list linearly maybe that makes code generation easier. 
 
-
-
-
 instance GenSSM (Program TypecheckedP) where
   generate env program = let
                          varDecls = filter isFunction program
@@ -94,13 +91,46 @@ instance GenSSM (Program TypecheckedP) where
 instance GenSSM (Decl TypecheckedP) where
   generate _ decl  = []
 
-
 instance GenSSM (Stmt TypecheckedP) where
   generate _ _ = []
 
-instance GenSSM (Expr TypecheckedP) where
-  generate _ _ = []
+instance GenSSM BinOp where
+  generate _ Mul = [MUL]
+  generate _ Div = [DIV]
+  generate _ Mod = [MOD]
+  generate _ Add = [ADD]
+  generate _ Sub = [SUB]
+  -- For (:) (cons), the stack looks like this:
+  --
+  -- |  value  |
+  -- |   addr  |
+  -- |  .....  |
+  --
+  -- The application of the cons operation should
+  -- put (value, addr) on the heap, and put the
+  -- address back on the stack at the top.
+  generate _ Cons = [STMH 2]
+  generate _ Gt = [SPL.Codegen.SSM.GT]
+  generate _ Gte = [GE]
+  generate _ Lt = [SPL.Codegen.SSM.LT]
+  generate _ Lte = [LE]
+  generate _ Eq = [SPL.Codegen.SSM.EQ]
+  generate _ Neq = [NE]
+  generate _ And = [AND]
+  generate _ Or = [OR]
 
+instance GenSSM UnaryOp where
+  generate _ Negate = [NEG]
+  -- TODO: Fix generate for FieldAccess
+  generate _ _ = error "Field access is not supported. :("
+
+instance GenSSM (Expr TypecheckedP) where
+  generate env (BinOpExpr _ op left right) = generate env left <> generate env right <> generate env op
+  generate env (UnaryOpExpr _ op operand) = generate env operand <> generate env op
+  generate env (AssignExpr _ variable expr) = undefined
+  generate env (FunctionCallExpr (t, _) func args) = undefined
+  generate env (VariableExpr _ variable) = undefined
+  generate env (LiteralExpr (t, _) literal) = undefined
 
 instance GenSSM (Literal TypecheckedP) where
   generate _ TrueLit = [LDS 1] -- There is also a True and False but its just a bit pattern https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#True
