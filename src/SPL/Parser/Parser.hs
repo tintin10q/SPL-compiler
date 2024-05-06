@@ -32,6 +32,12 @@ instance Show SourceSpan where
 srcSpan :: SourcePos -> SourcePos -> SourceSpan
 srcSpan start end = SourceSpan (start, end)
 
+type instance FunVarDeclConstr ParsedP = SourceSpan
+type instance FunVarDeclT ParsedP = Maybe Type
+
+deriving instance Eq (FunVarDecl ParsedP)
+deriving instance Show (FunVarDecl ParsedP)
+
 type instance FunDecl ParsedP = SourceSpan
 type instance FunDeclT ParsedP = Maybe Type
 type instance VarDecl ParsedP = SourceSpan
@@ -40,6 +46,7 @@ type instance VarDeclT ParsedP = Maybe Type
 deriving instance Eq (Decl ParsedP)
 deriving instance Show (Decl ParsedP)
 
+type instance AssignStmt ParsedP = SourceSpan
 type instance ReturnStmt ParsedP = SourceSpan
 type instance IfStmt ParsedP = SourceSpan
 type instance WhileStmt ParsedP = SourceSpan
@@ -51,7 +58,6 @@ deriving instance Show (Stmt ParsedP)
 
 type instance BinOpExpr ParsedP = SourceSpan
 type instance UnaryOpExpr ParsedP = SourceSpan
-type instance AssignExpr ParsedP = SourceSpan
 type instance FunctionCallExpr ParsedP = SourceSpan
 type instance VariableExpr ParsedP = SourceSpan
 type instance LiteralExpr ParsedP = SourceSpan

@@ -8,7 +8,7 @@ import SPL.Parser.Type (pType, pRetType)
 import qualified SPL.Parser.Lexer as L
 
 import Control.Monad (void)
-import Text.Megaparsec (optional, many, getSourcePos, (<|>))
+import Text.Megaparsec (optional, many, getSourcePos, (<|>), try)
 import qualified Data.Text as T
 import SPL.Parser.Expr (pExpr)
 import Data.Functor (($>))
@@ -41,11 +41,12 @@ pFunDecl = do
         void L.tColon
         pRetType
     void L.tLeftBrace
+    varDecls <- many $ try pFunVarDecl
     statements <- many pStmt
     void L.tRightBrace
     posEnd <- getSourcePos
 
-    return $ FunDecl (srcSpan posStart posEnd) functionName retType (concat args) statements
+    return $ FunDecl (srcSpan posStart posEnd) functionName retType (concat args) varDecls statements
 
     where
         pArgs = do
@@ -58,5 +59,19 @@ pFunDecl = do
                 void L.tColon
                 pType
             return (name, ty)
+
+-- Parses a variable declaration.
+-- Grammar: ('var' | type) identifier '=' expr ';'
+pFunVarDecl :: Parser (FunVarDecl ParsedP)
+pFunVarDecl = do
+    posStart <- getSourcePos
+    ty <- pVarType
+    identifier <- T.unpack <$> L.tIdentifier
+    void L.tEq
+    expr <- pExpr
+    void L.tSemiColon
+    posEnd <- getSourcePos
+    return $ FunVarDeclConstr (srcSpan posStart posEnd) identifier ty expr
+    where pVarType = (L.tVar $> Nothing) <|> (Just <$> pType)
 
         

@@ -31,7 +31,6 @@ library spl-lib
         SPL.Parser.Stmt
         SPL.Parser.Program
         SPL.Printer
-        SPL.Typechecker
         SPL.Typechecker2
         SPL.Codegen.Codegen
         SPL.Codegen.SSM

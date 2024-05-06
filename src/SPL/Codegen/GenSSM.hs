@@ -127,7 +127,6 @@ instance GenSSM UnaryOp where
 instance GenSSM (Expr TypecheckedP) where
   generate env (BinOpExpr _ op left right) = generate env left <> generate env right <> generate env op
   generate env (UnaryOpExpr _ op operand) = generate env operand <> generate env op
-  generate env (AssignExpr _ variable expr) = undefined
   generate env (FunctionCallExpr (t, _) func args) = undefined
   generate env (VariableExpr _ variable) = undefined
   generate env (LiteralExpr (t, _) literal) = generate env literal

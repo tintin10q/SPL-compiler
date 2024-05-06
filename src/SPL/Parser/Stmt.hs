@@ -2,7 +2,7 @@
 module SPL.Parser.Stmt where
 
 import SPL.Parser.AST
-import SPL.Parser.Expr (pExpr)
+import SPL.Parser.Expr (pExpr, pVariable)
 import SPL.Parser.Parser (Parser, srcSpan)
 import SPL.Parser.Type (pType)
 import qualified SPL.Parser.Lexer as L
@@ -17,12 +17,22 @@ import qualified Data.Text as T
 -- Parses any statement.
 pStmt :: Parser (Stmt ParsedP)
 pStmt = choice
-    [ try pIfStmt
+    [ try pAssignStmt
+    , try pIfStmt
     , try pWhileStmt
     , try pReturnStmt
     , try pExprStmt
-    , try pVarStmt
     ]
+
+pAssignStmt :: Parser (Stmt ParsedP)
+pAssignStmt = do
+  posStart <- getSourcePos
+  variable <- pVariable
+  void L.tEq
+  expr <- pExpr
+  void L.tSemiColon
+  posEnd <- getSourcePos
+  return $ AssignStmt (srcSpan posStart posEnd) variable expr
 
 -- Parses an if statement.
 -- Grammar: 'if' '(' expr ')' '{' stmt* '}' ['else' '{' stmt* '}']
@@ -75,17 +85,3 @@ pReturnStmt = do
     void L.tSemiColon      -- ';'
     posEnd <- getSourcePos
     return $ ReturnStmt (srcSpan posStart posEnd) expr
-
--- Parses a variable declaration.
--- Grammar: ('var' | type) identifier '=' expr ';'
-pVarStmt :: Parser (Stmt ParsedP)
-pVarStmt = do
-    posStart <- getSourcePos
-    ty <- pVarType
-    identifier <- T.unpack <$> L.tIdentifier
-    void L.tEq
-    expr <- pExpr
-    void L.tSemiColon
-    posEnd <- getSourcePos
-    return $ VarStmt (srcSpan posStart posEnd) ty identifier expr
-    where pVarType = (L.tVar $> Nothing) <|> (Just <$> pType)

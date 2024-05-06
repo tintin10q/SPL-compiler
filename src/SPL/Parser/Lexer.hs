@@ -8,6 +8,7 @@ import Text.Megaparsec (between, many, (<|>))
 import Text.Megaparsec.Char
 import qualified Data.Text as T
 import qualified Text.Megaparsec.Char.Lexer as L
+import Debug.Trace (trace)
 
 -- Helpers
 

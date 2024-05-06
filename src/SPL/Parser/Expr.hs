@@ -12,6 +12,7 @@ import Control.Monad.Combinators.Expr
 import Text.Megaparsec (choice, try, (<|>), many, optional, getSourcePos)
 import qualified Data.Text as T
 import Data.Functor (($>))
+import Debug.Trace (trace)
 
 {--
 
@@ -23,7 +24,6 @@ exprSpan :: Expr ParsedP -> SourceSpan
 exprSpan expr = case expr of
   BinOpExpr srcSpan _ _ _ -> srcSpan
   UnaryOpExpr srcSpan _ _ -> srcSpan
-  AssignExpr srcSpan _ _ -> srcSpan
   FunctionCallExpr srcSpan _ _ -> srcSpan
   VariableExpr srcSpan _ -> srcSpan
   LiteralExpr srcSpan _ -> srcSpan
@@ -82,7 +82,6 @@ pTerm :: Parser (Expr ParsedP)
 pTerm = choice
   [ try $ L.parens pExpr
   , try pFunctionCall
-  , try pAssignExpr
   , try pLiteralExpr
   , try pVariableExpr
   ]
@@ -100,16 +99,6 @@ pFunctionCall = do
   void L.tRightParen
   posEnd <- getSourcePos
   return $ FunctionCallExpr (srcSpan posStart posEnd) functionName $ concat args
-
--- Parses an assignment expression (e.g. a = 'c', a.b = 'd').
-pAssignExpr :: Parser (Expr ParsedP)
-pAssignExpr = do
-  posStart <- getSourcePos
-  variable <- pVariable
-  void L.tEq
-  expr <- pExpr
-  posEnd <- getSourcePos
-  return $ AssignExpr (srcSpan posStart posEnd) variable expr
 
 -- Parses a literal expression (e.g. 10, 'a', []).
 pLiteralExpr :: Parser (Expr ParsedP)
@@ -130,10 +119,10 @@ pVariableExpr = do
 -- Parses a variable (e.g. a, a.b., a.b.c).
 pVariable :: Parser Variable
 pVariable = do
-  identifier <- T.unpack <$> L.lexeme L.tIdentifier
-  field <- optional pField
-  return $ Identifier identifier field
-  where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail))
+  identifier <- T.unpack <$> L.tIdentifier
+  -- field <- optional pField
+  return $ Identifier identifier Nothing
+  -- where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail))
 
 -- Parse any literal value
 pLiteral :: Parser (Literal ParsedP)

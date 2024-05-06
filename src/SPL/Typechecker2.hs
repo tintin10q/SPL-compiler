@@ -221,14 +221,6 @@ instance Typecheck (Expr ParsedP) where
     s2 <- unify BoolType t -- Check if its a bool, again here we could actually negate the bool maybe, like dependent types but only for bools?
     return (s1 `composeSubst` s2, t)
   ti _env (UnaryOpExpr _ (FieldAccess _field) _expr) = undefined
-  ti env@(_, varenv) (AssignExpr meta (Identifier var _) expr) = do
-    (s, t) <- ti env expr
-    let varTM = Map.lookup var varenv
-    varT <- case varTM of
-      Nothing -> throwError $ "Undefined variable " ++ show var ++ " at " ++ show meta ++ "."
-      Just varT -> return varT
-    s' <- unify varT t
-    return (s `composeSubst` s', varT)
   -- Todo Variables can have fields but I am just going to take the type of the String, I am leaving the warning
   ti (funenv, _) (VariableExpr _ (Identifier var _field)) = case Map.lookup var funenv of
     Nothing -> throwError $ "unbound variable: " ++ var
@@ -272,6 +264,14 @@ instance Typecheck (Stmt ParsedP) where
       (s2, _) <- ti env consequent
       let s = s1 `composeSubst` s2
       return (s, VoidType)
+  ti env@(_, varenv) (AssignStmt meta (Identifier var _) expr) = do
+    (s, t) <- ti env expr
+    let varTM = Map.lookup var varenv
+    varT <- case varTM of
+      Nothing -> throwError $ "Undefined variable " ++ show var ++ " at " ++ show meta ++ "."
+      Just varT -> return varT
+    s' <- unify varT t
+    return (s `composeSubst` s', varT)
   ti env (WhileStmt _ cond stmts) = 
     do
       s1 <- tc env cond BoolType
