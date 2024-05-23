@@ -4,7 +4,7 @@
 module SPL.Codegen.GenWASM where
 
 import SPL.Codegen.WASM
-import SPL.Parser.AST
+import SPL.AST
 
 class GenWASM a where
     gen :: a -> Code

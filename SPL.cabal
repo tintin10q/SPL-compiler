@@ -21,8 +21,8 @@ executable spl-exe
 library spl-lib
     import:           warnings
     exposed-modules:
+        SPL.AST
         SPL.Parser
-        SPL.Parser.AST
         SPL.Parser.Decl
         SPL.Parser.Expr
         SPL.Parser.Lexer
@@ -37,6 +37,8 @@ library spl-lib
         SPL.Codegen.GenSSM
         SPL.Codegen.GenWASM
         SPL.Codegen.WASM
+        SPL.Colors
+        SPL.State
     build-depends:    base ^>=4.17.2.1,
                       megaparsec,
                       containers,
@@ -44,7 +46,7 @@ library spl-lib
                       mtl ^>= 2.2.2,
                       text ^>=2.0,
                       data-default,
-                      pretty ^>= 1.1.3.6
+                      pretty ^>= 1.1.3.6,
     hs-source-dirs:   src
     default-language: Haskell2010
 

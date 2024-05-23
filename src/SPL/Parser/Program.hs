@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 module SPL.Parser.Program where
 
-import SPL.Parser.AST
+import SPL.AST
 import SPL.Parser.Parser (Parser)
 import SPL.Parser.Decl (pDecl)
 import qualified SPL.Parser.Lexer as L

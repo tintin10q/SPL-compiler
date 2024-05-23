@@ -1,6 +1,6 @@
 module SPL.Parser.Type where
 
-import SPL.Parser.AST
+import SPL.AST
 import SPL.Parser.Parser
 import qualified SPL.Parser.Lexer as L
 

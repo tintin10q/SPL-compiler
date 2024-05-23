@@ -3,7 +3,7 @@
 {-# HLINT ignore "Use <$>" #-}
 module SPL.Parser.Expr where
 
-import SPL.Parser.AST
+import SPL.AST
 import SPL.Parser.Parser (srcSpan, Parser, SourceSpan, startPos, endPos)
 import qualified SPL.Parser.Lexer as L
 

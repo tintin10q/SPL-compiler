@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 module SPL.Parser.Stmt where
 
-import SPL.Parser.AST
+import SPL.AST
 import SPL.Parser.Expr (pExpr, pVariable)
 import SPL.Parser.Parser (Parser, srcSpan)
 import SPL.Parser.Type (pType)

@@ -3,9 +3,10 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-module SPL.Parser.Parser (srcSpan, SourceSpan, Parser, show, startPos, endPos) where
+-- todo maybe we can remove endPos and startPos exports
+module SPL.Parser.Parser (srcSpan, SourceSpan, Parser, show, startPos, endPos, showStart, showEnd) where
 
-import SPL.Parser.AST
+import SPL.AST
 
 import Data.Text (Text)
 import Data.Void
@@ -23,20 +24,21 @@ newtype SourceSpan = SourceSpan (SourcePos, SourcePos)
 startPos :: SourceSpan -> SourcePos
 startPos (SourceSpan (start, _)) = start
 
+showStart :: SourceSpan -> String
+showStart = sourcePosPretty . startPos
+
+showEnd :: SourceSpan -> String
+showEnd = sourcePosPretty . startPos
+
 endPos :: SourceSpan -> SourcePos
 endPos (SourceSpan (_, end)) = end
 
 instance Show SourceSpan where
-  show (SourceSpan (start, end)) = show start ++ ":" ++ show end
+  -- show (SourceSpan (start, end)) = sourcePosPretty start ++ "->" ++ sourcePosPretty end
+  show (SourceSpan (start, end)) = "META" 
 
 srcSpan :: SourcePos -> SourcePos -> SourceSpan
 srcSpan start end = SourceSpan (start, end)
-
-type instance FunVarDeclConstr ParsedP = SourceSpan
-type instance FunVarDeclT ParsedP = Maybe Type
-
-deriving instance Eq (FunVarDecl ParsedP)
-deriving instance Show (FunVarDecl ParsedP)
 
 type instance FunDecl ParsedP = SourceSpan
 type instance FunDeclT ParsedP = Maybe Type
@@ -67,3 +69,4 @@ deriving instance Show (Expr ParsedP)
 
 deriving instance Eq (Literal ParsedP)
 deriving instance Show (Literal ParsedP)
+

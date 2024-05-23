@@ -1,6 +1,6 @@
 module SPL.Printer where
 
-import SPL.Parser.AST
+import SPL.AST
 
 import Data.List (intercalate)
 {-

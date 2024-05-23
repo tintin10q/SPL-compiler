@@ -1,0 +1,5 @@
+foo(x) {
+    var y = 5;
+    y = x;
+    return foo([]);
+}

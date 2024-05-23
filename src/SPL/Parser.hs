@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
-module SPL.Parser (parse, formatError) where
+module SPL.Parser (parse, formatError, eitherParserToIO) where
 
-import SPL.Parser.AST (Phase(ParsedP), Program)
+import SPL.AST (Phase(ParsedP), Program)
 import SPL.Parser.Program (pProgram)
 
 import Text.Megaparsec.Error (ParseErrorBundle)
@@ -14,3 +14,11 @@ parse = M.parse pProgram
 
 formatError :: ParseErrorBundle T.Text Void -> String
 formatError = M.errorBundlePretty
+
+
+eitherParserToIO :: Either (ParseErrorBundle T.Text Void) a -> IO a
+eitherParserToIO (Right value) = return value
+eitherParserToIO (Left err) = do
+    fail $ formatError err
+    -- fail $ red ("Compilation failed") 
+

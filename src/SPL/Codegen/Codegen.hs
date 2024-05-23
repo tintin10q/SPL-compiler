@@ -4,7 +4,7 @@ module SPL.Codegen.Codegen where
 
 import SPL.Codegen.GenWASM
 import SPL.Codegen.GenSSM
-import SPL.Parser.AST 
+import SPL.AST 
 
 
 class (GenWASM a, GenSSM a) => CodeGeneratable a

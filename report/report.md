@@ -123,7 +123,6 @@ Our abstract syntax tree is split up into four major inductive types, `Decl`, `S
 - `Expr`: for expressions (e.g. binary expression, assignment, function call);
 - `Literal`: for literals (e.g. numbers, chars, tuples).
 
-We have decided to not allow global variable declarations at the moment, because global variables are evil. Instead, we have made variable declarations a statement. This also has the benefit of allowing variable declarations everywhere in the body of a function, and not just at the start. In the future, we might add global variables to make the compiler more flexible (and to make more of the examples in the repository functional).
 
 ## The parser
 
@@ -137,35 +136,34 @@ Since parsers in megaparsec are also part of a number of useful typeclasses, suc
 
 ## Handling associativity
 
-Since we use the megaparsec library, we get quite a number of things for free, such as error handling and associativity. Megaparsec also provides us with the helper function `makeExprParser` that, given an operator table and a parser for terms (e.g. any expression that does not have an operator, such as literals), constructs a parser that has the specified operators in the specified order or precedence and with the specified associativity.
+Since we use the megaparsec library, we get quite a number of things for free, such as error handling and associativity. Megaparsec also provides us with the helper function `makeExprParser` that, given an operator table and a parser for terms (e.g. any expression that does not have an operator, such as literals), constructs a parser that has the specified operators in the specified order or precedence and with the specified associativity. We are using this `makeExprParser` function.
 
 Our operator table is as follows:
 
 ```haskell
-operatorTable :: [[Operator Parser Expr]]
 operatorTable =
-    [ [ Postfix (UnaryOp (FieldAccess HeadField) <$ try (L.tDot <* L.tHead))
-      , Postfix (UnaryOp (FieldAccess TailField) <$ try (L.tDot <* L.tTail))
+    [ [ Postfix (unary (FieldAccess HeadField) (try (L.tDot <* L.tHead)))
+      , Postfix (unary (FieldAccess TailField) (try (L.tDot <* L.tTail)))
       ]
-    , [ Prefix (UnaryOp Negate <$ L.tExcl)
+    , [ Prefix (unary Negate L.tExcl)
       ]
-    , [ InfixL (BinOp Mul <$ L.tStar)
-      , InfixL (BinOp Div <$ L.tSlash)
-      , InfixL (BinOp Mod <$ L.tPercent)
+    , [ InfixL (binary Mul L.tStar)
+      , InfixL (binary Div L.tSlash)
+      , InfixL (binary Mod L.tPercent)
       ]
-    , [ InfixL (BinOp Add <$ L.tPlus)
-      , InfixL (BinOp Sub <$ L.tMin)
+    , [ InfixL (binary Add L.tPlus)
+      , InfixL (binary Sub L.tMin)
       ]
-    , [ InfixR (BinOp Cons <$ L.tColon)]
-    , [ InfixN (BinOp Gt <$ L.tGt)
-      , InfixN (BinOp Gte <$ L.tGte)
-      , InfixN (BinOp Lt <$ L.tLt)
-      , InfixN (BinOp Lte <$ L.tLte)
-      , InfixN (BinOp Eq <$ L.tDoubleEq)
-      , InfixN (BinOp Neq <$ L.tExclEq)
+    , [ InfixR (binary Cons L.tColon)]
+    , [ InfixN (binary Gt L.tGt)
+      , InfixN (binary Gte L.tGte)
+      , InfixN (binary Lt L.tLt)
+      , InfixN (binary Lte L.tLte)
+      , InfixN (binary Eq L.tDoubleEq)
+      , InfixN (binary Neq L.tExclEq)
       ]
-    , [ InfixR (BinOp And <$ L.tDoubleAmpersand) ]
-    , [ InfixR (BinOp Or <$ L.tDoublePipe) ]
+    , [ InfixR $ binary And L.tDoubleAmpersand  ]
+    , [ InfixR $ binary Or L.tDoublePipe ]
     ]
 ```
 
@@ -205,7 +203,6 @@ We use these lexer parsers all throughout the rest of the parser, in places wher
 ## Pretty printing
 
 We have implemented a pretty printer. However, since comments are not included in the AST, our pretty printer strips comments, and can therefore not realistically be used for formatting. 
-We have discussed creating a seperate data type that holds the locations of all the comments in the source code. We think a seperate datatype is a good idea because then we do not have to bloat all the AST nodes with comments. This seperate datatype could also be part of the program type so that it is still part of the AST but only in once place. Once this is implemented we could restore the comments in the pretty printer.
 
 ## Testing
 
@@ -295,9 +292,9 @@ In the typecheck phase we have to unify the types that variables have with the t
 
 Because we have the location for each node in the AST, we can use this location to generate decent error messages that point to a specific location in the source code. However, since we have not yet finished the typechecking phase completely, we have not yet implemented generation of these error messages. Currently, the error is a simple string that explains *how* the unification failed (e.g. "Cannot unify `Int` with `Bool`.").glorious .
 
-## Polymorphism, inference and overloading
+## Polymorphism, inference 
 
-We are planning on supporting polymorphism, inference and overloading. However, since we have not fully implemented typechecking yet, we cannot talk about this yet.
+Our inference and type checking has now been implemented. But we still need to implement narrowing of functions for the code generation phase.
 
 ### Type variable instantiation
 
@@ -313,51 +310,63 @@ id2(v: a): a {
 }
 ```
 
-This means that when we determine the `a` in `id1` to be an `Int`, we do **not** update the `a` in `id2`. In practice, this is implemented by having a phase that instantiated the tree with *unique* type variables first.
-
-This mirrors the functionality of Haskell.
+This means that when we determine the `a` in `id1` to be an `Int`, we do **not** update the `a` in `id2`. This happens because we shall generate specific versions of functions with functions with type variables based on how the functions are called. 
 
 ### Polymorphism
 
-We have not yet implemented polymorphism.
+We have not yet implemented polymorphism. This requires rewriting the ast to use specific functions for specific types. We will implement this based on how functions are called and we shall generate specific versions of them.
 
 ### Inference
 
-We have not yet implemented inference.
+We have implemented type inference for the expressions. 
 
 ### Overloading
 
-We have not yet implemented overloading.
+We will not implement overloading except for the print function.
 
 ## Problems
 
 In this section, we explain the problems that we are currently tackling.
 
-### Missing type information (`InstantiatedP` phase)
+- Fields are not really implemented in the parser or in the type checker but they are in the abstract syntax tree.
+- Mutual recursion is not implemented, we now generate code by first generating code for all the var decls, then the funcdecls in order from top down.
+- Specilizing functions after (or during?) type inference. We did not realize we needed to do this.
+  - Should we do this during type checking or as a seperate phase? 
+  - Is it a good idea to apply the generated substitution during type checking to do this before you look at how the functions are called?
+- Having a working enviroment for code generation.
+- Check return statements
+  - Does every branch return? 
+  - Does every return return the same type as the function decleration.
 
-The first problem that we faced was missing type information. In the AST, we used `Maybe Type` for annotating the AST with type information during parsing. For example you can say `f() { return 4; }`. The return type of this function declaration is (during parsing) `None`.
+# Code generation 
 
-We added the `InstantiatedP` phase to deal with this. In the `InstantiatedP` phase we replace all the `Nothing` types with a unique type variable. 
+We are not very far yet on the code generation. We implemented a data with every SSM instruction and WASM instruction. 
+We implemented Monoid for these data so that the instructions can be chained together with the `<>` operator.
 
-When adding fresh type variables in the `InstantiatedP` phase we make sure that the type variables of function arguments and the return value refer to the same types, but only in the context of that function. This idea is best explained with an example:
+Then we made a type class called `GenSSM` and `GenWASM` with a single generate function that takes an enviroment and an AST node that implements the type generate class.
 
-```spl
-foo(arg1 : a, arg2 : b) : a {}
-bar(arg1 : b, arg2 : b) : a {}
+We will implement the lists as linked list in the memory. This allows us to implement the cons operator with a single instruction `STMH 2`. 
+We will then just only put the adress of the list into the stack. This way every variable on the stack will be the same size.
+
+We would like some feedback about how we are planning to represent the enviroment during code generation.
+We came up with two types:
+
+```hs
+data VarData = VarData {
+                        updateCode :: Code, -- Code to update value we find on stack in the storage,
+                        loadCode :: Code, -- Code to push variable onto the stack
+                        typeof :: Type } -- Type of the variable
+type VarEnv = Map.Map String VarData
 ```
 
-Will be converted into:
+or
 
-```spl
-foo(arg1 : f0, arg2 : f1) : f0 {}
-bar(arg1 : f2, arg2 : f2) : f3 {}
+```hs
+type VarEnv = Map.Map String Int
 ```
 
-This means that if you use the same polymorphic type variable name in multiple functions (like arg2 in both `foo` and `bar`) then the type variable only corresponds to the same type within that same function (see also `Type variable instantiation` above). So within `foo`, arg1 and the return type should have the same type. But we made sure that this does NOT have to be the same type as the return type of `bar`. Because we made the sensible choice that the `a` in the return type of `bar` should be a different type variable. 
-
-### Empty list types
-
-When we where assigning types to expressions we started by making a function that assigned a type to literals. We hit a problem when we had to type the empty list literal. What type do we assign to this expression? We have not figured that out yet.
+So either a string to an address or a record that has the code to load the variale onto the stack and update the variable wherever it is. 
+This is a choice between making the code that generates the enviroment more complicated or making the code generation more complicated. What do you think?
 
 # Appendix
 
@@ -391,6 +400,7 @@ Stmt =
     | 'return' [Expr] ';'
     | 'if' '(' Expr ')' '{' Stmt* '}' [else '{' Stmt* '}']
     | 'while' '(' Expr ')' '{' Stmt* '}'               
+    | Variable '=' Expr ';'
     | Expr  ';'
     | 'var' [Type] Identifier Expr  ';'
 
@@ -398,8 +408,8 @@ Expr =
     | Expr BinOp Expr
     | UnaryPrefix Expr
     | UnaryPostfix Expr
-    | Variable '=' Expr 
-    | Identifier '(' [Expr] [',' Expr]* ')'
+    | Identifier '(' ')'
+    | Identifier '(' Expr [',' Expr]* ')'
     | Variable              
     | Literal             
 

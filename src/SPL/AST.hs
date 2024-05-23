@@ -3,13 +3,16 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE InstanceSigs #-}
+
 -- {-# LANGUAGE DeriveFoldable #-}
-module SPL.Parser.AST where
+module SPL.AST where
 
 class Convertable n (p1 :: Phase) (p2 :: Phase) where
   -- We use this to explicitly change the phase of a node in a case that it won't fail anyway
-  convert :: n p1 -> n p2
+  -- convert :: n p1 -> n p2
+  upgrade :: n p1 -> n p2 -- Same name but upgrade makes more sense because your moving on 
+  -- This is great because it works if the shape is the same!
+
 
 class Emptiable n where
   -- Converts an AST node to the unannotated version of that node, special case of Convertabl
@@ -18,8 +21,8 @@ class Emptiable n where
 data Phase
   = EmptyP        -- Empty phase, used for testing
   | ParsedP       -- Phase after parsing with location information
-  | InstantiatedP -- Phase after fully instantiating all type variables
   | TypecheckedP  -- Phase after full typechecking
+  | GlobalVarsTypecheckedP
 
 type Program (p :: Phase) = [Decl p]
 
@@ -46,8 +49,9 @@ data BinOp =
 
 
 data Decl (p :: Phase)
-  = FunDecl (FunDecl p) String (FunDeclT p) [(String, FunDeclT p)] [FunVarDecl p] [Stmt p]
+  = FunDecl (FunDecl p) String (FunDeclT p) [(String, FunDeclT p)] [Decl p] [Stmt p]
   | VarDecl (VarDecl p) String (VarDeclT p) (Expr p)
+
 deriving instance Eq (Decl EmptyP)
 deriving instance Show (Decl EmptyP)
 
@@ -67,21 +71,6 @@ instance Emptiable Decl where
   -- Emptying the type here is not ideal, but it seems to be the only way with type families
   empty (FunDecl _ name _ args decls body) = FunDecl () name () (map (\(n, _) -> (n, ())) args) (empty <$> decls) (empty <$> body)
   empty (VarDecl _ name _ val) = VarDecl () name () (empty val)
-
-data FunVarDecl p = FunVarDeclConstr (FunVarDeclConstr p) String (FunVarDeclT p) (Expr p) 
-
-deriving instance Eq (FunVarDecl EmptyP)
-deriving instance Show (FunVarDecl EmptyP)
-
-type family FunVarDeclConstr (p :: Phase)
-type instance FunVarDeclConstr EmptyP = ()
-
-instance Emptiable FunVarDecl where
-  empty :: FunVarDecl p -> FunVarDecl EmptyP
-  empty (FunVarDeclConstr meta name _ e) = FunVarDeclConstr () name () (empty e) 
-
-type family FunVarDeclT (p :: Phase)
-type instance FunVarDeclT EmptyP = ()
 
 data Stmt (p :: Phase) =
   AssignStmt (AssignStmt p) Variable (Expr p)

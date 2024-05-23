@@ -1,4 +1,5 @@
 module SPL.Codegen.SSM where
+import Control.Monad.Reader
 
 -- Registers 
 data Reg = PC | SP | MP | R3 | R4 | R5 | R6 | R7 | RR | HP
@@ -71,3 +72,4 @@ formatInstr x         = '\t' : show x
 formatCode :: Code -> String
 formatCode = filter clean . concatMap ((++ "\n") . formatInstr)
     where clean c = c `notElem` "()\""
+

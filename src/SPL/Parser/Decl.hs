@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 module SPL.Parser.Decl where
 
-import SPL.Parser.AST
+import SPL.AST
 import SPL.Parser.Parser (Parser, srcSpan)
 import SPL.Parser.Stmt (pStmt)
 import SPL.Parser.Type (pType, pRetType)
@@ -12,10 +12,11 @@ import Text.Megaparsec (optional, many, getSourcePos, (<|>), try)
 import qualified Data.Text as T
 import SPL.Parser.Expr (pExpr)
 import Data.Functor (($>))
+import qualified Debug.Trace as Debug
 
 -- Parses any declaration.
 pDecl :: Parser (Decl ParsedP)
-pDecl = pFunDecl <|> pVarDecl
+pDecl =  (try pVarDecl) <|> pFunDecl
 
 pVarDecl :: Parser (Decl ParsedP)
 pVarDecl = do
@@ -27,7 +28,7 @@ pVarDecl = do
     void L.tSemiColon
     posEnd <- getSourcePos
     return $ VarDecl (srcSpan posStart posEnd) identifier ty expr
-    where pVarType = (L.tVar $> Nothing) <|> (Just <$> pType)
+    where pVarType = (try L.tVar $> Nothing) <|> (Just <$> pType)
 
 -- Parses a function declaration.
 pFunDecl :: Parser (Decl ParsedP)
@@ -41,7 +42,8 @@ pFunDecl = do
         void L.tColon
         pRetType
     void L.tLeftBrace
-    varDecls <- many $ try pFunVarDecl
+    varDecls <- many $ try pVarDecl
+    -- varDecls <- many $ try pDecl -- todo, this allows nested function definitions but we are just doing globals 
     statements <- many pStmt
     void L.tRightBrace
     posEnd <- getSourcePos
@@ -62,6 +64,7 @@ pFunDecl = do
 
 -- Parses a variable declaration.
 -- Grammar: ('var' | type) identifier '=' expr ';'
+{- todo Remove this
 pFunVarDecl :: Parser (FunVarDecl ParsedP)
 pFunVarDecl = do
     posStart <- getSourcePos
@@ -73,5 +76,4 @@ pFunVarDecl = do
     posEnd <- getSourcePos
     return $ FunVarDeclConstr (srcSpan posStart posEnd) identifier ty expr
     where pVarType = (L.tVar $> Nothing) <|> (Just <$> pType)
-
-        
+-} 

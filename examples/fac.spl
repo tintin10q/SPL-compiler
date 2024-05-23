@@ -1,7 +1,17 @@
+var a = 1;
+var b' = 2;
+
 fac(n : Int) : Int {
-    if (n == 0) {
-        return 1;
+    var a = 1;
+    
+   if (n == 0) {
+      return 1;
     }
 
-    return n * fac(n - 1);
+   return 3;
+   //return n * fac(n - 1);
 }
+
+
+var c = b' > a;
+// var d = fac(); // If we encounter a function save that one to be type checked next? 
