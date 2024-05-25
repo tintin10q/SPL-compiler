@@ -41,6 +41,8 @@ library spl-lib
         SPL.Optimizer
         SPL.State
         SPL.Return
+        SPL.PrettyPrint
+        SPL.Parser.SourceSpan
     build-depends:    base ^>=4.17.2.1,
                       megaparsec,
                       containers,

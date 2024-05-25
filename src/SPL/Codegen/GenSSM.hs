@@ -9,9 +9,7 @@ import SPL.AST
 
 import SPL.Codegen.SSM
 import Data.Char
-import Data.Map (Map)
 import qualified Data.Map as Map
-import SPL.Typechecker2 (Typecheck) -- Import only the type family instances
 import Control.Monad.Reader
 
 data Location = Adress Int | LocalVar Int

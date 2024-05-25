@@ -68,7 +68,7 @@ pListType = do
 pTypeVarType :: Parser Type
 pTypeVarType = do
     tvName <- T.unpack <$> L.tIdentifier
-    return $ TypeVar tvName True
+    return $ TypeVar tvName True -- Given type vars are always rigid because the programmer put them there
 
 -- Parses the void type.
 -- Grammar: 'Void'

@@ -1,19 +1,20 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
-
-module SPL.Return where
+module SPL.Return (checkReturns) where
 
 import SPL.AST
-import SPL.Colors (blue, red, yellow)
-import SPL.Parser.Parser (SourceSpan, showEnd, showStart)
+import SPL.Colors (blue, red)
+import SPL.Parser.SourceSpan (SourceSpan, showStart, showEnd)
+
 
 {-
-    Did it return?
+  Here we check if all paths return a value
     Dit it return a value?
-    No return and Without are compatible = Right ...
-    Return value and (No return or Without value) is imcompatible = Left String
-    return Value and return value is competable = Right ...
+     No and Without are compatible = Right ...
+     With and (No | Without) are imcompatible = Left String
+     With and With is competable = Right ...
 
+     and so on
  -}
 
 data TypeOfRet = WithValue SourceSpan | WithoutValue SourceSpan | No -- No is only for if there are no return statements. Only the base case should make it
@@ -281,7 +282,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ " or remove the return at "
             ++ showEnd m2
       -- We were here! -- idk about this one
-      -- I think we just be save and do all of them, but is this ok or not?  Each branch returns?
+      -- Ask Vraag I think we just be save and do all of them, but is this ok or not?  Each branch returns?
       -- I think we just be save and do all of them, but is this ok or not?  Each branch returns. I do want to detect not returning a value though
       (Right (WithValue m1), Right (WithValue m2), Right (WithoutValue m3)) ->
         Left $
@@ -299,6 +300,9 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ " and "
             ++ showEnd m2
             ++ "."
+      -- todo This one might be wrong as well because we go for the retrun at the end, which is one we might actually never get to?
+      (Right (WithValue m1), Right (WithValue _m2), Right No) -> Right $ WithValue m1
+      {-
       (Right (WithValue m1), Right (WithValue m2), Right No) ->
         Left $
           red "Invalid returns"
@@ -314,7 +318,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ " and "
             ++ showEnd m2
             ++ "."
-      -- todo This one might be wrong as well because we go for the retrun at the end, which is one we might actually never get to?
+      -}
       (Right (WithValue _), Right (WithValue _), Right (WithValue m)) -> Right (WithValue m)
   returns (WhileStmt meta _ body : later) =
     case (returns body, returns later) of
@@ -379,3 +383,44 @@ instance ReturnCheck (Decl ParsedP) where
     where
       addFunctionName err = Left $ "In function " ++ blue funname ++ ": " ++ err
   returns (VarDecl {} : later) = returns later
+
+-- Function that checks the returns of a decl with the actual state of affairs in the delc
+{-
+After the returns analysis we can do some things in the void case to add some information.
+    - If TypeOfRet == No | WithoutValue
+      -- If the return type of the function is Not given it becomes Void
+      -- If the return type of the function is given and not void ERROR
+    - If TypeOfRet == WithValue
+      -- WithValue and void is actually an error!
+      -- Anything else has to be solved by the type checker
+        --- If TypeOfRet == WithValue we later have to check later during type checking if we can unify the given return value of the fundecl with the expressions in the return statement
+      -- The type of every return expression has to unify with the specified type during type checking. We can look in the funenv for the return type!!
+-}
+checkReturns :: Program ParsedP -> Either String (Program ReturnsCheckedP)
+checkReturns [] = Right []
+checkReturns (var@(VarDecl {}) : later) = (upgrade var : ) <$> checkReturns later -- nice
+checkReturns (f@(FunDecl meta name retty args funvars body) : later) = do
+  does_return <- returns body -- Left is automatically raised! Also the fact that this is another instance of Either with different types is magic
+  new_fundecl <- case (does_return, retty) of
+                  -- If the return type of the function is Not given it becomes Void, nice
+                  (No, Nothing) -> pure (FunDecl meta name (Just VoidType) args funvars body)
+                  (WithoutValue _, Nothing) -> pure (FunDecl meta name (Just VoidType) args funvars body)
+                  (No, Just VoidType) -> pure f
+                  (WithoutValue _, Just VoidType) -> pure f
+                  -- If the return type of the function is given and not void ERROR
+                  (No, Just ty) -> Left $ red "Missing return statement" ++ " in function '" ++ blue name ++ "' defined at " ++ showStart meta
+                                    ++ "\nFunction '" ++ blue name ++ "' is specified to return a value of type " ++ show ty ++ " but no value is being returned from the '" ++ blue name ++ "' function."
+                                    ++ "\nEither add a return value or change the return type of the function to " ++ show VoidType
+                  (WithoutValue m, Just ty) -> Left $ red "Missing return value " ++ " in function '" ++ blue name ++ "' defined at " ++ showStart meta
+                                    ++ "\nFunction '" ++ blue name ++ "' is specified to return a value of type " ++ show ty ++ " but the return statement at "++ showStart m ++ " is not returning a value."
+                                    ++ "\nEither add a return value or change the return type of the function to " ++ show VoidType ++ "."
+                  -- If the return type of the function is void but we do return a value ERROR
+                  (WithValue m, Just VoidType) -> Left $ red "Unexpected return value " ++ " in function '" ++ blue name ++ "' defined at " ++ showStart meta
+                                    ++ "\nFunction '" ++ blue name ++ "' has a specified return type of "++ show VoidType ++ " which means no value should be returned."
+                                    ++ "\nHowever at " ++ showEnd m ++ " you are returning a value."
+                                    ++ "\nHere are some things to try:\n"
+                                    ++ "- If you do not want to return a value, remove the returned value at "++ showEnd m ++"\n"
+                                    ++ "- If you do want to return a value, change the return type annotation of the function to another type that is not " ++ show VoidType ++ "\n"
+                                    ++ "- If you do want to return a value but you don't know what type (yet), just remove the return type annotation of the function all together and let the compiler figure it out."
+                  _ -> pure f -- Everything else its up to the type checker
+  (upgrade new_fundecl : ) <$> checkReturns later

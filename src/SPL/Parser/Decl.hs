@@ -2,7 +2,8 @@
 module SPL.Parser.Decl where
 
 import SPL.AST
-import SPL.Parser.Parser (Parser, srcSpan)
+import SPL.Parser.Parser (Parser)
+import SPL.Parser.SourceSpan
 import SPL.Parser.Stmt (pStmt)
 import SPL.Parser.Type (pType, pRetType)
 import qualified SPL.Parser.Lexer as L
@@ -12,11 +13,11 @@ import Text.Megaparsec (optional, many, getSourcePos, (<|>), try)
 import qualified Data.Text as T
 import SPL.Parser.Expr (pExpr)
 import Data.Functor (($>))
-import qualified Debug.Trace as Debug
 
 -- Parses any declaration.
-pDecl :: Parser (Decl ParsedP)
-pDecl =  (try pVarDecl) <|> pFunDecl
+pDecl :: Parser (Decl ParsedP) 
+pDecl =  try pVarDecl <|> pFunDecl
+-- todo We could do a lookahead here to parse the type first? If we have that then we know its a vardecl
 
 pVarDecl :: Parser (Decl ParsedP)
 pVarDecl = do

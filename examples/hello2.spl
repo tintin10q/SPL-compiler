@@ -1,0 +1,31 @@
+
+main ( ) : Void {
+    print ("Hello world!");
+    print (42);
+    //print (True);
+}
+
+facR (n : Int) : Int {
+    if (n < 0) {
+        return 1;
+    } else {
+        return n * facR (n - 1);
+    }
+}
+
+facI (n) {
+    var r = 1;
+        while (n > 1) {
+            r = r * n;
+            n = n - 1;
+        }
+    return r;
+}   
+
+fromTo (from, to) {
+    if (from == to) {
+        return from : fromTo (from+1,to);
+    } else {
+        return [];
+    }
+}

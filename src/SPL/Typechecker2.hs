@@ -1,26 +1,20 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module SPL.Typechecker2 where
 
+
+import SPL.AST
+import SPL.Colors (blue)
+import SPL.Parser.SourceSpan (SourceSpan, endPos, showEnd, showStart)
 import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import qualified Debug.Trace as Debug
-import GHC.ExecutionStack (SrcLoc (sourceColumn))
-import SPL.AST
-import SPL.Colors (blue)
-import SPL.Parser.Parser (SourceSpan, endPos, showEnd, showStart)
 import Text.Megaparsec (SourcePos (SourcePos), unPos)
+import SPL.PrettyPrint (prettyPrintMap)
 
 data Scheme = Scheme [String] Type
   deriving (Show, Eq)
@@ -112,7 +106,7 @@ varBind :: SourceSpan -> String -> Type -> TI Subst
 varBind meta u t
   | u `Set.member` ftv t =
       throwError $
-        "Occurs check: cannot construct the infinite type " ++ u ++ " ~ " ++ show t ++ "at" ++ showStart meta
+        "Occurs check: cannot construct the infinite type " ++ u ++ " ~ " ++ show t ++ " at " ++ showStart meta
   | otherwise = return (Map.singleton u t)
 
 -- todo, we could also include variables names here maybe
@@ -130,9 +124,9 @@ unify meta t (TypeVar u False) = varBind meta u t
 unify meta (TypeVar u True) t =
   throwError $
     "Cannot unify " ++ u ++ " with " ++ show t ++ ", as " ++ u ++ " is a rigid type variable." ++ formatUnifyError meta
-unify _ t (TypeVar u True) =
+unify meta t (TypeVar u True) =
   throwError $
-    "Cannot unify " ++ u ++ " with " ++ show t ++ ", as " ++ u ++ " is a rigid type variable."
+    "Cannot unify " ++ u ++ " with " ++ show t ++ ", as " ++ u ++ " is a rigid type variable." ++ formatUnifyError meta
 unify meta (ListType t1) (ListType t2) = unify meta t1 t2
 unify meta (TupleType t1 t2) (TupleType t1' t2') = do
   s1 <- unify meta t1 t1'
@@ -143,10 +137,7 @@ unify _ BoolType BoolType = return nullSubst
 unify _ CharType CharType = return nullSubst
 unify meta t1 t2 = throwError $ "Types do not unify:\n" ++ show t1 ++ " vs. " ++ show t2 ++ formatUnifyError meta
 
-unifyCatch :: SourceSpan -> Type -> Type -> TI Subst
-unifyCatch span t1 t2 = do unify span t1 t2 `catchError` \err -> throwError $ err ++ formatUnifyError span
-
-instance Typecheck (Literal ParsedP) where
+instance Typecheck (Literal ReturnsCheckedP) where
   ti _ _ (IntLit _) = return (nullSubst, IntType)
   ti _ _ TrueLit = return (nullSubst, BoolType)
   ti _ _ FalseLit = return (nullSubst, BoolType)
@@ -161,7 +152,7 @@ instance Typecheck (Literal ParsedP) where
 
 -- Check if the type of 2 expr can be CheckType and then return ResultType
 --   ResultType -> CheckType -> ...
-tcBinOp :: SourceSpan -> Type -> Type -> (FunEnv, VarEnv) -> Expr ParsedP -> Expr ParsedP -> TI (Subst, Type)
+tcBinOp :: SourceSpan -> Type -> Type -> (FunEnv, VarEnv) -> Expr ReturnsCheckedP  -> Expr ReturnsCheckedP  -> TI (Subst, Type)
 tcBinOp meta resultT checkT env e1 e2 = do
   s1 <- tc env meta e1 checkT
   s2 <- tc env meta e2 checkT
@@ -171,7 +162,7 @@ tcBinOp meta resultT checkT env e1 e2 = do
 
 {- Check if the infered types of 2 expr can be unified with eachother and then return ResultType as the type of the 2 expressions
 We are checking if the two types of the expressions are equal in a sense -}
-tcBinOpEqual :: SourceSpan -> Type -> (FunEnv, VarEnv) -> Expr ParsedP -> Expr ParsedP -> TI (Subst, Type)
+tcBinOpEqual :: SourceSpan -> Type -> (FunEnv, VarEnv) -> Expr ReturnsCheckedP -> Expr ReturnsCheckedP -> TI (Subst, Type)
 tcBinOpEqual meta resultT env e1 e2 = do
   (s1, t1) <- ti env meta e1
   (s2, t2) <- ti env meta e2
@@ -179,14 +170,14 @@ tcBinOpEqual meta resultT env e1 e2 = do
   return (s1 `composeSubst` s2 `composeSubst` s3, resultT)
 
 {- Checks if the types of 2 expressions match the given type and returns the given type as the type of the expression -}
-tcBinOpIdentity :: SourceSpan -> Type -> (FunEnv, VarEnv) -> Expr ParsedP -> Expr ParsedP -> TI (Subst, Type)
+tcBinOpIdentity :: SourceSpan -> Type -> (FunEnv, VarEnv) -> Expr ReturnsCheckedP -> Expr ReturnsCheckedP -> TI (Subst, Type)
 tcBinOpIdentity meta t = tcBinOp meta t t
 
 -- Checks if the types of 2 expressions match the given type returns and returns a boolType
-tcBinOpBoolean :: SourceSpan -> Type -> (FunEnv, VarEnv) -> Expr ParsedP -> Expr ParsedP -> TI (Subst, Type)
+tcBinOpBoolean :: SourceSpan -> Type -> (FunEnv, VarEnv) -> Expr ReturnsCheckedP -> Expr ReturnsCheckedP-> TI (Subst, Type)
 tcBinOpBoolean meta = tcBinOp meta BoolType
 
-instance Typecheck (Expr ParsedP) where
+instance Typecheck (Expr ReturnsCheckedP) where
   ti env _ (LiteralExpr meta lit) = ti env meta lit
   ti env _ (BinOpExpr meta Mul e1 e2) = tcBinOpIdentity meta IntType env e1 e2
   ti env _ (BinOpExpr meta Mod e1 e2) = tcBinOpIdentity meta IntType env e1 e2
@@ -233,23 +224,17 @@ instance Typecheck (Expr ParsedP) where
   ti env _ (BinOpExpr meta Cons e1 e2) = do
     (s1, t1) <- ti env meta e1
     (s2, t2) <- ti env meta e2
+    -- Maybe we should see if we can tc with a list that has a type var inside
     s3 <- case t2 of
-      ListType u1 -> unify meta t1 u1
-      _ ->
-        throwError $
-          "Couldn't match expected type "
-            ++ show (ListType t1)
-            ++ " with "
-            ++ show t2
-            ++ " at "
-            ++ show meta
-            ++ ". You tried to cons "
-            ++ show t1
-            ++ " with "
-            ++ show t2
-            ++ ", but this is not legal."
-    let s = s1 `composeSubst` s2 `composeSubst` s3
-    return (s, ListType t1)
+            -- If t2 is a list type we have to unify with the type inside the list
+            ListType u1 -> unify meta t1 u1  `catchError` \err -> throwError $ "You tried to cons " ++ show t1 ++ " with " ++ show t2 ++ ", but this is not legal.\n" ++ err
+            -- Else just try to unify and let it fail (most likely)
+            _ -> unify meta t1 t2
+    -- Todo ask is this needed?
+    -- newTy <- newTyVar
+    -- s4 <- tc env meta e2 (ListType newTy) 
+    let s = s1 `composeSubst` s2 `composeSubst` s3 --`composeSubst` s4
+    return (s, ListType t1) -- This is good because we always get a list type like this and we are sure we can put t1 inside it 
   ti env _ (UnaryOpExpr meta Negate e) = do
     (s1, t) <- ti env meta e
     s2 <- unify meta BoolType t -- Check if its a bool, again here we could actually negate the bool maybe, like dependent types but only for bools?
@@ -259,7 +244,7 @@ instance Typecheck (Expr ParsedP) where
   ti (_, varenv) _ (VariableExpr meta (Identifier var _field)) = case Map.lookup var varenv of
     Nothing -> throwError $ "Unbound variable: '" ++ blue var ++ "' at " ++ showStart meta
     Just sigma -> pure (nullSubst, sigma)
-  ti env@(funenv, _) _ (FunctionCallExpr meta funcName args) = do
+  ti (funenv, _) _ (FunctionCallExpr meta funcName _args) = do
     let schemeM = Map.lookup funcName funenv
     scheme <- case schemeM of
       Nothing -> throwError $ "Function " ++ funcName ++ " undefined. at " ++ showStart meta
@@ -287,12 +272,12 @@ instance (Typecheck a) => Typecheck [a] where
 
 -- This could also be different version of ti in the typeclass that you don't have to implement??
 
-instance Typecheck (Stmt ParsedP) where
+instance Typecheck (Stmt ReturnsCheckedP) where
   ti env _ (ReturnStmt meta (Just e)) = ti env meta e
   -- Here we can check maybe the return type of the function?
   -- This has to be a funtion that checks the type of the return for the function we are in
   -- This should be in the env I think, just like meta
-  ti (funenv, _) _ (ReturnStmt meta Nothing) = return (nullSubst, VoidType)
+  ti (_, _) _ (ReturnStmt _ Nothing) = return (nullSubst, VoidType)
   ti env _ (IfStmt meta cond consequent (Just alternative)) =
     do
       s1 <- tc env meta cond BoolType
@@ -322,30 +307,36 @@ instance Typecheck (Stmt ParsedP) where
       return (s, VoidType)
   ti env _ (ExprStmt meta e) = ti env meta e
   -- ti env meta (BlockStmt stmt) = Debug.trace "ti called on BlackStmt!! That should not happen right?" ti env meta stmt
-  ti env meta (BlockStmt stmt) = error "ti called on BlackStmt!! That should not happen right during type checking?"
+  ti _env _meta (BlockStmt _body) = error "ti called on BlackStmt!! That should not happen right during type checking?"
 
 -- todo remove the debug.trace
 
-instance Typecheck (Decl ParsedP) where
-  ti env _ (VarDecl meta name _ expr) = ti env meta expr
-  ti env _ (FunDecl meta name _ _ _ expr) = undefined
+instance Typecheck (Decl ReturnsCheckedP) where
+  ti env _ (VarDecl meta _name _ expr) = ti env meta expr
+  ti _env _ (FunDecl _meta _name _ _ _ _expr) = undefined
 
 freshCounterStart :: TIState
 freshCounterStart = 1
 
--- Checks the global variables and returns the variable env
--- checkGlobalVars :: Program ParsedP -> (Either String (Subst, VarEnv))
-checkGlobalVars :: Program ParsedP -> Either String (Subst, (FunEnv, VarEnv))
-checkGlobalVars p = evalState (runExceptT $ buildVarEnv p (Map.empty, Map.empty)) freshCounterStart
+{- Checks the global variables and returns the variable env
+If we duplicate buildVarEnv we could actually do this before the return type checking
+ Again we use buildVarEnv for the global var decl but also in the function decl so we can not make the global vars a seperate phase without also needleesly duplicating code -}
+checkGlobalVars :: Program ReturnsCheckedP -> Either String (Program ReturnsCheckedP, VarEnv)
+checkGlobalVars p = do eitherResult <- evalState (runExceptT $ buildVarEnv p (Map.empty, Map.empty)) freshCounterStart
+                       let eitherVarenv = snd . snd $ eitherResult
+                       return $ merge eitherVarenv
+                    where merge varenv = (mergeTypesGlobalvars p varenv, varenv)
 
--- This one needs the fun env to resolve funcall expr
-buildVarEnv :: Program ParsedP -> (FunEnv, VarEnv) -> TI (Subst, (FunEnv, VarEnv))
+{- This function builds the variables enviroment from a list of decls. So it only looks at the vardecl. 
+During this we do type inference and type checking with the specified type. 
+This one needs the fun env to resolve funcall expr-}
+buildVarEnv :: Program ReturnsCheckedP -> (FunEnv, VarEnv) -> TI (Subst, (FunEnv, VarEnv))
 buildVarEnv [] env = return (nullSubst, env)
 -- Skip the fun envs
 buildVarEnv (FunDecl {} : ds) env = buildVarEnv ds env
 -- If they gave a type check it
 buildVarEnv (VarDecl meta name (Just specified_type) expr : ds) env@(funenv, varenv) = do
-  s1 <- tc env meta expr specified_type `catchError` \e -> throwError $ e ++ formatUnifyError meta
+  s1 <- tc env meta expr specified_type
 
   (s2, env') <- buildVarEnv ds (funenv, Map.insert name specified_type varenv)
   return (s1 `composeSubst` s2, env')
@@ -356,37 +347,37 @@ buildVarEnv (VarDecl meta name Nothing expr : ds) env@(funenv, varenv) = do
   return (s1 `composeSubst` s2, env')
 
 formatUnifyError :: SourceSpan -> [Char]
-formatUnifyError span = " at " ++ showStart span ++ " until line " ++ (case endPos span of SourcePos _ b a -> show (unPos b) ++ " column " ++ show (unPos a)) ++ "\n\nLearn more about unification errors here: https://en.wikipedia.org/wiki/Unification_(computer_science) or here https://cloogle.org/#unify%20error"
+formatUnifyError meta = " at " ++ showStart meta ++ " until line " ++ (case endPos meta of SourcePos _ b a -> show (unPos b) ++ " column " ++ show (unPos a)) ++ "\n\nLearn more about unification errors here: https://en.wikipedia.org/wiki/Unification_(computer_science) or here https://cloogle.org/#unify%20error"
 
 -- todo fix list stmt nicer code
 
 -- todo maybe this can be the ti instance for decl! But probably not cause we need to get TypecheckedP
-checkFunctions :: (FunEnv, VarEnv) -> Program ParsedP -> Either String (Subst, (FunEnv, VarEnv), Program TypecheckedP)
+checkFunctions :: (FunEnv, VarEnv) -> Program ReturnsCheckedP-> Either String (Subst, (FunEnv, VarEnv), Program TypecheckedP)
 checkFunctions env program = evalState (runExceptT $ checkFunctions' program env) (length $ snd env)
   where
-    checkFunctions' :: Program ParsedP -> (FunEnv, VarEnv) -> TI (Subst, (FunEnv, VarEnv), Program TypecheckedP)
+    checkFunctions' :: Program ReturnsCheckedP -> (FunEnv, VarEnv) -> TI (Subst, (FunEnv, VarEnv), Program TypecheckedP)
     checkFunctions' [] _ = return (nullSubst, env, [])
     -- VarDecl, we alrady checked these earlier in order to hoist them up top
     -- We still need to upgrade them though to typecheckedp
     -- So this does not do anything
-    checkFunctions' (VarDecl info name maybetype d : rest) env@(_, varenv) = do
-      (sub, env', program) <- checkFunctions' rest env
+    checkFunctions' (VarDecl info name maybetype d : rest) env'@(_, varenv) = do
+      (sub, env'', program) <- checkFunctions' rest env'
       -- This should always be Just because its a global var
       let ty = fromMaybe (varDeclTypeNotFoundError name varenv) maybetype
           typedD = upgrade d -- this will break if we add types to the meta of expresssions
-      return (sub, env', VarDecl info name ty typedD : program)
+      return (sub, env'', VarDecl info name ty typedD : program)
 
     -- FunDecl
     -- FunDeclT ParsedP = Maybe Type
     checkFunctions' ((FunDecl meta name ty args funvars body) : rest_program) (funenv, varenv) = do
       -- Add the args to the varenv
       _ <- Debug.trace (blue ("Checking function '" ++ name ++ "': ")) pure ()
-      _ <- Debug.trace ("CheckFunctions' got funenv: " ++ show funenv) pure ()
-      _ <- Debug.trace ("Building arg env from args: " ++ show args) pure ()
+      -- _ <- Debug.trace ("CheckFunctions' got funenv: " ++ show funenv) pure ()
+      -- _ <- Debug.trace ("Building arg env from args: " ++ show args) pure ()
       argenv <-  foldM insertFunArgsIntoEnv Map.empty args
-      _ <- Debug.trace ("Resulting argenv " ++ show argenv) pure ()
       let varenv' = argenv <> varenv -- I hope this does not break :()
-      return_type <- Debug.trace ("New varenv': " ++ show varenv') maybe newTyVar pure ty
+      _ <- Debug.trace ("Varenv' at end of function:\n" ++ prettyPrintMap varenv') pure ()
+      return_type <-  maybe newTyVar pure ty
       let argnames = map fst args
           -- Add a typescheme fun to the fun var
 
@@ -395,23 +386,21 @@ checkFunctions env program = evalState (runExceptT $ checkFunctions' program env
       -- todo what if you have duplicate vars in your
       _ <- either throwError pure (checkDuplicateVarDecl funvars)
       -- and also add the fun vars to the varenv
-      _ <- Debug.trace ("Adding fundecl to varenv' " ++ show varenv') pure ()
-      _ <- Debug.trace ("Added fun to to funenv' " ++ show funenv') pure ()
+      _ <- Debug.trace ("Adding fundecl to varenv':\n" ++ prettyPrintMap varenv') pure ()
+      _ <- Debug.trace ("Added fun to to funenv':\n" ++ prettyPrintMap funenv') pure ()
 
       (funvarsub, env') <- buildVarEnv funvars (funenv', varenv')
 
-      _ <- Debug.trace ("checking body with env" ++ show (funenv', env')) pure ()
+      _ <- Debug.trace ("checking body with fun env" ++ prettyPrintMap funenv' ++ " var env:" ++ prettyPrintMap (snd env')) pure ()
 
       body_ti <- mapM (ti env' meta) body
-      _ <- Debug.trace ("Got Subs " ++ show body_ti) pure ()
+      -- _ <- Debug.trace ("Got Subs " ++ show body_ti) pure ()
       let bodysub = foldr (composeSubst . fst) nullSubst body_ti
       -- hi <- map (\statement -> ti (funenv', varenv'') meta statement) body
 
-      _ <- Debug.trace ("bodysub: " ++ show bodysub ++ " and funtion sub: " ++ show funvarsub) pure ()
-
       {- Apply the substition to the varenv''-}
-      let (funenv'', varenv') = env' 
-      let function_sub = bodysub `composeSubst` funvarsub `composeSubst` varenv'
+      let (funenv'', varenv'') = env'
+      let function_sub = bodysub `composeSubst` funvarsub `composeSubst` varenv''
 
       let args' = updateArgs argnames function_sub
           funvars' = mergeTypesFunvars funvars function_sub
@@ -419,7 +408,7 @@ checkFunctions env program = evalState (runExceptT $ checkFunctions' program env
       -- I think we need to forget the variables we added to the varenv!
       -- Maybe even the function_sub??
 
-      _ <- Debug.trace ("Checking next function with function env" ++ show funenv'' ++ "and og var env " ++ show varenv) pure ()
+      _ <- Debug.trace ("Checking next function with function env: " ++ show funenv'' ++ "\nand og var env: " ++ show varenv) pure ()
       (sub, env'', checked_program) <- checkFunctions' rest_program (funenv'', varenv)
       -- I think we maybe now can look up the return type of this function in env
       -- Idk if we have to compose these subs here??
@@ -440,9 +429,9 @@ checkFunctions env program = evalState (runExceptT $ checkFunctions' program env
 
     -- Insert arguments into the var env
     insertFunArgsIntoEnv :: Map.Map String Type -> (String, Maybe Type) -> TI (Map.Map String Type)
-    insertFunArgsIntoEnv env (name, maybeType) = do
+    insertFunArgsIntoEnv _env (name, maybeType) = do
       ty <- maybe newTyVar pure maybeType
-      return $ Map.insert name ty env
+      return $ Map.insert name ty _env
 
 -- We need to add the return type to the enviroment, maybe do that earlier?
 -- Then we need to add the function arguments to the variables map
@@ -454,16 +443,17 @@ insertJust :: (Ord a) => Map.Map a b -> a -> Maybe b -> Map.Map a b
 insertJust m key (Just b) = Map.insert key b m
 insertJust m _ Nothing = m
 
-checkDuplicateVarDecl :: [Decl ParsedP] -> Either String String
-checkDuplicateVarDecl p = checkDuplicateVarDecl' Map.empty p
+-- We use this for global vras and in the function decl type checking so because of that the return type checking has to go first
+checkDuplicateVarDecl :: Program ReturnsCheckedP -> Either String String
+checkDuplicateVarDecl = checkDuplicateVarDecl' Map.empty
   where
     checkDuplicateVarDecl' _ [] = Right "No duplicate declerations"
-    checkDuplicateVarDecl' env (FunDecl {} : p) = checkDuplicateVarDecl' env p
-    checkDuplicateVarDecl' env ((VarDecl meta name _ _) : p) =
+    checkDuplicateVarDecl' env (FunDecl {} : program) = checkDuplicateVarDecl' env program
+    checkDuplicateVarDecl' env ((VarDecl meta name _ _) : program) =
       case Map.lookup name env of
-        Nothing -> checkDuplicateVarDecl' (Map.insert name meta env) p
+        Nothing -> checkDuplicateVarDecl' (Map.insert name meta env) program
         Just meta' ->
-          let _ = (meta' :: VarDecl ParsedP) -- Haskell can't figure this out
+          let _ = (meta' :: VarDecl ReturnsCheckedP) -- Haskell can't figure this out
            in Left $
                 "\nVariable with name "
                   ++ name
@@ -478,9 +468,10 @@ checkDuplicateVarDecl p = checkDuplicateVarDecl' Map.empty p
 -- Todo this should be another phase. We go from maybe type to type, but now fun decl is actually the same
 --
 
+varDeclTypeNotFoundError :: Show a1 => [Char] -> a1 -> a2
 varDeclTypeNotFoundError name env = error $ "Type of " ++ blue name ++ " not found in type envrioment. This should not happen. It probably was never added to the variable enviroment " ++ show env
 
-mergeTypesGlobalvars :: Program ParsedP -> VarEnv -> Program ParsedP
+mergeTypesGlobalvars :: Program ReturnsCheckedP -> VarEnv -> Program ReturnsCheckedP
 mergeTypesGlobalvars [] _ = []
 mergeTypesGlobalvars (f@(FunDecl {}) : rest) env = f : mergeTypesGlobalvars rest env
 mergeTypesGlobalvars ((VarDecl meta name _ expr) : rest) env =
@@ -488,7 +479,8 @@ mergeTypesGlobalvars ((VarDecl meta name _ expr) : rest) env =
   -- ty = fromMaybe (varDeclTypeNotFoundError name env) justty
    in VarDecl meta name justty expr : mergeTypesGlobalvars rest env
 
-mergeTypesFunvars :: Program ParsedP -> VarEnv -> Program TypecheckedP
+-- Todo this is basically the same function as the one above here. Bad? Maybe we should duplicate code for global var checks? Nah. Its just not needed and we have no time.
+mergeTypesFunvars :: Program ReturnsCheckedP -> VarEnv -> Program TypecheckedP
 mergeTypesFunvars [] _ = []
 mergeTypesFunvars (FunDecl {} : _) _ = error "We do not support function definitions nested in functions yet"
 mergeTypesFunvars ((VarDecl meta name _ expr) : rest) env =
@@ -498,116 +490,4 @@ mergeTypesFunvars ((VarDecl meta name _ expr) : rest) env =
 -- todo Later this one shall have the buildins
 --  Phase that we check that none of the user functions are named the default names!
 defaultFunEnv :: Map.Map String Scheme
-defaultFunEnv = Map.empty
-
-type instance VarDecl GlobalVarsTypecheckedP = VarDecl ParsedP
-
-type instance VarDeclT GlobalVarsTypecheckedP = Type
-
-type instance FunDecl GlobalVarsTypecheckedP = FunDecl ParsedP
-
-type instance FunDeclT GlobalVarsTypecheckedP = FunDeclT ParsedP
-
-type instance BinOpExpr GlobalVarsTypecheckedP = BinOpExpr ParsedP
-
-type instance UnaryOpExpr GlobalVarsTypecheckedP = UnaryOpExpr ParsedP
-
-type instance FunctionCallExpr GlobalVarsTypecheckedP = FunctionCallExpr ParsedP
-
-type instance VariableExpr GlobalVarsTypecheckedP = VariableExpr ParsedP
-
-type instance LiteralExpr GlobalVarsTypecheckedP = LiteralExpr ParsedP
-
-deriving instance Eq (Decl TypecheckedP)
-
-deriving instance Show (Decl TypecheckedP)
-
-type instance ReturnStmt TypecheckedP = SourceSpan
-
-type instance IfStmt TypecheckedP = SourceSpan
-
-type instance WhileStmt TypecheckedP = SourceSpan
-
-type instance ExprStmt TypecheckedP = SourceSpan
-
-type instance VarStmt TypecheckedP = SourceSpan
-
-type instance AssignStmt TypecheckedP = SourceSpan
-
--- Make a definition that is needed for a type family
-
-deriving instance Eq (Stmt TypecheckedP)
-
-deriving instance Show (Stmt TypecheckedP)
-
-deriving instance Eq (Expr TypecheckedP)
-
-deriving instance Show (Expr TypecheckedP)
-
-deriving instance Eq (Literal TypecheckedP)
-
-deriving instance Show (Literal TypecheckedP)
-
-type instance FunDecl TypecheckedP = SourceSpan
-
-type instance VarDecl TypecheckedP = SourceSpan
-
-type instance ReturnStmt TypecheckedP = SourceSpan
-
-type instance IfStmt TypecheckedP = SourceSpan
-
-type instance WhileStmt TypecheckedP = SourceSpan
-
-type instance ExprStmt TypecheckedP = SourceSpan
-
-type instance VarStmt TypecheckedP = SourceSpan
-
-type instance FunDecl TypecheckedP = SourceSpan
-
-type instance FunDeclT TypecheckedP = Type
-
-type instance VarDecl TypecheckedP = SourceSpan
-
-type instance VarDeclT TypecheckedP = Type
-
--- type instance BinOpExpr TypecheckedP = (SourceSpan, Type)
--- type instance UnaryOpExpr TypecheckedP = (SourceSpan, Type)
--- type instance FunctionCallExpr TypecheckedP = (SourceSpan, Type)
--- type instance VariableExpr TypecheckedP = (SourceSpan, Type)
--- type instance LiteralExpr TypecheckedP = (SourceSpan, Type)
-
-type instance BinOpExpr TypecheckedP = SourceSpan
-
-type instance UnaryOpExpr TypecheckedP = SourceSpan
-
-type instance FunctionCallExpr TypecheckedP = SourceSpan
-
-type instance LiteralExpr TypecheckedP = SourceSpan
-
-type instance VariableExpr TypecheckedP = SourceSpan
-
--- Convertable to upgrade ParsedP to TypecheckedP
-
-instance Convertable Expr ParsedP TypecheckedP where
-  upgrade (BinOpExpr meta op e1 e2) = BinOpExpr (meta :: BinOpExpr TypecheckedP) op (upgrade e1) (upgrade e2)
-  upgrade (UnaryOpExpr meta op e) = UnaryOpExpr meta op (upgrade e)
-  upgrade (FunctionCallExpr meta name exprs) = FunctionCallExpr meta name (map upgrade exprs)
-  upgrade (VariableExpr meta var) = VariableExpr meta var
-  upgrade (LiteralExpr meta lit) = LiteralExpr meta (upgrade lit)
-
-instance Convertable Literal ParsedP TypecheckedP where
-  upgrade (TupleLit (e1, e2)) = TupleLit (upgrade e1, upgrade e2)
-  upgrade TrueLit = TrueLit
-  upgrade FalseLit = FalseLit
-  upgrade (IntLit i) = IntLit i
-  upgrade (CharLit c) = CharLit c
-  upgrade EmptyListLit = EmptyListLit
-
-instance Convertable Stmt ParsedP TypecheckedP where
-  upgrade (AssignStmt meta var e) = AssignStmt (meta :: AssignStmt TypecheckedP) var (upgrade e)
-  upgrade (ReturnStmt meta (Just e)) = ReturnStmt (meta :: ReturnStmt TypecheckedP) (Just (upgrade e))
-  upgrade (ReturnStmt meta Nothing) = ReturnStmt (meta :: ReturnStmt TypecheckedP) Nothing
-  upgrade (IfStmt meta e body Nothing) = IfStmt (meta :: IfStmt TypecheckedP) (upgrade e) (map upgrade body) Nothing
-  upgrade (IfStmt meta e body (Just alternative)) = IfStmt (meta :: IfStmt TypecheckedP) (upgrade e) (map upgrade body) (Just (map upgrade alternative))
-  upgrade (WhileStmt meta e body) = WhileStmt (meta :: WhileStmt TypecheckedP) (upgrade e) (map upgrade body)
-  upgrade (ExprStmt meta e) = ExprStmt (meta :: ExprStmt TypecheckedP) (upgrade e)
+defaultFunEnv = Map.fromList [("print", Scheme ["input"] VoidType)]

@@ -3,15 +3,12 @@ module SPL.Parser.Stmt where
 
 import SPL.AST
 import SPL.Parser.Expr (pExpr, pVariable)
-import SPL.Parser.Parser (Parser, srcSpan)
-import SPL.Parser.Type (pType)
+import SPL.Parser.Parser (Parser)
+import SPL.Parser.SourceSpan (srcSpan)
 import qualified SPL.Parser.Lexer as L
 
-import Control.Applicative ((<|>))
 import Control.Monad (void)
-import Data.Functor (($>))
 import Text.Megaparsec (choice, try, optional, many, getSourcePos)
-import qualified Data.Text as T
 
 
 -- Parses any statement.

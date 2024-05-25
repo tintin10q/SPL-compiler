@@ -1,18 +1,19 @@
 {-# LANGUAGE DataKinds #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use <$>" #-}
 module SPL.Parser.Expr where
 
 import SPL.AST
-import SPL.Parser.Parser (srcSpan, Parser, SourceSpan, startPos, endPos)
+import SPL.Parser.Parser (Parser)
 import qualified SPL.Parser.Lexer as L
 
 import Control.Monad (void)
 import Control.Monad.Combinators.Expr
-import Text.Megaparsec (choice, try, (<|>), many, optional, getSourcePos)
+import Text.Megaparsec (choice, try, (<|>), many, optional, getSourcePos, noneOf, oneOf)
 import qualified Data.Text as T
 import Data.Functor (($>))
-import Debug.Trace (trace)
+import Text.Megaparsec.Char (char)
+import SPL.Colors (red)
+import SPL.Parser.SourceSpan
+
 
 {--
 
@@ -20,13 +21,14 @@ Expression parsers.
 
 --}
 
+{- Get meta info from expr -}
 exprSpan :: Expr ParsedP -> SourceSpan
 exprSpan expr = case expr of
-  BinOpExpr srcSpan _ _ _ -> srcSpan
-  UnaryOpExpr srcSpan _ _ -> srcSpan
-  FunctionCallExpr srcSpan _ _ -> srcSpan
-  VariableExpr srcSpan _ -> srcSpan
-  LiteralExpr srcSpan _ -> srcSpan
+  BinOpExpr meta _ _ _ -> meta
+  UnaryOpExpr meta _ _ -> meta
+  FunctionCallExpr meta _ _ -> meta
+  VariableExpr meta _ -> meta
+  LiteralExpr meta _ -> meta
 
 -- Operator table ordered in decreasing precedence (i.e. the higher
 -- in the list, the greater the binding strength of the set of
@@ -84,7 +86,41 @@ pTerm = choice
   , try pFunctionCall
   , try pLiteralExpr
   , try pVariableExpr
+  , try pStringExpr
   ]
+
+stringUntilQuote :: Parser T.Text
+stringUntilQuote = T.pack <$> many (noneOf ['"', '\n', '\r'])
+
+escapedChar :: Parser Char
+escapedChar = do
+    _ <- char '\\'
+    c <- oneOf ['\\', 'n', '"']
+    return $ case c of
+        'n' -> '\n'
+        '\\' -> '\\'
+        '"' -> '"'
+        _ -> c  -- Shouldn't reach here
+
+-- Parser for any string until a double quote, handling escape sequences
+stringWithEscapes :: Parser T.Text
+stringWithEscapes = T.pack <$> many (escapedChar <|> noneOf ['"', '\n', '\r', '\\'])
+
+
+pStringExpr :: Parser (Expr ParsedP)
+pStringExpr =  do
+    posStart <- getSourcePos
+    _ <- L.tQuotation
+    tokens <- T.unpack <$> stringWithEscapes
+    _ <- L.tQuotation
+    posEnd <- getSourcePos
+    let meta = srcSpan posStart posEnd
+
+    -- todo make this a nicer parse error from parsec
+    if null tokens then error $ red "Empty string not allowed at " ++ showStart meta ++ ". The string syntax is just syntactic suger for a large cons expression.\nBut that means that \"\" == [] which is not ideal because the typeof \"\" is [Char] while typeof [] is [a]. But the type checker can't know this anymore as this information is thrown away. So to prevent this confusion just no empty strings."
+    else return $ foldl (\previous token -> BinOpExpr meta Cons (LiteralExpr meta $ CharLit token ) previous) (LiteralExpr meta EmptyListLit) tokens
+  -- pStringExpr
+  -- UnaryOpExpr _ op expr
 
 -- Parses a function call expression (e.g. foo(), bar('a', 'b', 'c')).
 pFunctionCall :: Parser (Expr ParsedP)

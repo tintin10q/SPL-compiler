@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use camelCase" #-}
 module SPL.Optimizer where
-import qualified Debug.Trace as Debug
 
 import SPL.AST
 
@@ -83,3 +82,10 @@ opti_improvement p1 p2 = let length_p1 = length $ show p1
                              length_p2 = length $ show p2
                              diff = length_p2 - length_p1
                              in diff * 100 `div` length_p1    
+
+{-
+
+Further improvements:
+    - Remove the declerations from functions that have an empty body.
+    - Remove the functions that are not called at all
+-}
