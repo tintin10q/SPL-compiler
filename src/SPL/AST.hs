@@ -7,17 +7,10 @@
 -- {-# LANGUAGE DeriveFoldable #-}
 module SPL.AST where
 
-import SPL.Parser.SourceSpan -- The only import that we need from here because of the type families.
-                             -- We could also move the families to another file, also empty goes to the bottom
+-- The only import that we need from here because of the type families.
+import SPL.Parser.SourceSpan 
 
-
-class Convertable n (p1 :: Phase) (p2 :: Phase) where
-  -- We use this to explicitly change the phase of a node in a case that it won't fail anyway
-  -- convert :: n p1 -> n p2
-  upgrade :: n p1 -> n p2 -- Same name but upgrade makes more sense because your moving on 
-  -- This is great because it works if the shape is the same!
-
-
+{- All the different phases of the compiler -}
 data Phase
   = EmptyP        -- Empty phase, used for testing
   | ParsedP       -- Phase after parsing with location information
@@ -34,7 +27,7 @@ data Type
   | TupleType Type Type
   | ListType Type
   | TypeVar { typevarname :: String, rigid :: Bool }
-  | FunType [Type] Type
+  | FunType [Type] [Type] Type
   deriving (Eq, Ord)
 
 instance Show Type where 
@@ -46,18 +39,20 @@ instance Show Type where
   show (ListType ty) = "[" ++ show ty ++ "]"
   show (TypeVar name False) = 'T':'y':'p':'e':'v':'a':'r':' ':name 
   show (TypeVar name True) = 'R':'i':'g':'i':'d':' ':'T':'y':'p':'e':'v':'a':'r':' ':name
-  show (FunType types rettype) = '\\' : '\\' : foldr (\x r -> r ++ ", " ++ show x) "" types ++ "// " ++ " -> " ++ show rettype
+  show (FunType types fundecltypes rettype) =  listTypes " -> " types ++ show rettype ++ " (with var Decls types {" ++ listTypes "," fundecltypes  ++ "})" 
+    where listTypes sep = foldl (\r x -> r ++ show x ++ sep) ""
+
 
 data Decl (p :: Phase)
   = FunDecl (FunDecl p) String (FunDeclT p) [(String, FunDeclT p)] [Decl p] [Stmt p]
   | VarDecl (VarDecl p) String (VarDeclT p) (Expr p)
-
 deriving instance Eq (Decl EmptyP)
 deriving instance Eq (Decl ParsedP)
+deriving instance Eq (Decl TypecheckedP)
 
 deriving instance Show (Decl EmptyP)
 deriving instance Show (Decl ParsedP)
-
+deriving instance Show (Decl TypecheckedP)
 -- Closed type family it is thanks https://wiki.haskell.org/GHC/Type_families#Closed_family_simplification we don't need to allow people to extend them and we can always open them up again
 
 type family FunDecl (p :: Phase) where 
@@ -93,9 +88,13 @@ data Stmt (p :: Phase) =
   -- W don't parse to a BlockStmt but it is nice if you want to have a list of statements 
   | BlockStmt [Stmt p]
 deriving instance Eq (Stmt EmptyP)
-deriving instance Show (Stmt EmptyP)
 deriving instance Eq (Stmt ParsedP)
+deriving instance Eq (Stmt TypecheckedP)
+
+deriving instance Show (Stmt EmptyP)
 deriving instance Show (Stmt ParsedP)
+deriving instance Show (Stmt TypecheckedP)
+
 
 type family AssignStmt (p :: Phase) where 
   AssignStmt EmptyP = ()
@@ -151,9 +150,12 @@ data Expr (p :: Phase) =
   | VariableExpr (VariableExpr p) Variable
   | LiteralExpr (LiteralExpr p) (Literal p)
 deriving instance Eq (Expr EmptyP)
-deriving instance Show (Expr EmptyP)
 deriving instance Eq (Expr ParsedP)
+deriving instance Eq (Expr TypecheckedP)
+
+deriving instance Show (Expr EmptyP)
 deriving instance Show (Expr ParsedP)
+deriving instance Show (Expr TypecheckedP)
 
 type family BinOpExpr (p :: Phase) where
   BinOpExpr EmptyP = ()
@@ -194,9 +196,12 @@ data Literal (p :: Phase) =
   | TupleLit (Expr p, Expr p)
   | EmptyListLit
 deriving instance Eq (Literal EmptyP)
-deriving instance Show (Literal EmptyP)
 deriving instance Eq (Literal ParsedP)
+deriving instance Eq (Literal TypecheckedP)
+
+deriving instance Show (Literal EmptyP)
 deriving instance Show (Literal ParsedP)
+deriving instance Show (Literal TypecheckedP)
 
 
 data Field = HeadField | TailField
@@ -206,8 +211,12 @@ data Variable
   = Identifier String (Maybe Field)
   deriving (Eq, Show)
 
-{- Start of type familiy instances -}
-
+{- Start of type familiy instance convertable -}
+class Convertable n (p1 :: Phase) (p2 :: Phase) where
+  -- We use this to explicitly change the phase of a node in a case that it won't fail anyway
+  -- convert :: n p1 -> n p2
+  upgrade :: n p1 -> n p2 -- Same name but upgrade makes more sense because your moving on 
+  -- This is great because it works if the shape is the same!
 
 instance Convertable Expr ParsedP ReturnsCheckedP where
   upgrade (BinOpExpr meta op e1 e2) = BinOpExpr meta op (upgrade e1) (upgrade e2)
@@ -239,18 +248,6 @@ instance Convertable Decl ParsedP ReturnsCheckedP where
   upgrade (FunDecl meta name retty args funvars body) = FunDecl meta name retty args (map upgrade funvars) (map upgrade body)
 
 {- TypecheckedP instaces-}
-deriving instance Eq (Decl TypecheckedP)
-deriving instance Show (Decl TypecheckedP)
-
-deriving instance Eq (Stmt TypecheckedP)
-deriving instance Show (Stmt TypecheckedP)
-
-deriving instance Eq (Expr TypecheckedP)
-deriving instance Show (Expr TypecheckedP)
-
-deriving instance Eq (Literal TypecheckedP)
-deriving instance Show (Literal TypecheckedP)
-
 
 -- type instance BinOpExpr TypecheckedP = (SourceSpan, Type)
 -- type instance UnaryOpExpr TypecheckedP = (SourceSpan, Type)
@@ -291,6 +288,7 @@ instance Convertable Stmt ReturnsCheckedP TypecheckedP where
 class Emptiable n where
   -- Converts an AST node to the unannotated version of that node, special case of Convertabl
   empty :: n p -> n EmptyP
+
 
 instance Emptiable Expr where
   empty (BinOpExpr _ op left right) = BinOpExpr () op (empty left) (empty right)

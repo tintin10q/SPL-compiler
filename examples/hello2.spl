@@ -1,4 +1,6 @@
 
+Int a = true;
+
 main ( ) : Void {
     print ("Hello world!");
     print (42);

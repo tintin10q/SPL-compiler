@@ -72,13 +72,13 @@ class Typecheck a where
 instance Types Type where
   ftv (TupleType t1 t2) = Set.union (ftv t1) (ftv t2)
   ftv (ListType t) = ftv t
-  ftv (FunType args rt) = Set.union (ftv args) (ftv rt)
+  ftv (FunType args decls rt) =  ftv args <> ftv rt <> ftv decls
   ftv (TypeVar var False) = Set.singleton var
   ftv _ = Set.empty -- No rigid!
   apply subst t@(TypeVar var False) = fromMaybe t (Map.lookup var subst)
   apply subst (TupleType t1 t2) = TupleType (apply subst t1) (apply subst t2)
   apply subst (ListType t) = ListType (apply subst t)
-  apply subst (FunType args rt) = FunType (apply subst args) (apply subst rt)
+  apply subst (FunType args decls rt) = FunType (apply subst args) (apply subst decls) (apply subst rt)
   apply _ t = t
 
 instance Types Scheme where
@@ -112,13 +112,17 @@ varBind meta u t
 -- todo, we could also include variables names here maybe
 
 unify :: SourceSpan -> Type -> Type -> TI Subst
-unify meta (FunType at r) (FunType at' r') = do
+unify meta (FunType at decls r) (FunType at' decls' r') = do
   -- We need to unify all the arguments from l with l' pair by pair
   let unify' = unify meta
-  s1 <- zipWithM unify' at at' -- same as: mapM (uncurry unify) (zip at at') -- No I would never have known that witout the hint thing from vscode
-  let s1' = foldr composeSubst nullSubst s1 -- fold all the argument subs together
-  s2 <- unify meta (apply s1' r) (apply s1' r')
-  return $ s1' `composeSubst` s2
+  s1 <- zipWithM unify' at at' -- same as: mapM (uncurry unify) (zip at at') -- No I would have never have known that witout the hint thing from vscode
+
+  let s1' = foldr composeSubst nullSubst s1 
+  s2 <- zipWithM unify' decls decls' 
+
+  let s2' = foldr composeSubst nullSubst s2 -- fold all the argument subs together
+  s3 <- unify meta (apply s1' r) (apply s1' r')
+  return $ s1' `composeSubst` s2' `composeSubst` s3
 unify meta (TypeVar u False) t = varBind meta u t
 unify meta t (TypeVar u False) = varBind meta u t
 unify meta (TypeVar u True) t =
@@ -192,7 +196,7 @@ instance Typecheck (Expr ReturnsCheckedP) where
     tcBinOpBoolean meta IntType env e1 e2
       `catchError` \_ ->
         tcBinOpBoolean meta CharType env e1 e2
-          `catchError` \_ -> throwError $ "Invalid operation at " ++ show (meta :: SourceSpan) ++ "\nArguments to > should be either Int or Char but you gave " ++ you_gave
+          `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to > should be either Int or Char but you gave " ++ you_gave
   ti env _ (BinOpExpr meta Gte e1 e2) = do
     (_, t1) <- ti env meta e1
     (_, t2) <- ti env meta e2
@@ -311,9 +315,55 @@ instance Typecheck (Stmt ReturnsCheckedP) where
 
 -- todo remove the debug.trace
 
+{-
+
+The problem with this is that we don't need to actually combine the subs from these but if one is wrong we need to know it.
+  OHHHH We return a fun type ofcourse!! From that we can upgrade the decl in the wrapper function!
+
+-}
 instance Typecheck (Decl ReturnsCheckedP) where
   ti env _ (VarDecl meta _name _ expr) = ti env meta expr
-  ti _env _ (FunDecl _meta _name _ _ _ _expr) = undefined
+  -- Return the return type?
+  ti (funenv, varenv) _ (FunDecl meta name retty args fundelcs body) = do
+      -- Add the args to the varenv
+      _ <- Debug.trace (blue ("Inferencing function '" ++ name ++ "': ")) pure ()
+      -- _ <- Debug.trace ("CheckFunctions' got funenv: " ++ show funenv) pure ()
+      -- _ <- Debug.trace ("Building arg env from args: " ++ show args) pure ()
+      argenv <-  foldM insertFunArgsIntoEnv Map.empty args
+      let varenvWithArgs = argenv <> varenv -- I hope this does not break :()
+      return_type <- maybe newTyVar pure retty
+      -- lets check the funvars
+      -- Do this before adding the current function to the fun env. This prevents an infinite loop, todo add a better error message for this
+      _ <- either throwError pure (checkDuplicateVarDecl fundelcs)
+      _ <- Debug.trace ("Adding fundecl to varenv':\n" ++ prettyPrintMap varenvWithArgs) pure ()
+      (funvarsub, (funenvAfterAddingVarDelcs,varenvWithArgsAndVarDecls)) <- buildVarEnv fundelcs (funenv, varenvWithArgs) 
+          -- Add a typescheme fun to the fun var
+      let argnames = map fst args
+          funenvWithMe = Map.insert name (Scheme argnames return_type) funenvAfterAddingVarDelcs
+      _ <- Debug.trace ("Added fun to to funenv':\n" ++ prettyPrintMap funenvWithMe) pure ()
+
+      -- These are the envs to use moving forward
+      _ <- Debug.trace ("checking body with fun env:\n" ++ prettyPrintMap funenvWithMe ++ " var env:\n" ++ prettyPrintMap varenvWithArgsAndVarDecls) pure ()
+      let final_env = (funenvWithMe, varenvWithArgsAndVarDecls)
+      (bodysub, _) <- ti final_env meta body
+      -- _ <- Debug.trace ("Got Subs " ++ show body_ti) pure ()
+      -- let bodysub = foldr (composeSubst . fst) nullSubst body_ti
+      -- hi <- map (\statement -> ti (funenv', varenv'') meta statement) body
+
+      -- Idk if we have to compose these subs here??
+      let function_sub = bodysub `composeSubst` funvarsub `composeSubst` varenvWithArgsAndVarDecls
+          args' = updateFunArgs argnames function_sub
+          -- We need a list of types for the new fundecls 
+          argTypes = map snd args'
+      fundecls' <- mapM (varDeclsToType function_sub) fundelcs
+        -- We do use the latest funenv I think
+      return (function_sub, FunType argTypes fundecls' return_type)
+
+        where varDeclsToType :: VarEnv -> Decl ReturnsCheckedP -> TI Type
+              varDeclsToType _ (FunDecl {}) = error "We don't support nested fundecls yet"
+              varDeclsToType env (VarDecl _ name _ _) = case Map.lookup name env of
+                                                          (Just ty) -> return ty
+                                                          Nothing -> newTyVar
 
 freshCounterStart :: TIState
 freshCounterStart = 1
@@ -402,7 +452,7 @@ checkFunctions env program = evalState (runExceptT $ checkFunctions' program env
       let (funenv'', varenv'') = env'
       let function_sub = bodysub `composeSubst` funvarsub `composeSubst` varenv''
 
-      let args' = updateArgs argnames function_sub
+      let args' = updateFunArgs argnames function_sub
           funvars' = mergeTypesFunvars funvars function_sub
           body' = map upgrade body
       -- I think we need to forget the variables we added to the varenv!
@@ -416,22 +466,22 @@ checkFunctions env program = evalState (runExceptT $ checkFunctions' program env
       return (sub, env'', FunDecl meta name return_type args' funvars' body' : checked_program)
     -- how do we make a type scheme?
 
-    updateArgs :: [String] -> Map.Map String Type -> [(String, FunDeclT TypecheckedP)]
-    updateArgs argnames function_sub =
-      let maybe_types = map (\name -> (name, Map.lookup name function_sub)) argnames
-       in map resolve_maybe maybe_types
-      where
-        resolve_maybe :: (String, Maybe Type) -> (String, Type)
-        resolve_maybe (name, maybetype) =
-          let err = error $ "Could not find variable with name '" ++ blue name ++ "' in update args map: " ++ show function_sub
-              ty = fromMaybe err maybetype
-           in (name, ty)
+updateFunArgs :: [String] -> Map.Map String Type -> [(String, FunDeclT TypecheckedP)]
+updateFunArgs argnames function_sub =
+  let maybe_types = map (\name -> (name, Map.lookup name function_sub)) argnames
+    in map resolve_maybe maybe_types
+  where
+    resolve_maybe :: (String, Maybe Type) -> (String, Type)
+    resolve_maybe (name, maybetype) =
+      let err = error $ "Could not find variable with name '" ++ blue name ++ "' in update args map: " ++ show function_sub
+          ty = fromMaybe err maybetype
+        in (name, ty)
 
-    -- Insert arguments into the var env
-    insertFunArgsIntoEnv :: Map.Map String Type -> (String, Maybe Type) -> TI (Map.Map String Type)
-    insertFunArgsIntoEnv _env (name, maybeType) = do
-      ty <- maybe newTyVar pure maybeType
-      return $ Map.insert name ty _env
+-- Insert arguments into the var env
+insertFunArgsIntoEnv :: Map.Map String Type -> (String, Maybe Type) -> TI (Map.Map String Type)
+insertFunArgsIntoEnv _env (name, maybeType) = do
+  ty <- maybe newTyVar pure maybeType
+  return $ Map.insert name ty _env
 
 -- We need to add the return type to the enviroment, maybe do that earlier?
 -- Then we need to add the function arguments to the variables map
@@ -452,18 +502,15 @@ checkDuplicateVarDecl = checkDuplicateVarDecl' Map.empty
     checkDuplicateVarDecl' env ((VarDecl meta name _ _) : program) =
       case Map.lookup name env of
         Nothing -> checkDuplicateVarDecl' (Map.insert name meta env) program
-        Just meta' ->
-          let _ = (meta' :: VarDecl ReturnsCheckedP) -- Haskell can't figure this out
-           in Left $
-                "\nVariable with name "
-                  ++ name
-                  ++ " defined two times!\n"
-                  ++ "The first time at: "
-                  ++ showStart meta'
-                  ++ "\n"
-                  ++ "The second time at: "
-                  ++ showEnd meta
-                  ++ "\n"
+        Just meta' -> Left $ "\nVariable with name "
+                              ++ name
+                              ++ " defined two times!\n"
+                              ++ "The first time at: "
+                              ++ showStart meta'
+                              ++ "\n"
+                              ++ "The second time at: "
+                              ++ showEnd meta
+                              ++ "\n"
 
 -- Todo this should be another phase. We go from maybe type to type, but now fun decl is actually the same
 --
