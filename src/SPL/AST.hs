@@ -58,29 +58,31 @@ deriving instance Eq (Decl ParsedP)
 deriving instance Show (Decl EmptyP)
 deriving instance Show (Decl ParsedP)
 
-type family FunDecl (p :: Phase)
-type instance FunDecl EmptyP = ()
-type instance FunDecl ParsedP = SourceSpan
-type instance FunDecl ReturnsCheckedP = SourceSpan
-type instance FunDecl TypecheckedP = SourceSpan
+-- Closed type family it is thanks https://wiki.haskell.org/GHC/Type_families#Closed_family_simplification we don't need to allow people to extend them and we can always open them up again
 
-type family FunDeclT (p :: Phase)
-type instance FunDeclT EmptyP = ()
-type instance FunDeclT ParsedP = Maybe Type
-type instance FunDeclT ReturnsCheckedP = Maybe Type
-type instance FunDeclT TypecheckedP = Type
+type family FunDecl (p :: Phase) where 
+  FunDecl EmptyP = ()
+  FunDecl ParsedP = SourceSpan
+  FunDecl ReturnsCheckedP = SourceSpan
+  FunDecl TypecheckedP = SourceSpan
 
-type family VarDecl (p :: Phase)
-type instance VarDecl EmptyP = ()
-type instance VarDecl ParsedP = SourceSpan
-type instance VarDecl ReturnsCheckedP = SourceSpan
-type instance VarDecl TypecheckedP = SourceSpan
+type family FunDeclT (p :: Phase) where
+  FunDeclT EmptyP = ()
+  FunDeclT ParsedP = Maybe Type
+  FunDeclT ReturnsCheckedP = Maybe Type
+  FunDeclT TypecheckedP = Type
 
-type family VarDeclT (p :: Phase)
-type instance VarDeclT EmptyP = ()
-type instance VarDeclT ParsedP = Maybe Type
-type instance VarDeclT ReturnsCheckedP = Maybe Type
-type instance VarDeclT TypecheckedP = Type
+type family VarDecl (p :: Phase) where
+  VarDecl EmptyP = ()
+  VarDecl ParsedP = SourceSpan
+  VarDecl ReturnsCheckedP = SourceSpan
+  VarDecl TypecheckedP = SourceSpan
+
+type family VarDeclT (p :: Phase) where
+  VarDeclT EmptyP = ()
+  VarDeclT ParsedP = Maybe Type
+  VarDeclT ReturnsCheckedP = Maybe Type
+  VarDeclT TypecheckedP = Type
 
 data Stmt (p :: Phase) =
   AssignStmt (AssignStmt p) Variable (Expr p)
@@ -95,42 +97,42 @@ deriving instance Show (Stmt EmptyP)
 deriving instance Eq (Stmt ParsedP)
 deriving instance Show (Stmt ParsedP)
 
-type family AssignStmt (p :: Phase)
-type instance AssignStmt EmptyP = ()
-type instance AssignStmt ParsedP = SourceSpan
-type instance AssignStmt ReturnsCheckedP = SourceSpan
-type instance AssignStmt TypecheckedP = SourceSpan
+type family AssignStmt (p :: Phase) where 
+  AssignStmt EmptyP = ()
+  AssignStmt ParsedP = SourceSpan
+  AssignStmt ReturnsCheckedP = SourceSpan
+  AssignStmt TypecheckedP = SourceSpan
 
 
-type family ReturnStmt (p :: Phase)
-type instance ReturnStmt EmptyP = ()
-type instance ReturnStmt ParsedP = SourceSpan
-type instance ReturnStmt ReturnsCheckedP = SourceSpan
-type instance ReturnStmt TypecheckedP = SourceSpan
+type family ReturnStmt (p :: Phase) where
+  ReturnStmt EmptyP = ()
+  ReturnStmt ParsedP = SourceSpan
+  ReturnStmt ReturnsCheckedP = SourceSpan
+  ReturnStmt TypecheckedP = SourceSpan
 
-type family IfStmt (p :: Phase)
-type instance IfStmt EmptyP = ()
-type instance IfStmt ParsedP = SourceSpan
-type instance IfStmt ReturnsCheckedP = SourceSpan
-type instance IfStmt TypecheckedP = SourceSpan
+type family IfStmt (p :: Phase) where
+  IfStmt EmptyP = ()
+  IfStmt ParsedP = SourceSpan
+  IfStmt ReturnsCheckedP = SourceSpan
+  IfStmt TypecheckedP = SourceSpan
 
-type family WhileStmt (p :: Phase)
-type instance WhileStmt EmptyP = ()
-type instance WhileStmt ParsedP = SourceSpan
-type instance WhileStmt ReturnsCheckedP = SourceSpan
-type instance WhileStmt TypecheckedP = SourceSpan
+type family WhileStmt (p :: Phase) where
+  WhileStmt EmptyP = ()
+  WhileStmt ParsedP = SourceSpan
+  WhileStmt ReturnsCheckedP = SourceSpan
+  WhileStmt TypecheckedP = SourceSpan
 
-type family ExprStmt (p :: Phase)
-type instance ExprStmt EmptyP = ()
-type instance ExprStmt ParsedP = SourceSpan
-type instance ExprStmt ReturnsCheckedP = SourceSpan
-type instance ExprStmt TypecheckedP = SourceSpan
+type family ExprStmt (p :: Phase) where
+  ExprStmt EmptyP = ()
+  ExprStmt ParsedP = SourceSpan
+  ExprStmt ReturnsCheckedP = SourceSpan
+  ExprStmt TypecheckedP = SourceSpan
 
-type family VarStmt (p :: Phase)
-type instance VarStmt EmptyP = ()
-type instance VarStmt ParsedP = SourceSpan
-type instance VarStmt ReturnsCheckedP = SourceSpan
-type instance VarStmt TypecheckedP = SourceSpan
+type family VarStmt (p :: Phase) where
+  VarStmt EmptyP = ()
+  VarStmt ParsedP = SourceSpan
+  VarStmt ReturnsCheckedP = SourceSpan
+  VarStmt TypecheckedP = SourceSpan
 
 data UnaryOp = Negate | FieldAccess Field
   deriving (Eq, Show)
@@ -153,36 +155,36 @@ deriving instance Show (Expr EmptyP)
 deriving instance Eq (Expr ParsedP)
 deriving instance Show (Expr ParsedP)
 
-type family BinOpExpr (p :: Phase)
-type instance BinOpExpr EmptyP = ()
-type instance BinOpExpr ParsedP = SourceSpan
-type instance BinOpExpr ReturnsCheckedP = SourceSpan
-type instance BinOpExpr TypecheckedP = SourceSpan
+type family BinOpExpr (p :: Phase) where
+  BinOpExpr EmptyP = ()
+  BinOpExpr ParsedP = SourceSpan
+  BinOpExpr ReturnsCheckedP = SourceSpan
+  BinOpExpr TypecheckedP = SourceSpan
 
 
-type family UnaryOpExpr (p :: Phase)
-type instance UnaryOpExpr EmptyP = ()
-type instance UnaryOpExpr ParsedP = SourceSpan
-type instance UnaryOpExpr ReturnsCheckedP = SourceSpan
-type instance UnaryOpExpr TypecheckedP = SourceSpan
+type family UnaryOpExpr (p :: Phase) where
+  UnaryOpExpr EmptyP = ()
+  UnaryOpExpr ParsedP = SourceSpan
+  UnaryOpExpr ReturnsCheckedP = SourceSpan
+  UnaryOpExpr TypecheckedP = SourceSpan
 
-type family FunctionCallExpr (p :: Phase)
-type instance FunctionCallExpr EmptyP = ()
-type instance FunctionCallExpr ParsedP = SourceSpan
-type instance FunctionCallExpr ReturnsCheckedP = SourceSpan
-type instance FunctionCallExpr TypecheckedP = SourceSpan
+type family FunctionCallExpr (p :: Phase) where
+  FunctionCallExpr EmptyP = ()
+  FunctionCallExpr ParsedP = SourceSpan
+  FunctionCallExpr ReturnsCheckedP = SourceSpan
+  FunctionCallExpr TypecheckedP = SourceSpan
 
-type family VariableExpr (p :: Phase)
-type instance VariableExpr EmptyP = ()
-type instance VariableExpr ParsedP = SourceSpan
-type instance VariableExpr ReturnsCheckedP = SourceSpan
-type instance VariableExpr TypecheckedP = SourceSpan
+type family VariableExpr (p :: Phase) where
+  VariableExpr EmptyP = ()
+  VariableExpr ParsedP = SourceSpan
+  VariableExpr ReturnsCheckedP = SourceSpan
+  VariableExpr TypecheckedP = SourceSpan
 
-type family LiteralExpr (p :: Phase)
-type instance LiteralExpr EmptyP = ()
-type instance LiteralExpr ParsedP = SourceSpan
-type instance LiteralExpr ReturnsCheckedP = SourceSpan
-type instance LiteralExpr TypecheckedP = SourceSpan
+type family LiteralExpr (p :: Phase) where
+  LiteralExpr EmptyP = ()
+  LiteralExpr ParsedP = SourceSpan
+  LiteralExpr ReturnsCheckedP = SourceSpan
+  LiteralExpr TypecheckedP = SourceSpan
 
 data Literal (p :: Phase) =
   TrueLit
