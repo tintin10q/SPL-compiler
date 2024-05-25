@@ -1,0 +1,22 @@
+var t = true;
+var f = false;
+
+
+AND(a: Bool, b: Bool): Bool {
+  return a && b; 
+}
+
+OR(a: Bool, b: Bool): Bool {
+  return a || b; 
+}
+
+NOT(a: Bool): Bool {
+  return !a; 
+}
+
+// Return types!!!!!!!!!
+
+recA(a: Bool, b: Bool): Int {
+   if (a) {return a;}
+   else {return a && recA(!b)}
+}

@@ -11,6 +11,7 @@ import SPL.AST
 import Data.Text (Text)
 import Data.Void
 import Text.Megaparsec
+import SPL.Colors 
 
 type Parser = Parsec Void Text
 --                   ^    ^
@@ -25,10 +26,10 @@ startPos :: SourceSpan -> SourcePos
 startPos (SourceSpan (start, _)) = start
 
 showStart :: SourceSpan -> String
-showStart = sourcePosPretty . startPos
+showStart pos =  green $ sourcePosPretty $ startPos pos
 
 showEnd :: SourceSpan -> String
-showEnd = sourcePosPretty . startPos
+showEnd pos = green $ sourcePosPretty $ startPos pos 
 
 endPos :: SourceSpan -> SourcePos
 endPos (SourceSpan (_, end)) = end

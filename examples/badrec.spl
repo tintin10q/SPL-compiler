@@ -3,3 +3,7 @@ foo(x) {
     y = x;
     return foo([]);
 }
+
+id (x:a):a {
+    return x;
+}

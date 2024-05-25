@@ -1,16 +1,21 @@
 var a = 1;
 var b' = 2;
 
-fac(n : Int) : Int {
-    var a = 1;
-    
-   if (n == 0) {
-      return 1;
-    }
-
+get3() : Int {
    return 3;
-   //return n * fac(n - 1);
 }
+
+
+fac(n : Int) : Int {
+  var a = get3();
+
+  if (n == 1 && true && 1 > 2) {
+   n = 3;
+   return 3;
+  }
+  return n * fac(n - 1);
+ }
+
 
 
 var c = b' > a;

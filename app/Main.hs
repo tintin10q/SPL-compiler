@@ -11,28 +11,37 @@ import qualified Data.Text.IO as TIO
 import SPL.AST
 import SPL.Typechecker2
 import qualified Debug.Trace as Debug
+import SPL.Optimizer (opti, collapseBlocks, opti_improvement)
+import SPL.Return
+
+import qualified Data.Text as T
 
 main :: IO ()
 main = do
     file:_ <- getArgs
     source <- TIO.readFile file
-    print source
+    putStrLn $ blue "Read Source:\n" ++ T.unpack source
     parsed_ast <- eitherParserToIO  $ parse file source
-    print parsed_ast
     putStrLn (blue "Parsing completed!")
-    putStrLn (blue "Checking for duplicate global variable declerations!")
-
+    print parsed_ast
+    _ <- eitherStrIO $ returns parsed_ast
+    putStrLn (blue "Succesfull return path analysis!")
     eitherStrIO $ checkDuplicateVarDecl parsed_ast
     putStrLn $ blue "No duplicate global variable declerations!"
-    (sub, varenv) <- eitherStrIO $ checkGlobalVars parsed_ast
-    print varenv
+    -- todo, do we need to do anything with this sub?
+    (sub, env) <- eitherStrIO $ checkGlobalVars parsed_ast
     putStrLn $ blue "Checked Global vars!"
+    let (funenv, varenv) = env
+    putStrLn $ "Global Var env: " ++ show varenv
     let parsed_ast2 = mergeTypesGlobalvars parsed_ast varenv
-    print parsed_ast2
-    result@(sub', env, ast') <- eitherStrIO $ checkFunctions (emptyFunEnv, varenv) parsed_ast2
-    print result
+    -- print parsed_ast2
+    result@(sub', env, ast') <- eitherStrIO $ checkFunctions (defaultFunEnv, varenv) parsed_ast2
     print "Result of fun decl check"
-    -- print result
+    print result
+    putStrLn $ blue "Optimizing ast"
+    let optimized_ast = collapseBlocks $ map opti ast'
+    print optimized_ast
+    putStrLn $ blue "Optimizing ast pruned " ++ green (show (opti_improvement ast' optimized_ast) ++ "%") ++ " of tree."
 
 
 

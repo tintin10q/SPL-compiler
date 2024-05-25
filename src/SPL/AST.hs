@@ -78,6 +78,8 @@ data Stmt (p :: Phase) =
   | IfStmt (IfStmt p) (Expr p) [Stmt p] (Maybe [Stmt p])
   | WhileStmt (WhileStmt p) (Expr p) [Stmt p]
   | ExprStmt (ExprStmt p) (Expr p)
+  -- W don't parse to a BlockStmt but it is nice if you want to have a list of statements 
+  | BlockStmt [Stmt p]
 deriving instance Eq (Stmt EmptyP)
 deriving instance Show (Stmt EmptyP)
 

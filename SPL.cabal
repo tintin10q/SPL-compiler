@@ -38,7 +38,9 @@ library spl-lib
         SPL.Codegen.GenWASM
         SPL.Codegen.WASM
         SPL.Colors
+        SPL.Optimizer
         SPL.State
+        SPL.Return
     build-depends:    base ^>=4.17.2.1,
                       megaparsec,
                       containers,
