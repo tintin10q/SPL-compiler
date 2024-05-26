@@ -23,18 +23,19 @@ main = do
     print parsed_ast
     return_checked_ast <- eitherStrIO $ checkReturns parsed_ast
     putStrLn (blue "Succesfull return path analysis!")
-    _ <- eitherStrIO $ checkDuplicateVarDecl return_checked_ast
+    _ <- eitherStrIO $ checkDuplicateDecls return_checked_ast
     putStrLn $ blue "No duplicate global variable declerations!"
     -- todo, do we need to do anything with this sub?
     (checked_globals_ast, varenv) <- eitherStrIO $ checkGlobalVars return_checked_ast
     putStrLn $ blue "Checked Global vars!"
     putStrLn $ "Global Var env: " ++ show varenv
-    (_sub', _env, ast') <- eitherStrIO $ checkFunctions (defaultFunEnv, varenv) checked_globals_ast
-    -- print result
+    (_sub', _env, typceched_ast) <- eitherStrIO $ checkFunctions (defaultFunEnv, varenv) checked_globals_ast
+    putStrLn "Typechecked AST:"
+    print typceched_ast
     putStr $ blue "Optimizing ast"
-    let optimized_ast = collapseBlocks $ map opti ast'
+    let optimized_ast = collapseBlocks $ map opti typceched_ast
     -- print optimized_ast
-    putStrLn $ blue " pruned " ++ green (show (opti_improvement ast' optimized_ast) ++ "%") ++ blue " of tree."
+    putStrLn $ blue " pruned " ++ green (show (opti_improvement typceched_ast optimized_ast) ++ "%") ++ blue " of tree."
     putStrLn $ blue "Generating ssm ast"
 
     {-

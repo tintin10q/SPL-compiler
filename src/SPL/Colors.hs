@@ -8,13 +8,13 @@ resetReverse  = "\ESC[27m"
 resetHidden    = "\ESC[28m"
 
 
-resetBold  = "\ESC[21m"
-bold     str  = "\ESC[1m" ++ str ++ resetBold
-dim      str  = "\ESC[2m" ++ str ++ resetDim
-underlined str = "\ESC[4m" ++ str ++ resetUnderlined
-blink      str = "\ESC[5m" ++ str ++ resetBlink
-reverse    str = "\ESC[7m" ++ str ++ resetReverse
-hidden     str = "\ESC[8m" ++ str ++ resetHidden
+resetBold  = "\ESC[1m"
+bold     str  = "\ESC[1m" ++ str ++ reset
+dim      str  = "\ESC[2m" ++ str ++ reset
+underlined str = "\ESC[4m" ++ str ++ reset
+blink      str = "\ESC[5m" ++ str ++ reset
+reverse    str = "\ESC[7m" ++ str ++ reset
+hidden     str = "\ESC[8m" ++ str ++ reset
 
  
 black str = "\ESC[;30m" ++ str ++ reset

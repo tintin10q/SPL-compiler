@@ -1,0 +1,5 @@
+
+
+case2(bb: bb) : a {
+    return bb;
+}

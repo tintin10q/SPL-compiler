@@ -9,6 +9,7 @@ module SPL.AST where
 
 -- The only import that we need from here because of the type families.
 import SPL.Parser.SourceSpan 
+import SPL.Colors (yellow, blue)
 
 {- All the different phases of the compiler -}
 data Phase
@@ -31,15 +32,15 @@ data Type
   deriving (Eq, Ord)
 
 instance Show Type where 
-  show IntType = "Int"
-  show CharType = "Char"
-  show BoolType = "Bool"
-  show VoidType = "Void"
-  show (TupleType ty1 ty2) = "(" ++ show ty1 ++ show ty2 ++ ")"
-  show (ListType ty) = "[" ++ show ty ++ "]"
-  show (TypeVar name False) = 'T':'y':'p':'e':'v':'a':'r':' ':name 
-  show (TypeVar name True) = 'R':'i':'g':'i':'d':' ':'T':'y':'p':'e':'v':'a':'r':' ':name
-  show (FunType types fundecltypes rettype) =  listTypes " -> " types ++ show rettype ++ " (with var Decls types {" ++ listTypes "," fundecltypes  ++ "})" 
+  show IntType = yellow "Int"
+  show CharType = yellow "Char"
+  show BoolType = yellow "Bool"
+  show VoidType = yellow "Void"
+  show (TupleType ty1 ty2) = yellow $  "(" ++ show ty1 ++ show ty2 ++ ")"
+  show (ListType ty) = yellow $ "[" ++ show ty ++ "]"
+  show (TypeVar name False) = yellow $ 'T':'y':'p':'e':'v':'a':'r':' ':blue name 
+  show (TypeVar name True) = yellow $ 'R':'i':'g':'i':'d':' ':'T':'y':'p':'e':'v':'a':'r':' ':blue name
+  show (FunType types fundecltypes rettype) =  yellow $ listTypes " -> " types ++ show rettype ++ " (with var Decls types {" ++ listTypes "," fundecltypes  ++ "})" 
     where listTypes sep = foldl (\r x -> r ++ show x ++ sep) ""
 
 
@@ -48,10 +49,12 @@ data Decl (p :: Phase)
   | VarDecl (VarDecl p) String (VarDeclT p) (Expr p)
 deriving instance Eq (Decl EmptyP)
 deriving instance Eq (Decl ParsedP)
+deriving instance Eq (Decl ReturnsCheckedP)
 deriving instance Eq (Decl TypecheckedP)
 
 deriving instance Show (Decl EmptyP)
 deriving instance Show (Decl ParsedP)
+deriving instance Show (Decl ReturnsCheckedP)
 deriving instance Show (Decl TypecheckedP)
 -- Closed type family it is thanks https://wiki.haskell.org/GHC/Type_families#Closed_family_simplification we don't need to allow people to extend them and we can always open them up again
 
@@ -89,10 +92,12 @@ data Stmt (p :: Phase) =
   | BlockStmt [Stmt p]
 deriving instance Eq (Stmt EmptyP)
 deriving instance Eq (Stmt ParsedP)
+deriving instance Eq (Stmt ReturnsCheckedP)
 deriving instance Eq (Stmt TypecheckedP)
 
 deriving instance Show (Stmt EmptyP)
 deriving instance Show (Stmt ParsedP)
+deriving instance Show (Stmt ReturnsCheckedP)
 deriving instance Show (Stmt TypecheckedP)
 
 
@@ -151,10 +156,12 @@ data Expr (p :: Phase) =
   | LiteralExpr (LiteralExpr p) (Literal p)
 deriving instance Eq (Expr EmptyP)
 deriving instance Eq (Expr ParsedP)
+deriving instance Eq (Expr ReturnsCheckedP)
 deriving instance Eq (Expr TypecheckedP)
 
 deriving instance Show (Expr EmptyP)
 deriving instance Show (Expr ParsedP)
+deriving instance Show (Expr ReturnsCheckedP)
 deriving instance Show (Expr TypecheckedP)
 
 type family BinOpExpr (p :: Phase) where
@@ -197,10 +204,12 @@ data Literal (p :: Phase) =
   | EmptyListLit
 deriving instance Eq (Literal EmptyP)
 deriving instance Eq (Literal ParsedP)
+deriving instance Eq (Literal ReturnsCheckedP)
 deriving instance Eq (Literal TypecheckedP)
 
 deriving instance Show (Literal EmptyP)
 deriving instance Show (Literal ParsedP)
+deriving instance Show (Literal ReturnsCheckedP)
 deriving instance Show (Literal TypecheckedP)
 
 

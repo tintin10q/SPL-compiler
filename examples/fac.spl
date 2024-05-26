@@ -6,7 +6,7 @@ get3() : Int {
 }
 
 
-fac(n : Int) : Int {
+fac(n : a) : Int {
   var a = get3();
 
   if (n == 1 && true && 1 > 2) {
