@@ -20,3 +20,7 @@ recA(a: Bool, b: Bool): Int {
    if (a) {return a;}
    else {return a && recA(!b)}
 }
+
+main() {
+  
+}

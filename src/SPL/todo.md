@@ -49,3 +49,6 @@ Finish brief printing, but we have to get GOING!
 -- ask asks
 
 -- the apply function I think does the decl update 
+
+
+Global variables could also be functions without args that return the value? 

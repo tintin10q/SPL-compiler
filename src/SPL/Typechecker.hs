@@ -1,10 +1,10 @@
--- {-# LANGUAGE DataKinds #-}
--- {-# LANGUAGE TypeFamilies #-}
--- {-# LANGUAGE MultiParamTypeClasses #-}
--- {-# OPTIONS_GHC -Wno-orphans #-}
--- {-# LANGUAGE StandaloneDeriving #-}
--- {-# LANGUAGE FlexibleInstances #-}
--- module SPL.Typechecker where
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+module SPL.Typechecker where
 
 -- import SPL.Parser.AST
 -- import SPL.Parser.Parser (SourceSpan)

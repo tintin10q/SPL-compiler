@@ -5,21 +5,26 @@
 
 module SPL.Codegen.GenSSM where
 
-import SPL.AST 
+import SPL.AST
 
 import SPL.Codegen.SSM
 import Data.Char (ord)
 import qualified Data.Map as Map
+import qualified Debug.Trace as Debug
 -- import Control.Monad.Reader
 import Control.Monad.State.Lazy
+import Text.Megaparsec (ErrorItem(Label))
+import SPL.Parser.SourceSpan (showStart, SourceSpan)
+import SPL.Colors (blue, red)
+import Data.Maybe (fromMaybe)
 
-data Location = Adress Int Type | LocalVar Int Type
-              deriving (Eq, Ord)
+data Location = Adress  Int Type  | LocalVar  Int Type  | FunArgument Int Type
+              deriving (Eq, Ord, Show)
 data Key = Fun String | Var String
-              deriving (Eq, Ord)
+              deriving (Eq, Ord, Show)
 
 -- Map from a variable name to the code required to get the value on the stack
-type Info = (Map.Map Key Location) 
+type Info = (Map.Map Key Location)
 type Env = State Info
 -- If function arguments overwrite this at the start of a function call then that is ok you just loose access to the global value.
 
@@ -54,27 +59,6 @@ throw :: String -> Code
 throw error = [LDS i | i <- chars] <> [TRAP 1 | _ <- chars] <> [HALT]
               where chars = map ord error
 
-
--- We have a global value
--- First we need to get the value onto the stack, we do this by running the code of the expression
--- After that we have the value on the stack
--- We can store it into the heap
--- When we store it into the heap we can save the offset 
-
-
--- We can make R7 store the initial heap value
--- Generates a function that generates the code needed to store and update a value on the head
--- The generated update code assumes the value to save is on the stack before the update code. 
--- The value will be consumed
-genSaveGlobalCode :: Decl TypecheckedP -> (Int -> VarData)
-genSaveGlobalCode (VarDecl _ name t e) = case t of
-                                          IntType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 0 name offset IntType
-                                          CharType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 0 name offset CharType
-                                          BoolType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 0 name offset BoolType
-                                          _ -> undefined
-genSaveGlobalCode _ = undefined
-
-
 emptyEnv :: Info
 emptyEnv = Map.empty
 
@@ -100,8 +84,22 @@ getSmmCode p = let (code, env) = runState (generate p) emptyEnv in code
 -- At the moment there is actually no direct list index.
 -- So you can only find an item in a list linearly maybe that makes code generation easier. 
 
+-- instance (GenSSM a) => GenSSM [a] where 
+      -- generate a = combineCodeM $ mapM generate 
+
+runtime = [Bra "main"]
+
+instance GenSSM [Expr TypecheckedP] where
+      generate = combineCodeM . mapM generate
+      
+instance GenSSM [Stmt TypecheckedP] where
+      generate = combineCodeM . mapM generate
+
 instance GenSSM (Program TypecheckedP) where
-      generate program = pure [HALT, HALT]
+      generate a = do
+            program_code <- combineCodeM $ mapM generate a
+            return $ runtime <> program_code
+      -- generate program = gnerate program
       {-
       generate program = let
                         varDecls = filter isFunction program
@@ -113,11 +111,96 @@ instance GenSSM (Program TypecheckedP) where
                         isVarDecl = not . isFunction
                         -}
 
+-- Yo jsr looks to be dynamic function calls!
+
+instance GenSSM (Decl TypecheckedP) where
+      generate :: Decl TypecheckedP -> Env Code
+      generate  (FunDecl _ name VoidType [] [] body) = do
+            return [ LABEL name ] <> 
+                   generate body <> 
+                   pure [if name == "main" then HALT else RET]
+      generate  (FunDecl _ name VoidType args [] body) = do
+            -- If we have args we need to put them in the enviroment 
+            env <- get
+            -- add arguments to the enviroments
+            put $ env <> Map.fromList [(Var argname, FunArgument i argtype) | ((argname, argtype), i) <- zip args [1..]]
+            
+            code <- pure [ LABEL name, LINK $ length args ] <> 
+                      generate body <> 
+                       pure [ UNLINK, if name == "main" then HALT else RET]
+            put env
+            return code
+
+      generate (VarDecl _ name _ expr)  = return [HALT, HALT]
+      generate  (FunDecl _ name ty args funvardecl body) = error "this type of funcall is not supported yet support yet"
+
+
+
+instance GenSSM (Literal TypecheckedP) where
+      generate TrueLit = pure [LDC 1] -- There is also a True and False but its just a bit pattern https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#True
+      generate FalseLit = pure [LDC 0]
+      generate (IntLit int)  = pure [LDC int]
+      generate (CharLit char)  = pure [LDC $ ord char] -- Here we forget that it was a char
+      generate (TupleLit (e1, e2)) = pure [LDH 0] <> generate e1 <> pure [LDH 1] <> generate e2 -- Wrong but yeah maybe store in heap?
+      generate EmptyListLit = pure [LDC 0, STH]
+
+-- Generate an annotate instruction
+annotate = Annotate SP 0 1 Green
 
 instance GenSSM (Stmt TypecheckedP) where
-      generate _ = undefined
+      generate (ExprStmt _ expr) = generate expr
+      generate _ = return [NOP, annotate "An unsupported statement"]
 
 -- we could reverses the code 
+
+newline :: Int
+newline = 10
+
+
+
+-- Look up a variable from enviroment, doing it in a function gives worse error messages but after type checking we should never error here
+getkey :: Key -> Env Location
+getkey key = do 
+            env <- get
+            case Map.lookup key env of 
+                  Nothing -> error $ red "Key called '"++ blue (show key) ++"'" ++ red " not in enviroment!"
+                  Just location -> pure location
+
+instance GenSSM (Expr TypecheckedP) where
+      generate (BinOpExpr _ op left right) = generate left <> generate right <> generate op
+      generate (UnaryOpExpr _ op operand) = generate  operand <> generate op
+      -- Now it would be really nice if we could know the type of arg 
+      generate (FunctionCallExpr meta "print" [arg]) = generate arg <> pure [TRAP 0, LDC newline, TRAP 1]
+      -- generate (FunctionCallExpr meta "print" (_:_)) = error $ "At " ++ (showStart meta ) + " you call print with too many arguments"
+      generate (FunctionCallExpr meta func args) = generate args <> pure [Bsr func]
+      generate (VariableExpr meta (Identifier varname Nothing)) = do 
+                                                            location <- getkey (Var varname)
+                                                            case location of 
+                                                                  Adress  int ty -> return [] 
+                                                                  LocalVar  int ty  -> return []  
+                                                                  FunArgument  int ty  -> return []
+                                                                  _ -> return []
+      generate (VariableExpr meta (Identifier varname (Just _))) = error "Fields on variables are unsupported atm!"
+      generate (LiteralExpr meta literal) = generate literal
+
+
+-- We can generate the enviroment before we do any code generation because we know where it will end up
+-- buildFunEnv :: [Decl TypecheckedP] -> Env Code -> Env Code
+-- buildFunEnv decls env = env <> Map.fromList (zip (map nameToVarKey decls) ([LocalVar i | i <- [1..]] <*> map getDeclType decls))
+      -- where nameToVarKey (VarDecl _ name _ _) = Var name
+            -- nameToVarKey (FunDecl _ name _ _ _ _) = Fun name
+
+-- Ok laten we eerst maar gewoon even 5 keer een nop of halt genereren ofzo
+
+getExpr :: Decl TypecheckedP -> Expr TypecheckedP
+getExpr (VarDecl _ name _ expr)  = expr
+getExpr f@(FunDecl _ _ _ _ _ body) = error $ "Can only get expressions from vardecl not fun delc" ++ show f
+
+combineCodeM :: Env [Code] -> Env Code
+combineCodeM codes = combineCode <$> codes
+
+combineCode :: [Code] -> Code
+combineCode  = foldr (<>) [] -- todo This could be more effiecient with  : and reverse?
 
 instance GenSSM BinOp where
       generate  Mul = pure [MUL]
@@ -125,6 +208,14 @@ instance GenSSM BinOp where
       generate Mod = pure [MOD]
       generate Add = pure [ADD]
       generate Sub = pure [SUB]
+      generate Gt = pure [SPL.Codegen.SSM.GT]
+      generate Gte = pure [GE]
+      generate Lt = pure [SPL.Codegen.SSM.LT]
+      generate Lte = pure [LE]
+      generate Eq = pure [SPL.Codegen.SSM.EQ]
+      generate Neq = pure [NE]
+      generate And = pure [AND]
+      generate Or = pure [OR]
 -- For (:) (cons), the stack looks like this:
 --
 -- |  value  |
@@ -135,71 +226,30 @@ instance GenSSM BinOp where
 -- put (value, addr) on the heap, and put the
 -- address back on the stack at the top.
       generate Cons = pure [STMH 2]
-      generate Gt = pure [SPL.Codegen.SSM.GT]
-      generate Gte = pure [GE]
-      generate Lt = pure [SPL.Codegen.SSM.LT]
-      generate Lte = pure [LE]
-      generate Eq = pure [SPL.Codegen.SSM.EQ]
-      generate Neq = pure [NE]
-      generate And = pure [AND]
-      generate Or = pure [OR]
+ 
 
 instance GenSSM UnaryOp where
       generate Negate = pure [NEG]
       -- TODO: Fix generate for FieldAccess
       generate _ = error "Field access is not supported. :("
 
-instance GenSSM (Expr TypecheckedP) where
-      generate (BinOpExpr _ op left right) = generate left <> generate right <> generate op
-      generate (UnaryOpExpr _ op operand) = generate  operand <> generate op
-      generate (FunctionCallExpr meta func args) = pure [LINK $ length args]
-      generate (VariableExpr _ variable) = undefined
-      generate (LiteralExpr meta literal) = generate literal
 
--- We can generate the enviroment before we do any code generation because we know where it will end up
--- buildFunEnv :: [Decl TypecheckedP] -> Env Code -> Env Code
--- buildFunEnv decls env = env <> Map.fromList (zip (map nameToVarKey decls) ([LocalVar i | i <- [1..]] <*> map getDeclType decls))
-      -- where nameToVarKey (VarDecl _ name _ _) = Var name
-            -- nameToVarKey (FunDecl _ name _ _ _ _) = Fun name
-
--- Ok laten we eerst maar gewoon even 5 keer een nop of halt genereren ofzo
-
-instance GenSSM (Decl TypecheckedP) where
-      generate :: Decl TypecheckedP -> Env Code
-      generate  (FunDecl _ name ty [] funvardecl body) = do
-            inital <- get
-            let funvardecls = map (generate . getExpr) funvardecl
-            put inital
-            return [HALT, HALT]
-            
-            -- No arguments 
-
-            -- declCode <- local (buildFunEnv funvardecl)
-            -- a <- asks $ Map.lookup (Var "hi")
+-- We have a global value
+-- First we need to get the value onto the stack, we do this by running the code of the expression
+-- After that we have the value on the stack
+-- We can store it into the heap
+-- When we store it into the heap we can save the offset 
 
 
-            -- return declCode
-            -- return $ pure (LINK $ length args) ++ declCode
-                  -- where getExpr (VarDecl _ _ _ expr) = expr
-                        -- getExpr (FunDecl {}) = error "It does not make sense to get the expression of a fun decl"
+-- We can make R7 store the initial heap value
+-- Generates a function that generates the code needed to store and update a value on the head
+-- The generated update code assumes the value to save is on the stack before the update code. 
+-- The value will be consumed
+genSaveGlobalCode :: Decl TypecheckedP -> (Int -> VarData)
+genSaveGlobalCode (VarDecl _ name t e) = case t of
+                                          IntType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 0 name offset IntType
+                                          CharType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 0 name offset CharType
+                                          BoolType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 0 name offset BoolType
+                                          _ -> undefined
+genSaveGlobalCode _ = undefined
 
-      generate (VarDecl _ name _ expr)  = return [HALT, HALT]
-      generate  (FunDecl _ name ty args funvardecl body) = error "no argument support yet"
-
-
-getExpr :: Decl TypecheckedP -> Expr TypecheckedP
-getExpr (VarDecl _ name _ expr)  = expr
-getExpr f@(FunDecl _ _ _ _ _ body) = error $ "Can only get expressions from vardecl not fun delc" ++ show f
-
-combineCode :: [Env Code] -> Env Code
-combineCode [] = pure [] -- terrible and slow
-combineCode (re:rest) = re >>= \code -> combineCode rest >>= \code' -> pure $ code ++ code'
-
-instance GenSSM (Literal TypecheckedP) where
-      generate TrueLit = pure [LDS 1] -- There is also a True and False but its just a bit pattern https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#True
-      generate FalseLit = pure [LDS 0]
-      generate (IntLit int)  = pure [LDS int]
-      generate (CharLit char)  = pure [LDS $ ord char] -- Here we forget that it was a char
-      generate (TupleLit (e1, e2)) = pure [LDH 0] <> generate e1
-                                          <> pure [LDH 1] <> generate e2 -- Wrong but yeah maybe store in heap?
-      generate EmptyListLit = pure [LDC 0, STH]

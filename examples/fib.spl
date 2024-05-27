@@ -19,3 +19,5 @@ fib(n : Int) : Int {
 
 var c = 3;
 var a = 3;
+
+main() {}

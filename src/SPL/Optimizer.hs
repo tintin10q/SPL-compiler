@@ -2,9 +2,14 @@
 
 {-# HLINT ignore "Use camelCase" #-}
 {-# HLINT ignore "Redundant bracket" #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+
 module SPL.Optimizer where
 
 import SPL.AST
+import SPL.Colors (red)
+import SPL.Parser.SourceSpan (showStart)
 
 {-
     We can do certian optimalizations:
@@ -23,7 +28,7 @@ class Optimise a where
 -- You kind of want to have a var env here so you can look up the types of the variables
 -- It would be nice if we could have bool type and truetype and false type for when we know that variables are true or false
 -- It would never work because you can reassign them
-instance Optimise (Expr p) where
+instance Optimise (Expr TypecheckedP) where
   opti lit@(LiteralExpr _ _) = lit
   opti var@(VariableExpr _ _) = var
   -- Boolean Literal evaluation, todo this makes a small part lazy, which means that if you would have 1 && true it would be ok. So its important that this runs after type checking I think
@@ -44,6 +49,8 @@ instance Optimise (Expr p) where
                                         ((LiteralExpr m (IntLit a)),  (LiteralExpr _ (IntLit b))) -> LiteralExpr m $ IntLit $ a * b
                                         (e1', e2') -> BinOpExpr meta Mul e1' e2'
   opti (BinOpExpr meta Div e1 e2) = case (opti e1, opti e2) of 
+                                        ((LiteralExpr m (IntLit 0)),  (LiteralExpr _ (IntLit _))) -> error $ red "Detected divide by zero error during optimzing at " ++ showStart m
+                                        ((LiteralExpr m (IntLit _)),  (LiteralExpr _ (IntLit 0))) -> error $ red "Detected divide by zero error during optimzing at " ++ showStart m 
                                         ((LiteralExpr m (IntLit a)),  (LiteralExpr _ (IntLit b))) -> LiteralExpr m $ IntLit $ a `div` b
                                         (e1', e2') -> BinOpExpr meta Div e1' e2'
   opti (BinOpExpr meta Mod e1 e2) = case (opti e1, opti e2) of 
@@ -88,7 +95,7 @@ instance Optimise (Expr p) where
   opti (UnaryOpExpr meta (FieldAccess f) expr) = UnaryOpExpr meta (FieldAccess f) (opti expr) -- todo, if its a tuple literal we can get rid of the tuple!
   opti (FunctionCallExpr meta funname args) = FunctionCallExpr meta funname (map opti args)
 
-instance Optimise (Stmt p) where
+instance Optimise (Stmt TypecheckedP) where
   opti (ExprStmt meta expr) = ExprStmt meta (opti expr)
   opti ass@(AssignStmt {}) = ass
   opti (ReturnStmt meta expr) = ReturnStmt meta (opti <$> expr)
@@ -103,7 +110,7 @@ instance Optimise (Stmt p) where
     expr -> WhileStmt meta expr (map opti body)
   opti (BlockStmt s) = BlockStmt (map opti s)
 
-instance Optimise (Decl p) where
+instance Optimise (Decl TypecheckedP) where
   opti (FunDecl meta funname retty args funvars body) = FunDecl meta funname retty args (map opti funvars) (map opti body)
   opti (VarDecl meta varname ty expr) = VarDecl meta varname ty (opti expr)
 

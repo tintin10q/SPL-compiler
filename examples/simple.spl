@@ -1,0 +1,15 @@
+
+
+foo() {
+    print(130 + 6 + 1);
+}
+
+foo2(a) {
+    print(130 + 6 + 1);
+}
+
+main() : Void {
+    foo();
+    foo2(10);
+    print(138);
+}

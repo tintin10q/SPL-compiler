@@ -1,17 +1,17 @@
 var a = 1;
 var b' = 2;
 
-get3() : Int {
-   return 3;
+geta()  {
+   return a;
 }
 
 
-fac(n) : Int {
-  var a = get3();
+fac(n)  {
+  var a = geta();
 
   if (n == 1 && true && 1 > 2) {
    n = 3;
-   return 3;
+   return a;
   }
   return n * fac(n - 1); // todo this nees double opti to solve
    n = 3;
@@ -24,6 +24,6 @@ fac(n) : Int {
 var c = b' > a;
 // var d = fac(); // If we encounter a function save that one to be type checked next? 
 
-main() : Int {
+main(aaa) : Int {
    return 3;
 }

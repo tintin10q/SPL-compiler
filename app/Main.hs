@@ -30,7 +30,7 @@ getOutputValue [] = defaultOutput
 getOutputValue ("-o":value:_) = value
 getOutputValue (_:xs) = getOutputValue xs
 
-
+-- Add option to disable optimizer
 
 main :: IO ()
 main = do
@@ -72,7 +72,8 @@ main = do
     let code = getSmmCode optimized_ast
         formatted_code = formatCode code
     putStrLn formatted_code
-    writeFile outputFile ("#!java -jar ssm/ssm.jar\n" ++ formatted_code)
+    -- "#!java -jar ssm/ssm.jar\n"
+    writeFile outputFile formatted_code
     putStrLn $ "Wrote " ++ show (length code) ++ " instructions to " ++ outputFile
     return undefined
 
@@ -112,3 +113,4 @@ usage: [--clisteps <steps>] [--haltonerror] [--cli] [--file <path> OR --stdin]
   --haltonerror      : Halt on error. Only in cli mode
   --guidelay         : Amount of time to sleep in milliseconds between steps in the GUI. Default: 50
 -}
+

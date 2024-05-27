@@ -1,8 +1,8 @@
 
-var a = 3;
-var b = "hi there";
-var c = '3';
+var hoiInt = 3;
+var hoiStr = "hi there";
+var hoiChar = '3';
 
-main(d) {
-    return d;
+main(inp) {
+    return inp + hoiInt;
 }

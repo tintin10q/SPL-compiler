@@ -19,7 +19,7 @@ data Instr
     = STR Reg | STL Int  | STS Int  | STA Int        -- Store from stack
     | LDR Reg | LDL Int  | LDS Int  | LDA Int        -- Load on stack
     | LDC Int | LDLA Int | LDSA Int | LDAA Int       -- Load on stack
-    | BRA Int | Bra String                           -- Branch always (relative/to label)
+    | BRA Int | Bra String                           -- Branch always (relative/to label) string versions go to a label ints adds to PC
     | BRF Int | Brf String                           -- Branch on false
     | BRT Int | Brt String                           -- Branch on true
     | BSR Int | Bsr String                           -- Branch to subroutine
@@ -27,7 +27,7 @@ data Instr
     | EQ  | NE  | LT  | LE  | GT  | GE               -- Relational   operations on 2 stack operands
     | AND | OR  | XOR                                -- Bitwise      operations on 2 stack operands
     | NEG | NOT                                      --              operations on 1 stack operand
-    | RET | UNLINK | LINK Int | AJS Int              -- Procedure utilities
+    | RET | UNLINK | LINK Int | AJS Int              -- Procedure utilities, Ret = Return from subroutine. Pops a previously pushed PC from the stack and jumps to it.
     | SWP | SWPR Reg | SWPRR Reg Reg | LDRR Reg Reg  -- Various swaps
     | JSR | TRAP Int | NOP | HALT                    -- Other instructions
     | LABEL String                                   -- Pseudo-instruction for generating a label
