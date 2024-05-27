@@ -111,7 +111,7 @@ pStringExpr :: Parser (Expr ParsedP)
 pStringExpr =  do
     posStart <- getSourcePos
     _ <- L.tQuotation
-    tokens <- T.unpack <$> stringWithEscapes
+    tokens <- reverse . T.unpack <$> stringWithEscapes
     _ <- L.tQuotation
     posEnd <- getSourcePos
     let meta = srcSpan posStart posEnd

@@ -6,17 +6,24 @@ get3() : Int {
 }
 
 
-fac(n : a) : Int {
+fac(n) : Int {
   var a = get3();
 
   if (n == 1 && true && 1 > 2) {
    n = 3;
    return 3;
   }
-  return n * fac(n - 1);
+  return n * fac(n - 1); // todo this nees double opti to solve
+   n = 3;
+   n = 3;
+   n = 3;
  }
 
 
 
 var c = b' > a;
 // var d = fac(); // If we encounter a function save that one to be type checked next? 
+
+main() : Int {
+   return 3;
+}

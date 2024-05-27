@@ -5,29 +5,32 @@
 
 module SPL.Codegen.GenSSM where
 
-import SPL.AST
+import SPL.AST 
 
 import SPL.Codegen.SSM
-import Data.Char
+import Data.Char (ord)
 import qualified Data.Map as Map
-import Control.Monad.Reader
+-- import Control.Monad.Reader
+import Control.Monad.State.Lazy
 
-data Location = Adress Int | LocalVar Int
+data Location = Adress Int Type | LocalVar Int Type
               deriving (Eq, Ord)
 data Key = Fun String | Var String
               deriving (Eq, Ord)
 
 -- Map from a variable name to the code required to get the value on the stack
-type Env = Map.Map Key Location
+type Info = (Map.Map Key Location) 
+type Env = State Info
 -- If function arguments overwrite this at the start of a function call then that is ok you just loose access to the global value.
 
+
 class GenSSM a where
-    generate :: a -> Reader Env Code
+    generate :: a -> Env Code
 
-instance Semigroup (Reader Env Code) where
-      m1 <> m2 = m1 >>= (\code -> m2 >>= \code2 -> pure $ code ++ code2)
+instance Semigroup (Env Code) where
+      m1 <> m2 = m1 >>= (\code -> m2 >>= \code2 -> pure $ code <> code2)
 
-instance Monoid (Reader Env Code) where
+instance Monoid (Env Code) where
       mempty = pure []
 
 -- Hoe gaan we de variables enviroment doen?
@@ -71,6 +74,13 @@ genSaveGlobalCode (VarDecl _ name t e) = case t of
                                           _ -> undefined
 genSaveGlobalCode _ = undefined
 
+
+emptyEnv :: Info
+emptyEnv = Map.empty
+
+getSmmCode :: Program TypecheckedP -> Code
+getSmmCode p = let (code, env) = runState (generate p) emptyEnv in code
+
 -- With the tuples we should probably have a pointer to the tuple somewhere and then based on the field access load the value.
 
 -- Cons will be difficult! How? We have to grow the list in the heap.
@@ -91,6 +101,8 @@ genSaveGlobalCode _ = undefined
 -- So you can only find an item in a list linearly maybe that makes code generation easier. 
 
 instance GenSSM (Program TypecheckedP) where
+      generate program = pure [HALT, HALT]
+      {-
       generate program = let
                         varDecls = filter isFunction program
                         funDecls = filter isFunction program
@@ -99,6 +111,7 @@ instance GenSSM (Program TypecheckedP) where
                         in storeGlobalVarOnHeapCode <> programCode
                   where isFunction f = case f of  {FunDecl {} -> True; VarDecl {} -> False}
                         isVarDecl = not . isFunction
+                        -}
 
 
 instance GenSSM (Stmt TypecheckedP) where
@@ -144,26 +157,43 @@ instance GenSSM (Expr TypecheckedP) where
       generate (LiteralExpr meta literal) = generate literal
 
 -- We can generate the enviroment before we do any code generation because we know where it will end up
-buildFunEnv :: [Decl TypecheckedP] -> Env -> Env
-buildFunEnv decls env = env <> Map.fromList (zip (map nameToVarKey decls) [LocalVar i | i <- [1..]])
-      where nameToVarKey (VarDecl _ name _ _) = Var name
-            nameToVarKey (FunDecl _ name _ _ _ _) = Fun name
+-- buildFunEnv :: [Decl TypecheckedP] -> Env Code -> Env Code
+-- buildFunEnv decls env = env <> Map.fromList (zip (map nameToVarKey decls) ([LocalVar i | i <- [1..]] <*> map getDeclType decls))
+      -- where nameToVarKey (VarDecl _ name _ _) = Var name
+            -- nameToVarKey (FunDecl _ name _ _ _ _) = Fun name
+
+-- Ok laten we eerst maar gewoon even 5 keer een nop of halt genereren ofzo
 
 instance GenSSM (Decl TypecheckedP) where
-      generate :: Decl 'TypecheckedP -> Reader Env Code
-      generate  (FunDecl _ name _ args funvardecl body) = do
-            declCode <- local (buildFunEnv funvardecl) (do { combineCode $ map (generate . getExpr) funvardecl })
+      generate :: Decl TypecheckedP -> Env Code
+      generate  (FunDecl _ name ty [] funvardecl body) = do
+            inital <- get
+            let funvardecls = map (generate . getExpr) funvardecl
+            put inital
+            return [HALT, HALT]
+            
+            -- No arguments 
+
+            -- declCode <- local (buildFunEnv funvardecl)
             -- a <- asks $ Map.lookup (Var "hi")
-            return $ pure (LINK $ length args) ++ declCode
-                  where getExpr (VarDecl _ _ _ expr) = expr
-                        getExpr (FunDecl {}) = error "It does not make sense to get the expression of a fun decl"
-
-      generate (VarDecl _ name _ expr)  = undefined
 
 
-combineCode :: [Reader Env Code] -> Reader Env Code
+            -- return declCode
+            -- return $ pure (LINK $ length args) ++ declCode
+                  -- where getExpr (VarDecl _ _ _ expr) = expr
+                        -- getExpr (FunDecl {}) = error "It does not make sense to get the expression of a fun decl"
+
+      generate (VarDecl _ name _ expr)  = return [HALT, HALT]
+      generate  (FunDecl _ name ty args funvardecl body) = error "no argument support yet"
+
+
+getExpr :: Decl TypecheckedP -> Expr TypecheckedP
+getExpr (VarDecl _ name _ expr)  = expr
+getExpr f@(FunDecl _ _ _ _ _ body) = error $ "Can only get expressions from vardecl not fun delc" ++ show f
+
+combineCode :: [Env Code] -> Env Code
 combineCode [] = pure [] -- terrible and slow
-combineCode (re:rest) = re >>= \code -> combineCode rest >>= \code' -> pure $ code ++ code' 
+combineCode (re:rest) = re >>= \code -> combineCode rest >>= \code' -> pure $ code ++ code'
 
 instance GenSSM (Literal TypecheckedP) where
       generate TrueLit = pure [LDS 1] -- There is also a True and False but its just a bit pattern https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#True

@@ -1,0 +1,10 @@
+
+// They are void
+foo(foo) {
+    print(foo);
+    return;
+}
+
+main () {
+    return foo(a);
+}

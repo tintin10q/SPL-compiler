@@ -1,9 +1,10 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
-module SPL.Return (checkReturns) where
+
+module SPL.Return where
 
 import SPL.AST
-import SPL.Colors (blue, red)
+import SPL.Colors (blue, red, bold)
 import SPL.Parser.SourceSpan (SourceSpan, showStart, showEnd)
 
 
@@ -34,13 +35,14 @@ instance ReturnCheck (Stmt ParsedP) where
       (Right No, Right No) -> Right No
       (Right (WithoutValue _), Right (WithoutValue m)) -> Right (WithoutValue m)
       (Right (WithValue _), Right (WithValue m)) -> Right (WithValue m)
-      (Right (WithoutValue _), Right No) -> Right No
+      (Right (WithoutValue m), Right No) -> Right (WithoutValue m)
       (Right No, Right (WithoutValue m)) -> Right (WithoutValue m)
       --- Start of the left
+      -- This one can cause trouble if its a nested if but better safe then sorry
       (Right (WithValue m), Right No) ->
         Left $
           red "Invalid returns"
-            ++ "in if condition at "
+            ++ " in if condition at "
             ++ showStart meta
             ++ "\nThe true case of the condition returns at "
             ++ showStart m
@@ -96,7 +98,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ "\nThe else case of the condition returns at "
             ++ showStart m2
             ++ " but "
-            ++ red "without"
+            ++ bold "without"
             ++ " a value while the true case of the if condition and later in the function you return with a value at "
             ++ showStart m1
             ++ " and at "
@@ -138,7 +140,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ " and "
             ++ showStart m2
             ++ " but "
-            ++ red "without"
+            ++ bold "without"
             ++ "a value while later in the function you return with a value at "
             ++ showStart m3
             ++ "\nEach branch should return the same way. You should either always return a value or never."
@@ -170,8 +172,8 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ "."
       -- This is just an early return that is ok but we save the last one to compare with
       (Right (WithoutValue _), Right (WithoutValue _), Right (WithoutValue m)) -> Right (WithoutValue m)
-      -- In this case both if return without a value, no and without value are fine here but withvalue is bad
-      (Right (WithoutValue _), Right (WithoutValue _), r@(Right No)) -> r
+      -- In this case both if return without a value, no and without value are fine here but withvalue is bad, but we should not propagate the no, because we actually do ALWAYS return just not with a value.
+      (Right (WithoutValue _), Right (WithoutValue m), Right No) -> Right (WithoutValue m)
       (Right No, Right No, Right m) -> Right m
       (Right No, Right (WithoutValue _), Right (WithoutValue m)) -> Right (WithoutValue m)
       (Right No, Right (WithValue _), Right (WithValue m)) -> Right (WithValue m)
@@ -181,7 +183,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ "at "
             ++ showStart m1
             ++ ". In the else you return but"
-            ++ red "without"
+            ++ bold "without"
             ++ " a value while later at "
             ++ showStart m2
             ++ " you do return a value."
@@ -199,7 +201,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ "at "
             ++ showStart m1
             ++ ". In the if you return but "
-            ++ red "without"
+            ++ bold "without"
             ++ " a value while later at "
             ++ showStart m2
             ++ " you do return a value."

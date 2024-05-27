@@ -1,0 +1,8 @@
+
+var a = 3;
+var b = "hi there";
+var c = '3';
+
+main(d) {
+    return d;
+}

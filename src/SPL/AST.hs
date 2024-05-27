@@ -3,13 +3,12 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-
 -- {-# LANGUAGE DeriveFoldable #-}
 module SPL.AST where
 
 -- The only import that we need from here because of the type families.
 import SPL.Parser.SourceSpan 
-import SPL.Colors (yellow, blue)
+import SPL.Colors (yellow, blue, black)
 
 {- All the different phases of the compiler -}
 data Phase
@@ -28,7 +27,7 @@ data Type
   | TupleType Type Type
   | ListType Type
   | TypeVar { typevarname :: String, rigid :: Bool }
-  | FunType [Type] [Type] Type
+  | FunType [Type] Type -- Or should the ti for functions return a type scheme?
   deriving (Eq, Ord)
 
 instance Show Type where 
@@ -37,10 +36,10 @@ instance Show Type where
   show BoolType = yellow "Bool"
   show VoidType = yellow "Void"
   show (TupleType ty1 ty2) = yellow $  "(" ++ show ty1 ++ show ty2 ++ ")"
-  show (ListType ty) = yellow $ "[" ++ show ty ++ "]"
+  show (ListType ty) = yellow $ "[" ++ show ty ++ yellow "]"
   show (TypeVar name False) = yellow $ 'T':'y':'p':'e':'v':'a':'r':' ':blue name 
   show (TypeVar name True) = yellow $ 'R':'i':'g':'i':'d':' ':'T':'y':'p':'e':'v':'a':'r':' ':blue name
-  show (FunType types fundecltypes rettype) =  yellow $ listTypes " -> " types ++ show rettype ++ " (with var Decls types {" ++ listTypes "," fundecltypes  ++ "})" 
+  show (FunType argtypes rettype) =  yellow $ listTypes " -> " argtypes ++ show rettype 
     where listTypes sep = foldl (\r x -> r ++ show x ++ sep) ""
 
 
@@ -56,6 +55,8 @@ deriving instance Show (Decl EmptyP)
 deriving instance Show (Decl ParsedP)
 deriving instance Show (Decl ReturnsCheckedP)
 deriving instance Show (Decl TypecheckedP)
+
+
 -- Closed type family it is thanks https://wiki.haskell.org/GHC/Type_families#Closed_family_simplification we don't need to allow people to extend them and we can always open them up again
 
 type family FunDecl (p :: Phase) where 
@@ -208,10 +209,20 @@ deriving instance Eq (Literal ReturnsCheckedP)
 deriving instance Eq (Literal TypecheckedP)
 
 deriving instance Show (Literal EmptyP)
-deriving instance Show (Literal ParsedP)
-deriving instance Show (Literal ReturnsCheckedP)
-deriving instance Show (Literal TypecheckedP)
 
+instance Show (Literal ParsedP) where
+  show lit = show (upgrade lit  :: Literal ReturnsCheckedP)
+
+instance Show (Literal ReturnsCheckedP) where
+  show lit = show (upgrade lit  :: Literal TypecheckedP)
+
+instance Show (Literal TypecheckedP) where
+  show TrueLit = black "True"
+  show FalseLit = black "False"
+  show (IntLit n) = black $ show n
+  show (CharLit c) = black $ show c
+  show (TupleLit (expr1, expr2)) = "(" ++ show expr1 ++ "," ++ show expr2 ++ ")"
+  show EmptyListLit = black "[]"
 
 data Field = HeadField | TailField
   deriving (Eq, Show)

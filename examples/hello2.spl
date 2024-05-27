@@ -1,22 +1,35 @@
-
-Int a = true;
-
 main ( ) : Void {
     print ("Hello world!");
     print (42);
-    //print (True);
 }
 
-facR (n : Int) : Int {
+facR (n : Int) {
     if (n < 0) {
         return 1;
     } else {
-        return n * facR (n - 1);
+        return n * n - 1;
     }
 }
 
-facI (n) {
+facI (n) : Int {
     var r = 1;
+        while (n > 1) {
+            r = r * n;
+            n = n - 1;
+            if (n < 0) {
+        return 1;
+            n = n - 1;
+            n = n - 1;
+
+    } else {
+        return n * facR (n - 1);
+    }
+
+        }
+        while (n > 1) {
+            r = r * n;
+            n = n - 1;
+        }
         while (n > 1) {
             r = r * n;
             n = n - 1;

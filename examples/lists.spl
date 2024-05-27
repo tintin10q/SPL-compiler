@@ -1,0 +1,28 @@
+
+
+var global = 3;
+var global1 = 3;
+var global2 = "Hi there"; 
+
+main ()  {
+    var if = [];
+    var str = 'h' : 'e' :'l':'l' :'o' : if;
+    print(str);
+}
+
+// This should be type var because it returns the empty list always!
+main2 () : [h]  {
+    var if = [];
+    var str = 'h' : 'e' :'l':'l' :'o' : if;
+    // var int = 3 : if;
+    var str2 = 'w' : if;
+    main2(a);
+    return []; 
+}
+
+main3 (): Void {
+    var l = [];
+    var str = 1 : l;
+    var hi = 2 : l;
+    print(str);
+}

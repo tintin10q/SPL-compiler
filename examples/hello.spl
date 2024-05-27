@@ -1,6 +1,0 @@
-
-main ()  {
-    var if = [];
-    var str = 'h' : 'e' :'l':'l' :'o' : if;
-    print(str);
-}

@@ -30,7 +30,6 @@ library spl-lib
         SPL.Parser.Type
         SPL.Parser.Stmt
         SPL.Parser.Program
-        SPL.Printer
         SPL.Typechecker2
         SPL.Codegen.Codegen
         SPL.Codegen.SSM
@@ -43,6 +42,7 @@ library spl-lib
         SPL.Return
         SPL.PrettyPrint
         SPL.Parser.SourceSpan
+        SPL.Preprocess
     build-depends:    base ^>=4.17.2.1,
                       megaparsec,
                       containers,
