@@ -135,7 +135,6 @@ instance GenSSM (Decl TypecheckedP) where
       generate  (FunDecl _ name ty args funvardecl body) = error "this type of funcall is not supported yet support yet"
 
 
-
 instance GenSSM (Literal TypecheckedP) where
       generate TrueLit = pure [LDC 1] -- There is also a True and False but its just a bit pattern https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#True
       generate FalseLit = pure [LDC 0]
@@ -148,15 +147,14 @@ instance GenSSM (Literal TypecheckedP) where
 annotate = Annotate SP 0 1 Green
 
 instance GenSSM (Stmt TypecheckedP) where
-      generate (ExprStmt _ expr) = generate expr
+
+      generate (ExprStmt _ expr) = generate expr -- Todo clean these up though? Right? 
       generate _ = return [NOP, annotate "An unsupported statement"]
 
 -- we could reverses the code 
 
 newline :: Int
 newline = 10
-
-
 
 -- Look up a variable from enviroment, doing it in a function gives worse error messages but after type checking we should never error here
 getkey :: Key -> Env Location

@@ -42,7 +42,7 @@ main = do
     -- putStrLn $ blue "Read in Source:\n" ++ T.unpack source
     parsed_ast <- eitherParserToIO  $ parse file source
     putStr (blue "Parsing completed! ")
-    _ <- eitherStrIO $ checkHasMain parsed_ast
+    eitherStrIO $ checkHasMain parsed_ast
     putStrLn (blue "(program has main function) ")
     -- print parsed_ast
     let preprocessed_ast = preprocesAST parsed_ast
@@ -51,7 +51,7 @@ main = do
     putStrLn $ pretty preprocessed_ast
     return_checked_ast <- eitherStrIO $ checkReturns preprocessed_ast
     putStrLn (blue "Succesfull return path analysis!")
-    _ <- eitherStrIO $ checkDuplicateDecls return_checked_ast
+    eitherStrIO $ checkDuplicateDecls return_checked_ast
     putStrLn $ blue "No duplicate declerations!"
     -- todo, do we need to do anything with this sub?
     -- (checked_globals_ast, varenv) <- eitherStrIO $ checkGlobalVars return_checked_ast

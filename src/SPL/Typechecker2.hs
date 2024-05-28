@@ -19,16 +19,17 @@ import qualified Debug.Trace as Debug
 import Text.Megaparsec (SourcePos (SourcePos), unPos)
 import SPL.PrettyPrint (prettyPrintMap, printWithCommas, pretty)
 import Data.List (intercalate)
+import Data.Map (Map)
 
 data Scheme = Scheme (Set.Set String) Type
   deriving (Show, Eq)
 
-type FunEnv = Map.Map String Scheme
+type FunEnv = Map String Scheme
 
-type VarEnv = Map.Map String Type
+type VarEnv = Map String Type
 
 {- A subst is a map from type var names to types-}
-type Subst = Map.Map String Type
+type Subst = Map String Type
 
 type FreeTypeVarNames = Set.Set String
 
@@ -43,24 +44,95 @@ type TIState = TIenv
 type TI a = ExceptT String (State TIState) a
 
 runTI :: TI a -> (Either String a, TIState)
-runTI t = runState (runExceptT t) initTIState
-  where
-    initTIState = 0
+runTI t = runState (runExceptT t) emptyTypecheckEnv
 
-{-
-getCount :: TI Int
-getCount = do
-            env <- get
-            return $ getTypeVarCounter env
+evalTI :: TI a -> Either String a -- Like run but we throw away the state
+evalTI t = fst $ runTI t
 
-getCount :: TI Int
-getCount = do
-            getTypeVarCounter <$> get
+initTyCounterStart :: Int
+initTyCounterStart = 1
 
--}
+--- Type inference enviroment
+data TIenv = TIenv {getFunenv :: FunEnv,
+                    getVarenv :: VarEnv,
+                    getMeta :: SourceSpan,
+                    getFunName :: Maybe String,
+                    getFunArgNames :: Maybe [String],
+                    getTypeVarCounter :: Int
+                  }
+    deriving Show
+
+
+
+{- Functions for the TIenv state monad-}
+
+-- Meta is not defined here but maybe if you don't touch it its ok?
+emptyTypecheckEnv :: TIenv
+emptyTypecheckEnv = TIenv { getFunenv = defaultFunEnv, getVarenv = defaultVarEnv, getMeta = undefined, getFunArgNames = Nothing, getTypeVarCounter = initTyCounterStart, getFunName = Nothing}
 
 increaseTypeVarCounter :: TI ()
 increaseTypeVarCounter = modify $ \env@(TIenv {getTypeVarCounter = count}) -> env {getTypeVarCounter = count + 1}
+
+-- Function that gets a var from the var env or throw a var not found if it can't
+lookupVarType :: String -> TI Type
+lookupVarType varname = do
+  varenv <- gets getVarenv
+  case Map.lookup varname varenv of
+    Just varT -> return varT
+    Nothing -> gets getMeta >>= \meta -> throwError $ "Undefined variable " ++ show varname ++ " at " ++ show meta ++ "."
+
+lookupFunScheme :: String -> TI Scheme
+lookupFunScheme name = do
+  funenv <- gets getFunenv
+  case Map.lookup name funenv of
+    Nothing -> gets getMeta >>= \meta -> throwError $ "Function '" ++  blue name ++ "' is undefined. at " ++ showStart meta
+    Just scheme -> return scheme
+
+lookupFunType :: String -> TI Type
+lookupFunType name = do
+  scheme <- lookupFunScheme name
+  instantiate scheme
+-- Here we don't check if its a fun type. Too happy about no return function
+
+lookupFunName :: TI String
+lookupFunName = do
+  name <- gets getFunName
+  case name of
+    Nothing -> gets getMeta >>= \meta -> throwError $ red "No current function name in type inference envrioment. " ++ "This is a compiler error. I don't know the name of the function I am currently checking at " ++ showStart meta
+    Just found -> return found
+
+lookupArgNames :: TI [String]
+lookupArgNames = do
+  names <- gets getFunArgNames
+  case names of
+    Nothing -> gets getMeta >>= \meta -> throwError $ red "No current function arg names in type inference envrioment. " ++ "This is a compiler error. I don't know the argument name of the function I am currently checking at " ++ showStart meta
+    Just found -> return found
+
+lookupCurrentFunScheme :: TI Scheme
+lookupCurrentFunScheme = do
+  funname <- lookupFunName `catchError` \err -> throwError $ "While looking type scheme of function currently being checked got error looking up the name of the current function. Here is that error: \n" ++ err
+  lookupFunScheme funname
+
+applySubToTIenv :: Subst -> TI ()
+applySubToTIenv sub = modify (apply sub)
+
+replaceMeta :: SourceSpan -> TI ()
+replaceMeta meta = modify (\env -> env {getMeta = meta})
+
+replaceFunName :: String -> TI ()
+replaceFunName name = modify (\env -> env {getFunName = Just name})
+
+removeFunName :: TI ()
+removeFunName = modify (\env -> env {getFunName = Nothing})
+
+setFunArgNames :: [String] -> TI ()
+setFunArgNames names = modify (\env -> env {getFunArgNames = Just names})
+
+removeFunArgNames :: TI ()
+removeFunArgNames = modify (\env -> env {getFunArgNames = Nothing})
+
+replaceFunArgNames :: [String] -> TI ()
+replaceFunArgNames names = modify (\env -> env {getFunArgNames = Just names})
 
 newTyVar :: TI Type
 newTyVar = do
@@ -73,21 +145,21 @@ newTyVar = do
       | c < 26 = [toEnum (97 + c)]
       | otherwise = let (n, r) = c `divMod` 26 in toEnum (97 + r) : toTyVar (n - 1)
 
+extendVarEnv :: VarEnv -> TI ()
+extendVarEnv new_varenv = modify (\env@TIenv {getVarenv = varenv} -> env {getVarenv = varenv <> new_varenv})
+
+extendFunEnv :: String -> Scheme -> TI ()
+extendFunEnv funname fun_type = modify (\env@TIenv {getFunenv = funenv} -> env {getFunenv = Map.insert funname fun_type funenv })
+
+resetVarEnv :: VarEnv -> TI ()
+resetVarEnv varenv = modify (\env -> env {getVarenv = varenv})
+
+{- End of Functions for the TIenv state -}
+
 class Types a where
   ftv :: a -> FreeTypeVarNames
   apply :: Subst -> a -> a
 
---- Type inference enviroment
-data TIenv = TIenv {getFunenv :: FunEnv,
-                    getVarenv :: VarEnv,
-                    getMeta :: SourceSpan,
-                    getFunName :: Maybe String,
-                    getFunArgNames :: Maybe [String],
-                    getTypeVarCounter :: Int
-                  }
-    deriving Show
-
-emptyTypecheckEnv = TIenv { getFunenv = defaultFunEnv, getVarenv = defaultVarEnv}
 
 class Typecheck a where
   {-# MINIMAL tc | ti #-}
@@ -95,11 +167,14 @@ class Typecheck a where
   tc a t = do
     (s1, inferredT) <- ti a
     s2 <- unify t inferredT
-    return $ s1 `composeSubst` s2
+    let s = s1 `composeSubst` s2
+    applySubToTIenv s
+    return $ s
   ti :: a -> TI (Subst, Type)
   ti a = do
     t <- newTyVar
     s <- tc a t
+    applySubToTIenv s
     return (s, apply s t)
 
 instance Types Type where
@@ -117,16 +192,14 @@ instance Types Type where
   apply _ concreteType = concreteType
 
 instance Types Scheme where
-  ftv (Scheme vars t) = ftv t `Set.difference` vars
+  ftv (Scheme vars t) = ftv t `Set.difference` vars -- Only return the free variables from t that are in vars, this way you can do rigid without the boolean. Todo, ask, vraag
   apply s (Scheme vars t) = Scheme vars (apply (foldr Map.delete s vars) t) -- make a new scheme by applying the sub, todo idk why the delete though
+
 
 instance (Types a) => Types [a] where
   apply s = map (apply s)
   ftv = foldr (Set.union . ftv) Set.empty
 
-instance Types FunEnv where
-  ftv env = ftv (Map.elems env)
-  apply s = Map.map (apply s)
 
 -- The instantiation function replaces all bound type variables in
 --  a type scheme with fresh type variables.
@@ -146,68 +219,68 @@ varBind meta u t
 
 -- todo, we could also include variables names here maybe
 -- Based on the variables in the varenv we could do suggestions of types to use!!
-unify :: Type -> Type -> TI Subst
+unify :: Type -> Type -> TI Subst -- Are 2 types be the same?
 unify (FunType args r) (FunType args' r') = do
   -- We need to unify all the arguments from l with l' pair by pair
   s1 <- zipWithM unify args args' -- same as: mapM (uncurry unify) (zip at at') -- No I would have never have known that witout the hint thing from vscode
   let s1' = foldr composeSubst nullSubst s1
-
-  s2 <- unify env (apply s1' r) (apply s1' r')
+  s2 <- unify (apply s1' r) (apply s1' r')
   return $ s1' `composeSubst` s2
-unify (TypeVar u False) t = varBind (getMeta env) u t
-unify t (TypeVar u False) = varBind (getMeta env) u t
-unify ty1@(TypeVar name1 True) ty2@(TypeVar name2 True) =
-  if name1 == name2
-    then return nullSubst
-    else throwError $ "Cannot unify " ++ show ty1 ++ " with " ++ show ty2 ++ " as '" ++ blue name1 ++ "' and '" ++ blue name2 ++ "' are two "++bold "different"++" rigid type variable because they have a different name.\nA rigid type variable means that the caller can choose the type. Because of this we don't know which operations are possible and thus cannot unify further.\nThis happened" ++ formatUnifyError ty2 env
-unify ty@(TypeVar u True) t =
-  throwError $
-    "Cannot unify " ++ show ty ++ " with " ++ show t ++ ", as '" ++ blue u ++ "' is a rigid type variable.\nA rigid type variable (in this case " ++ u ++ ") means that the caller can choose the type. Because of this we don't know which operations are possible and thus cannot unify further.\nThis happened" ++ formatUnifyError t env
-unify t ty@(TypeVar u True) =
-  throwError $
-    "Cannot unify " ++ show t ++ " with " ++ show ty ++ ", as '" ++ blue u ++ "' is a rigid type variable.\nA rigid type variable (in this case " ++ u ++ ") means that the caller can choose the type. Because of this we don't know which operations are possible and thus cannot unify further.\nThis happened" ++ formatUnifyError t env
-unify (ListType t1) (ListType t2) = unify env t1 t2
+unify (TypeVar u False) t = gets getMeta >>= \meta -> varBind meta u t -- bind the type var!
+unify t (TypeVar u False) = gets getMeta >>= \meta -> varBind meta u t
+unify ty1@(TypeVar name1 True) ty2@(TypeVar name2 True) = if name1 == name2 then return nullSubst else unifyError ty1 ty2
+unify ty1@(TypeVar _ True) ty2 = unifyError ty1 ty2
+unify ty1 ty2@(TypeVar _ True) = unifyError ty1 ty2
+unify (ListType t1) (ListType t2) = unify t1 t2
 unify (TupleType t1 t2) (TupleType t1' t2') = do
-  s1 <- unify env t1 t1'
-  s2 <- unify env (apply s1 t2) (apply s1 t2')
-  return $ s1 `composeSubst` s2
+  s1 <- unify t1 t1'
+  s2 <- unify (apply s1 t2) (apply s1 t2')
+  let s = s1 `composeSubst` s2
+  applySubToTIenv s
+  return $ s
 unify IntType IntType = return nullSubst
 unify BoolType BoolType = return nullSubst
 unify CharType CharType = return nullSubst
 -- todo probably add case for Void Void 
-unify  t1 t2 = throwError $ "Types do not unify:\n" ++ show t1 ++ " vs. " ++ show t2 ++ formatUnifyError t1 env
+unify t1 t2 = unifyError t1 t2
 
 instance Typecheck (Literal ReturnsCheckedP) where
-  ti _ (IntLit _) = return (nullSubst, IntType)
-  ti _ TrueLit = return (nullSubst, BoolType)
-  ti _ FalseLit = return (nullSubst, BoolType)
-  ti _ (CharLit _) = return (nullSubst, CharType)
-  ti _ EmptyListLit = do
+  ti (IntLit _) = return (nullSubst, IntType)
+  ti TrueLit = return (nullSubst, BoolType)
+  ti FalseLit = return (nullSubst, BoolType)
+  ti (CharLit _) = return (nullSubst, CharType)
+  ti EmptyListLit = do
     var <- newTyVar
     return (nullSubst, ListType var) -- ListType with typevar inside!
-  ti env (TupleLit (e1, e2)) = do
-    (s1, t1) <- ti env e1
-    (s2, t2) <- ti env e2
-    return (s1 `composeSubst` s2, TupleType t1 t2)
+  ti (TupleLit (e1, e2)) = do
+    (s1, t1) <- ti e1
+    (s2, t2) <- ti e2
+    let s = s1 `composeSubst` s2
+    applySubToTIenv s
+    return (s, TupleType t1 t2)
 
 -- Check if the type of 2 expr can be CheckType and then return ResultType
 --   ResultType -> CheckType -> ...
 tcBinOp :: Type -> Type -> Expr ReturnsCheckedP  -> Expr ReturnsCheckedP  -> TI (Subst, Type)
-tcBinOp resultT checkT env e1 e2 = do
+tcBinOp resultT checkT e1 e2 = do
   s1 <- tc e1 checkT
   s2 <- tc e2 checkT
-  return (s1 `composeSubst` s2, resultT)
+  let s = s1 `composeSubst` s2
+  applySubToTIenv s
+  return (s, resultT)
 
 -- todo Dependent types for booleans
 
 {- Check if the infered types of 2 expr can be unified with eachother and then return ResultType as the type of the 2 expressions
 We are checking if the two types of the expressions are equal in a sense -}
 tcBinOpEqual :: Type -> Expr ReturnsCheckedP -> Expr ReturnsCheckedP -> TI (Subst, Type)
-tcBinOpEqual resultT env e1 e2 = do
-  (s1, t1) <- ti env e1
-  (s2, t2) <- ti env e2
-  s3 <- unify env t1 t2
-  return (s1 `composeSubst` s2 `composeSubst` s3, resultT)
+tcBinOpEqual resultT e1 e2 = do
+  (s1, t1) <- ti e1
+  (s2, t2) <- ti e2
+  s3 <- unify t1 t2
+  let s = s1 `composeSubst` s2 `composeSubst` s3
+  applySubToTIenv s
+  return (s, apply s resultT)
 
 {- Checks if the types of 2 expressions match the given type and returns the given type as the type of the expression -}
 tcBinOpIdentity :: Type -> Expr ReturnsCheckedP -> Expr ReturnsCheckedP -> TI (Subst, Type)
@@ -217,95 +290,59 @@ tcBinOpIdentity t = tcBinOp t t
 tcBinOpBoolean :: Type -> Expr ReturnsCheckedP -> Expr ReturnsCheckedP-> TI (Subst, Type)
 tcBinOpBoolean = tcBinOp BoolType
 
+
+-- First tries to infer as boolean with 2 ints and then with 2 chars if both fail an error is thrown using throwError
+tcCharIntToBoolOverload :: BinOp -> Expr ReturnsCheckedP -> Expr ReturnsCheckedP -> TI (Subst, Type)
+tcCharIntToBoolOverload op e1 e2 = tcBinOpBoolean IntType e1 e2 `catchError`
+                                \_ -> tcBinOpBoolean CharType e1 e2  `catchError`
+                                  \_ -> do
+                                    (_, t1) <- ti e1
+                                    (_, t2) <- ti e2
+                                    meta <- gets getMeta
+                                    errorTail <- unifyError t1 t2
+                                    throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to " ++ pretty op ++" should be either Int or Char but you gave " ++ show t1 ++ show op ++ show t2 ++ errorTail
+
 instance Typecheck (Expr ReturnsCheckedP) where
-  ti (LiteralExpr meta lit) = ti (env {getMeta = meta}) lit
-  ti (BinOpExpr meta Mul e1 e2) = tcBinOpIdentity IntType (env {getMeta = meta}) e1 e2
-  ti (BinOpExpr meta Mod e1 e2) = tcBinOpIdentity IntType (env {getMeta = meta}) e1 e2
-  ti (BinOpExpr meta Add e1 e2) = tcBinOpIdentity IntType (env {getMeta = meta}) e1 e2
-  ti (BinOpExpr meta Div e1 e2) = tcBinOpIdentity IntType (env {getMeta = meta}) e1 e2
-  ti (BinOpExpr meta Sub e1 e2) = tcBinOpIdentity IntType (env {getMeta = meta}) e1 e2
-  -- These next ones are polymorf, they can either be char or int
-  ti (BinOpExpr meta Gt e1 e2) = do
-    let env' = env {getMeta = meta}
-    (_, t1) <- ti env' e1
-    (_, t2) <- ti env' e2
-    let you_gave = show t1 ++ " > " ++ show t2
-    tcBinOpBoolean IntType env' e1 e2
-      `catchError` \_ ->
-        tcBinOpBoolean CharType env' e1 e2
-          `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to > should be either Int or Char but you gave " ++ you_gave
-  ti (BinOpExpr meta Gte e1 e2) = do
-    let env' = env {getMeta = meta}
-    (_, t1) <- ti env' e1
-    (_, t2) <- ti env' e2
-    let you_gave = show t1 ++ " > " ++ show t2
-    tcBinOpBoolean IntType env' e1 e2
-      `catchError` \_ ->
-        tcBinOpBoolean CharType env' e1 e2
-          `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to >= should be either Int or Char but you gave " ++ you_gave
-  ti (BinOpExpr meta Lt e1 e2) = do
-    let env' = env {getMeta = meta}
-    (_, t1) <- ti env' e1
-    (_, t2) <- ti env' e2
-    let you_gave = show t1 ++ " > " ++ show t2
-    tcBinOpBoolean IntType env' e1 e2
-      `catchError` \_ ->
-        tcBinOpBoolean CharType env' e1 e2
-          `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to < should be either Int or Char but you gave " ++ you_gave
-  ti (BinOpExpr meta Lte e1 e2) = do
-    let env' = env {getMeta = meta}
-    (_, t1) <- ti env' e1
-    (_, t2) <- ti env' e2
-    let you_gave = show t1 ++ " > " ++ show t2
-    tcBinOpBoolean IntType env' e1 e2
-      `catchError` \_ ->
-        tcBinOpBoolean CharType env' e1 e2
-          `catchError` \_ -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to <= should be either Int or Char but you gave " ++ you_gave
-  ti (BinOpExpr meta Eq e1 e2) = tcBinOpEqual BoolType (env {getMeta = meta}) e1 e2
-  ti (BinOpExpr meta Neq e1 e2) = tcBinOpEqual BoolType (env {getMeta = meta}) e1 e2
-  ti (BinOpExpr meta And e1 e2) = tcBinOpIdentity BoolType (env {getMeta = meta}) e1 e2
-  ti (BinOpExpr meta Or e1 e2) = tcBinOpIdentity BoolType (env {getMeta = meta}) e1 e2
+  ti (LiteralExpr meta lit) = replaceMeta meta >> ti lit
+  ti (BinOpExpr meta Mul e1 e2) = replaceMeta meta >> tcBinOpIdentity IntType e1 e2
+  ti (BinOpExpr meta Mod e1 e2) = replaceMeta meta >> tcBinOpIdentity IntType e1 e2
+  ti (BinOpExpr meta Add e1 e2) = replaceMeta meta >> tcBinOpIdentity IntType e1 e2
+  ti (BinOpExpr meta Div e1 e2) = replaceMeta meta >> tcBinOpIdentity IntType e1 e2
+  ti (BinOpExpr meta Sub e1 e2) = replaceMeta meta >> tcBinOpIdentity IntType e1 e2
+  ti (BinOpExpr meta Neq e1 e2) = replaceMeta meta >> tcBinOpEqual BoolType e1 e2
+  ti (BinOpExpr meta And e1 e2) = replaceMeta meta >> tcBinOpIdentity BoolType e1 e2
+  ti (BinOpExpr meta Gte e1 e2) = replaceMeta meta >> tcCharIntToBoolOverload Gte e1 e2
+  ti (BinOpExpr meta Lte e1 e2) = replaceMeta meta >> tcCharIntToBoolOverload Lte e1 e2
+  ti (BinOpExpr meta Gt e1 e2) = replaceMeta meta >> tcCharIntToBoolOverload Gt e1 e2
+  ti (BinOpExpr meta Lt e1 e2) = replaceMeta meta >> tcCharIntToBoolOverload Lt e1 e2
+  ti (BinOpExpr meta Eq e1 e2) = replaceMeta meta >> tcBinOpEqual BoolType e1 e2
+  ti (BinOpExpr meta Or e1 e2) = replaceMeta meta >> tcBinOpIdentity BoolType e1 e2
   ti (BinOpExpr meta Cons e1 e2) = do
-    let env' = env {getMeta = meta}
-    (s1, t1) <- ti env' e1
-    (s2, t2) <- ti env' e2
-    -- Maybe we should see if we can tc with a list that has a type var inside
-    _ <- Debug.trace ("Doing Cons " ++ show t1 ++ " : " ++ show t2 ++  " s2: " ++ show s2 ) pure ()
-    s3 <- case t2 of
-            -- If t2 is a list type we have to unify with the type inside the list
-            ListType u1 -> unify env' t1 u1  `catchError` \err -> throwError $ "You tried to cons " ++ show t1 ++ " with " ++ show t2 ++ ", but this is not legal.\n" ++ err
-            -- Else just try to unify and let it fail (most likely)
-            _ -> unify env' t1 t2
-    -- Todo ask is this needed?
-    -- newTy <- newTyVar
-
-    let free = Set.toList $ ftv t2
-        s4 = Map.fromList $ (\tyvarname -> (tyvarname, t1)) <$> free
-
-    let s = s1 `composeSubst` s2 `composeSubst` s3 `composeSubst` s4
-    -- _ <- Debug.trace ("Doing Cons " ++ show t1 ++ " : " ++ show t2 ++ show s4 ++ " s4!" ++ "s: " ++ show s ) pure ()
-    return (s, ListType t1) -- This is good because we always get a list type like this and we are sure we can put t1 inside it 
+    replaceMeta meta
+    (s1, t1) <- ti e1
+    (s2, listty) <- ti e2
+    -- Debug.trace ("Doing Cons " ++ show t1 ++ " : " ++ show t2 ++  " s2: " ++ show s2 ) pure ()
+    s3 <- case listty of -- If t2 is a list type we have to unify with the type inside the list
+            ListType u1 -> unify t1 u1  `catchError` \err -> throwError $ "You tried to cons " ++ show t1 ++ " with " ++ show listty ++ ", but this is not legal.\n" ++ err
+            _ -> unify t1 listty -- Else just try to unify and let it fail (most likely)
+    let s = s1 `composeSubst` s2 `composeSubst` s3
+    -- Debug.trace ("Doing Cons " ++ show t1 ++ " : " ++ show t2 ++ show s4 ++ " s4!" ++ "s: " ++ show s ) pure ()
+    applySubToTIenv s
+    return (s, apply s $ ListType t1) -- This is good because we always get a list type like this and we are sure we can put t1 inside it 
   ti (UnaryOpExpr meta Negate e) = do
-    let env' = env {getMeta = meta}
-    (s1, t) <- ti env' e
-    s2 <- unify env' BoolType t -- Check if its a bool, again here we could actually negate the bool maybe, like dependent types but only for bools?
-    return (s1 `composeSubst` s2, t)
-  ti (UnaryOpExpr _ (FieldAccess _field) _expr) = error "Field access is not working yet :]"
+    replaceMeta meta
+    (s1, t) <- ti e
+    s2 <- unify BoolType t -- Check if its a bool, again here we could actually negate the bool maybe, like dependent types but only for bools?
+    let s = s1 `composeSubst` s2
+    applySubToTIenv s
+    return (s, apply s t)
+  ti (UnaryOpExpr meta (FieldAccess field) _expr) = replaceMeta meta >> error "Field access is not working yet :["
   -- Todo Variables can have fields but I am just going to take the type of the String, I am leaving the warning
-  ti (VariableExpr meta (Identifier var _field)) = case Map.lookup var $ getVarenv env of
-    Nothing -> throwError $ "Unbound variable: '" ++ blue var ++ "' at " ++ showStart meta
-    Just sigma -> pure (nullSubst, sigma)
-  -- Print is special just return Void
-  ti (FunctionCallExpr meta "print" args) = pure (nullSubst, VoidType)
+  ti (VariableExpr meta (Identifier var field)) = replaceMeta meta >> lookupVarType var >>= \sigma -> pure (nullSubst, sigma)
+  ti (FunctionCallExpr meta "print" args) = replaceMeta meta >> pure (nullSubst, VoidType) -- Print is special just return Void, but ok we should do another found where we infer and replace expr, but that is just a checkProgram on stmt and decl!!!!!!
   ti (FunctionCallExpr meta funcName args) = do
-    let schemeM = Map.lookup funcName $ getFunenv env
-    scheme <- case schemeM of
-      Nothing -> throwError $ "Function '" ++ blue funcName ++ "' is undefined. at " ++ showStart meta
-      Just scheme -> return scheme
-
-    -- How do we get the types of the function argumens of other functions?
-
-    -- If we get here we did find the function!
+    replaceMeta meta
+    scheme <- lookupFunScheme funcName
     funtype <- instantiate scheme
     (funargs, retty) <- case funtype of
           FunType funargs retty -> Debug.trace (black "Instancitated " ++ funcName ++ " as " ++ show funtype ) pure (funargs, retty)
@@ -314,12 +351,75 @@ instance Typecheck (Expr ReturnsCheckedP) where
     let arg_count = length funargs
         n_given_args = length args
     when (n_given_args > arg_count) (throwError $ red "You called the '"++ blue funcName ++ red "' function at " ++ showStart meta ++ red " with too many arguments " ++ "("++ green ( show n_given_args )++ " > " ++ green (show arg_count) ++ ")" ++ "\nThe '"++ blue funcName ++ "' function takes " ++ green ( show arg_count) ++ " argument" ++ (if arg_count == 1 then "" else "s") ++ " but you gave " ++ green ( show n_given_args) ++ " argument" ++ (if n_given_args == 1 then "" else "s") ++".")
-    when (n_given_args < arg_count) (let missing = arg_count - n_given_args in throwError $ red "Function call at " ++ showStart meta ++ red " is missing " ++ green (show missing) ++ red " arguments.")-- ++"\nThe arguments are called " ++ intercalate " and " (map blue (drop undefined undefined)) ++ ".") 
+    when (n_given_args < arg_count) (throwMissingArgs $ arg_count - n_given_args)
 
     f <- zipWithM tc args funargs
     let sub = foldr composeSubst nullSubst f
 
-    return (sub, retty)
+    applySubToTIenv sub
+
+    return (sub, apply sub retty)
+      where
+        throwMissingArgs :: Int -> TI ()
+        throwMissingArgs missing = do
+          funcname <- lookupFunName
+          names <- if funcname == funcName then lookupArgNames >>= \argnames -> pure $ "\nThe missing arguments are called " ++ (intercalate " and " (map blue (drop missing argnames)) ++ ".") else pure ""
+          throwError $ red "Function call at " ++ showStart meta ++ red " is missing " ++ green (show missing) ++ red " arguments." ++ names
+          return undefined
+
+
+instance Typecheck (Stmt ReturnsCheckedP) where
+  ti (ReturnStmt meta (Just expr)) = do
+    replaceMeta meta
+    scheme <- lookupCurrentFunScheme `catchError` \err -> throwError $ err ++ "\nNo function name, that means the return at "++ showStart meta ++ red " is outside a function? Don't do that."
+
+    funtype <- instantiate scheme
+    (_, returntype) <- case funtype of -- don't generalize this one I think, otherwise you still don't really know if you have retty and arg types
+                                  FunType argtypes returntype -> pure (argtypes,returntype)
+                                  t -> throwError $ "Function env returned non function type " ++ show t
+
+    s1 <- tc expr returntype `catchError` \err -> lookupFunName >>= \funname -> throwError $ red "Invalid return type in function '" ++ blue funname ++ red "'" ++ " at " ++ showEnd meta ++ "\n" ++ err
+    applySubToTIenv s1 -- Apply s1 on function scheme!
+    -- todo Now either get the return type again from the env or 
+    return (s1, returntype)
+  ti (ReturnStmt _ Nothing) = return (nullSubst, VoidType)
+  ti (IfStmt meta cond consequent (Just alternative)) = do
+    replaceMeta meta
+    s1 <- tc cond BoolType
+    (s2, ty1) <- ti consequent
+    (s3, ty2) <- ti alternative
+    s4 <- unify ty1 ty2
+    let s = s1 `composeSubst` s2 `composeSubst` s3 `composeSubst` s4
+    applySubToTIenv s
+    return (s, apply s ty1) -- we can do ty1 because of the previous returns checks, we know we can just pick one
+  ti (IfStmt meta cond consequent Nothing) = do
+    replaceMeta meta
+    s1 <- tc cond BoolType
+    (s2, ty) <- ti consequent
+    let s = s1 `composeSubst` s2
+    applySubToTIenv s
+    return (s, apply s ty)
+  -- todo add fields
+  ti (AssignStmt meta (Identifier var fiels) expr) = do
+    replaceMeta meta
+    (s1, t) <- ti expr
+    varT <- lookupVarType var
+    s2 <- unify varT t
+    let s  = s1 `composeSubst` s2
+    applySubToTIenv s
+    return (s, VoidType) -- This is void type because its never a return
+  ti (WhileStmt meta cond stmts) = do
+    replaceMeta meta
+    s1 <- tc cond BoolType
+    (s2, ty) <- ti stmts
+    let s = s1 `composeSubst` s2
+    applySubToTIenv s
+    return (s, apply s ty)
+  -- todo this one idk, maybe we should not apply it
+  ti (ExprStmt meta e) = replaceMeta meta >> ti e >>= \(sup, _) -> applySubToTIenv sup >> pure (sup, VoidType) -- Also void type because its not a return
+  -- ti env meta (BlockStmt stmt) = Debug.trace "ti called on BlackStmt!! That should not happen right?" ti env meta stmt
+  ti (BlockStmt _body) = error "ti called on BlackStmt!! That should not happen right during type checking?" -- but when we do stop at return?
+
 
 -- Maybe we also do this for list of expressions but probably not because a list of expressions does not make sense
 instance Typecheck [Stmt ReturnsCheckedP] where
@@ -327,90 +427,27 @@ instance Typecheck [Stmt ReturnsCheckedP] where
   {- todo this is wrong because it does not update the envrioment every time but uses the one from at the start! 
        I guess thats ok for statement and below because they can't change env. But lets just make this one only for statements -}
   ti [] = return (nullSubst, VoidType)
-  ti [stmt] = ti env stmt -- This fixes that if you have a return statement as the last statement that the last will be compared with void because [] = VoidType
+  ti [stmt] = ti stmt -- This fixes that if you have a return statement as the last statement that the last will be compared with void because [] = VoidType
   ti (stmt:later) = do
-    (mysub, mytype) <- ti env stmt
-    (latersub, othertype) <- ti env later
+    (mysub, mytype) <- ti stmt
+    (latersub, othertype) <- ti later
     let sub = mysub `composeSubst` latersub
-    returned_ty <- case (mytype, othertype) of
-                        -- I think we have to have these cases so that unify does not have to deal with VoidType
-                        (VoidType, VoidType) -> pure VoidType
-                        -- If retty1 is not Void and the rest is void it means that I return something! In that case just propagete what I return
-                        (retty1, VoidType) -> pure retty1
-                        -- If retty1 is Void and the rest is not void it means that I do not return something but later we do! In that case just propagete what we return later
-                        (VoidType, retty2) -> pure retty2 -- I think we have to have this case so that unify does not have to deal with VoidType
-                        (retty1, retty2) -> (unify env retty1 retty2 `catchError` \err -> throwError $  red " Could not unify return type of statement block at " ++ showStart (getMeta env) ++ "\n" ++ err)
-                                                >> pure retty2 -- go with othertype, the type of the end of the stmt! Thats where the return is. 
-    -- Uhm 
-    return (sub, returned_ty)
+    case (mytype, othertype) of
+      -- I think we have to have these cases so that unify does not have to deal with VoidType
+      (VoidType, VoidType) -> pure (nullSubst, VoidType)
+      -- If retty1 is not Void and the rest is void it means that I return something! In that case just propagete what I return, todo check this 
+      (retty1, VoidType) -> pure (nullSubst, retty1)
+      -- If retty1 is Void and the rest is not void it means that I do not return something but later we do! In that case just propagete what we return later
+      (VoidType, retty2) -> pure (nullSubst, retty2) -- I think we have to have this case so that unify does not have to deal with VoidType
+      (retty1, retty2) -> do
+                            retsub <- unify retty1 retty2 `catchError` \err -> throwError $  red " Could not unify return types of statement list.\n" ++ err
+                            let subsub = retsub `composeSubst` sub
+                            pure (subsub, apply subsub retty2)
 
--- This could also be different version of ti in the typeclass that you don't have to implement??
 
--- todo The type of a list of statements is the return type!!!!! We also stop after the return! Ignoring other statements.
--- A step where we remove the things after return statements in the same list. Simple dead code removal.
 
-instance Typecheck (Stmt ReturnsCheckedP) where
-  ti (ReturnStmt meta (Just expr)) = do
+-- todo remove some of the debug.trace
 
-    let env' = env {getMeta = meta}
-    let funenv = getFunenv env
-
-    let funname = case getFunName env' of
-                    Just name -> name
-                    Nothing -> error $ red "??? No function name, that means the return at "++ showStart meta ++ red " is outside a function? Don't do that."
-
-    let scheme = funenv Map.! funname
-    funtype <- instantiate scheme
-    (_, returntype) <- case funtype of
-                                  FunType argtypes returntype -> pure (argtypes,returntype)
-                                  t -> throwError $ "Function env returned non function type " ++ show t
-
-    s1 <- tc expr returntype `catchError` \err -> throwError $ red "Invalid return type in function '" ++ blue funname ++ red "'"++" at " ++ showEnd meta ++ "\n" ++ err
-    return (s1, returntype)
-  ti (ReturnStmt _ Nothing) = return (nullSubst, VoidType)
-  ti (IfStmt meta cond consequent (Just alternative)) =
-    do
-      -- _ <- Debug.trace "checking if else" pure ()
-      let env' = env {getMeta = meta}
-      s1 <- tc cond BoolType
-      (s2, ty1) <- ti env' consequent
-      (s3, ty2) <- ti env' alternative
-      s4 <- unify env' ty1 ty2
-      let s = s1 `composeSubst` s2 `composeSubst` s3 `composeSubst` s4
-      return (s, ty1) -- we can do ty1 because of the previous returns checks, we know we can just pick one
-  ti (IfStmt meta cond consequent Nothing) =
-    do
-      -- _ <- Debug.trace "checking if " pure ()
-      s1 <- tc' cond BoolType
-      (s2, ty) <- ti consequent
-      let s = s1 `composeSubst` s2
-      return (s, ty)
-  -- todo add fields
-  ti (AssignStmt meta (Identifier var _) expr) = do
-    -- _ <- Debug.trace "checking assing" pure ()
-    (s, t) <- ti expr
-    let varTM = Map.lookup var (getVarenv env')
-    varT <- case varTM of
-      Nothing -> throwError $ "Undefined variable " ++ show var ++ " at " ++ show meta ++ "."
-      Just varT -> return varT
-    s' <- unify varT t
-    return (s `composeSubst` s', VoidType) -- This is void type because its never a return
-  ti (WhileStmt meta cond stmts) =
-    do
-      -- _ <- Debug.trace "checking while" pure ()
-      let env' = env {getMeta = meta}
-      s1 <- tc' cond BoolType
-      (s2, ty) <- ti stmts
-      let s = s1 `composeSubst` s2
-      return (s, ty)
-  ti (ExprStmt meta e) = ti e >>= \(sup, _) -> pure (sup, VoidType) -- Also void type because its not a return
-  -- ti env meta (BlockStmt stmt) = Debug.trace "ti called on BlackStmt!! That should not happen right?" ti env meta stmt
-  ti (BlockStmt _body) = error "ti called on BlackStmt!! That should not happen right during type checking?" -- but when we do stop at return?
-
--- todo remove the debug.trace
-
-replaceMeta :: SourceSpan -> TI ()
-replaceMeta meta = modify (\env -> env {getMeta = meta})
 
 {-
 
@@ -419,92 +456,90 @@ The problem with this is that we don't need to actually combine the subs from th
 
 -}
 instance Typecheck (Decl ReturnsCheckedP) where
-  ti (VarDecl meta _name _ expr) = replaceMeta meta >> ti expr
-  -- We assume that the caller added the type scheme from this fundecl to the funenv  
-      -- The returned sub contains the information of the args, decls and body
-  ti (FunDecl meta _ _ _ fundelcs body) = do
-      replaceMeta meta
-      name <- maybe (throwError "") pure $ getFunArgNames
-      argnames <- maybe (throwError $ red "No arg names when inferencing function " ++ blue name) pure $ getFunArgNames
-      _ <- Debug.trace (blue ("Inferencing function '" ++ name ++ "': ")) pure ()
+  ti (VarDecl meta _ Nothing expr) = replaceMeta meta >> ti expr >>= \(sub, ty) -> applySubToTIenv sub >> pure (sub, ty)
+  ti (VarDecl meta _ (Just ty) expr) = replaceMeta meta >> tc expr ty >>= \sub -> applySubToTIenv sub >> pure (sub, ty)
+  ti (FunDecl meta name retty args fundelcs body) = do -- The returned sub contains the information of the args, decls and body, the caller does not need to add anything to the env
+      Debug.trace (blue ("Inferencing function '" ++ name ++ "': ")) pure () -- this was as tight as I could make it
 
-      let (inital_funenv_with_me, initial_varenv, argnames) = (getFunenv env, getVarenv env)
+      initial_vars <- gets getVarenv -- Save the current vars 
 
-      -- Add args 
-      -- inital_arg_types <- mapM (maybe newTyVar pure . snd) args
-      scheme <- case Map.lookup name inital_funenv_with_me of
-                        Nothing -> throwError $ "Function " ++ blue name  ++ " is not in the function enviroment: " ++ show fundelcs
-                        Just s -> pure s
-      funtype <- Debug.trace "instanciating scheme" instantiate scheme
-      (fun_arg_types, fun_return_type) <- case funtype of
-                FunType args retty -> pure (args,retty)
-                t -> throwError $ "Function env returned non function type " ++ show t
-      _ <-Debug.trace ("instanciating scheme: " ++ show scheme ++ " gave: " ++ show funtype) pure ()
+      replaceMeta meta -- Set error generation information
+      replaceFunName name
 
-      let -- Add args to the var env
-          argnames = map fst args
-          args_with_initial_types = zip argnames inital_arg_types
-          varenv_with_args = initial_varenv <> Map.fromList args_with_initial_types
+      inital_arg_types <- mapM (maybe newTyVar pure . snd) args -- Get the args 
+      initial_retty <- maybe newTyVar pure retty -- Get the return type         <- First two things to make the type scheme
 
+      let free_vars = ftv inital_arg_types <> ftv initial_retty  -- Make the type scheme
+          fun_type = FunType inital_arg_types initial_retty
+          type_scheme = Scheme free_vars fun_type
+      extendFunEnv name type_scheme 
 
-            -- Yes this is already checked in the caller of this ti but I don't want to add those decls to the env,
-      (funvarsub, (funvardelcs_funenv, funvardelcs_varenv), typed_decls) <- checkProgram' (inital_funenv_with_me, varenv_with_args) fundelcs
+      let argnames = map fst args  -- Extend var env with the arguments
+          named_and_typed_args = Map.fromList $ zip argnames inital_arg_types
+      replaceFunArgNames argnames -- for error messages
+      extendVarEnv named_and_typed_args
 
-      let scheme' = apply funvarsub scheme  -- apply decl sub to the scheme
-      -- Update the var and fun enviroment with the obtained information
-      -- todo idk if this is right. It might overwrite the variables but we definitly have to add the decls to the enviroment. Check badrec assinging to funvardecl to an arg var
-      let varenv_args_and_vardecls = apply funvarsub varenv_with_args <> apply funvarsub funvardelcs_varenv
-          funenv_after_vardels = apply funvarsub (inital_funenv_with_me <> funvardelcs_funenv)
-          funenv_after_vardelsWithMe = Map.insert name scheme' funenv_after_vardels
-      let tc_env = env {getFunenv = funenv_after_vardelsWithMe, getVarenv = varenv_args_and_vardecls}
+      fundelc_inference <- mapM ti fundelcs -- Extend var env with the arguments
+      let infered_fundelc_types = map snd fundelc_inference
+          named_and_typed_fundecls = Map.fromList $ zip declnames infered_fundelc_types
+          declnames = map getDeclName fundelcs 
+      extendVarEnv named_and_typed_fundecls
+      
+      let infered_fundelc_subs = map fst fundelc_inference -- Create the substitution for the decls
+          infered_fundelc_sub = foldr composeSubst nullSubst infered_fundelc_subs
 
-      Debug.trace (blue "Type checked decls got:" ++ pretty typed_decls ++ blue "with sub " ++ show funvarsub) pure ()
-      Debug.trace ("Checking body with fun env:\n" ++ show tc_env ++ "\nVar env:\n" ++ prettyPrintMap varenv_args_and_vardecls) pure ()
+      infered_body_sub <- tc body initial_retty 
 
-      (bodysub, retrurn_type_from_body) <- ti tc_env body
-      Debug.trace ("Resulting body sub" ++ show bodysub) pure ()
+      let function_sub = infered_fundelc_sub `composeSubst` infered_body_sub
+      
+      applySubToTIenv function_sub
 
+      removeFunName
+      removeFunArgNames
+      resetVarEnv initial_vars
+
+      return (function_sub, apply function_sub  fun_type)
 
 
-      let tc_env' = apply bodysub tc_env
-      Debug.trace ("Resulting tc after body sub" ++ show tc_env') pure ()
+getRelevantVars :: Type -> TI String
+getRelevantVars ty = do
+   varEnv <- gets getVarenv
+   let relevant = Map.keys $ Map.filter (ty ==) varEnv in
+      if null relevant  then pure "" else pure $ "\nPotential variables of type " ++ show ty ++ " in scope include " ++ printWithCommas (typeListToStrings relevant)
+  where typeListToStrings = map (\r -> '\'' : blue r ++ "'")
 
-      initial_return_type <- maybe newTyVar pure retty
-      retsub <- case (retrurn_type_from_body, initial_return_type) of
-            (VoidType, VoidType) -> pure nullSubst
-            _ -> unify (apply bodysub tc_env') retrurn_type_from_body initial_return_type
-                    `catchError` \str -> throwError $ red "Invalid return type in function '"++ blue name ++ red "'\n" ++ str
+unifyError ty1@(TypeVar name1 True) ty2@(TypeVar name2 True) = do
+  errorTail <- unifyErrorTail ty1 ty2
+  throwError $  "Cannot unify " ++ show ty1 ++ " with " ++ show ty2 ++ " as '" ++ blue name1 ++ "' and '" ++ blue name2 ++ "' are two " ++ bold "different" ++ " rigid type variable because they have a different name.\nA rigid type variable means that the caller can choose the type. Because of this we don't know which operations are possible and thus cannot unify further.\nThis happened" ++ errorTail
+unifyError ty2@(TypeVar u True) ty1 = do
+  errorTail <- unifyErrorTail ty1 ty2
+  throwError $ "Cannot unify " ++ show ty1 ++ " with " ++ show ty2 ++ ", as '" ++ blue u ++ "' is a rigid type variable.\nA rigid type variable (in this case " ++ u ++ ") means that the caller can choose the type. Because of this we don't know which operations are possible and thus cannot unify further.\nThis happened" ++ errorTail
+unifyError ty1 ty2@(TypeVar u True) = do
+  errorTail <- unifyErrorTail ty1 ty2
+  throwError $ "Types do not unify:\n" ++ show ty1 ++ " vs. " ++ show ty2 ++ "Cannot unify " ++ show ty2 ++ " with " ++ show ty1 ++ ", as '" ++ blue u ++ "' is a rigid type variable.\nA rigid type variable (in this case " ++ u ++ ") means that the caller can choose the type. Because of this we don't know which operations are possible and thus cannot unify further.\nThis happened" ++ errorTail
+unifyError ty1 ty2 = unifyErrorTail ty1 ty2 >>= \errorTail -> throwError $ "Types do not unify:\n" ++ show ty1 ++ " vs. " ++ show ty2 ++ errorTail
 
-      -- Check if the infered return type of the body can be unified with the actual return type, look out for void types
-      -- I am doing a special check here for Void so we can avoid it in unify, This still detects void unifications if they may happen later in another context that is not return checking!
-
-      -- todo this should be with the type in the fu
-            -- Collect all the subs 
-      let function_sub = bodysub `composeSubst` funvarsub `composeSubst` retsub
-
-
-
-      -- Apply the function sub to the inital args to update them and apply it tot the return type 
-      return (function_sub, apply function_sub funtype) {- FunType (apply function_sub inital_arg_types) (apply function_sub retrurn_type_from_body)-}
-
-freshCounterStart :: TIState
-freshCounterStart = 1
-
-formatUnifyError :: Type -> TIenv -> [Char]
-formatUnifyError ty env = let
-                          relevant = Map.keys $ Map.filter (ty ==) (getVarenv env)
-                          meta = getMeta env in " at " ++ showStart meta ++ " until line " ++ (case endPos meta of SourcePos _ b a -> show (unPos b) ++ " column " ++ show (unPos a))
-                                              ++ if null relevant then "" else "\nPotential variables of type " ++ show ty ++ " in scope include " ++ printWithCommas (typeListToStrings relevant)
-                                              ++ ".\n\nLearn more about unification errors here: https://en.wikipedia.org/wiki/Unification_(computer_science) or here https://cloogle.org/#unify%20error"
-                                      where typeListToStrings = map (\r -> '\'' : blue r ++ "'")
+unifyErrorTail :: Type -> Type -> TI String
+unifyErrorTail ty1 ty2 = do
+  relevant1 <- getRelevantVars ty1
+  relevant2 <- getRelevantVars ty2
+  meta <- gets getMeta
+  return $ " at " ++ showStart meta ++ " until line " ++ (case endPos meta of SourcePos _ b a -> show (unPos b) ++ " column " ++ show (unPos a)) ++ relevant1 ++ relevant2
+            ++ ".\n\nlearn more about unification errors here: https://en.wikipedia.org/wiki/unification_(computer_science) or here https://cloogle.org/#unify%20error"
 
 
 instance Types VarEnv where
-  ftv env = foldMap ftv $ Map.elems env
+  ftv env = ftv $ Map.elems env
   apply sub = Map.map (apply sub)
 
+instance Types FunEnv where
+  ftv env = ftv $ Map.elems env
+  apply sub = Map.map (apply sub)
+
+-- If its a partial thing it should be between brackets 
+
 instance Types TIenv where
-  ftv (TIenv funenv varenv  _ _ _ _) = ftv funenv <> ftv varenv
+  ftv (TIenv funenv varenv _ _ _ _) = ftv funenv <> ftv varenv
   apply sub (TIenv funenv varenv  meta name argnames counter) = TIenv (apply sub funenv) (apply sub varenv) meta name argnames counter
 
 -- Ok so with apply with apply the substitutions to something!
@@ -512,11 +547,37 @@ instance Types TIenv where
 
 -- Checkprogram only adds the vardels and fundecls to the returend funenv and varenv, not the funvardecls ofcourse.
 
-checkProgram :: (FunEnv, VarEnv) -> Program ReturnsCheckedP -> Either String (Subst, (FunEnv, VarEnv), Program TypecheckedP)
-checkProgram env program = evalState (runExceptT $ checkProgram' env program) defaultFunEnv
+-- checkProgram :: Program ReturnsCheckedP -> Either String (Program TypecheckedP)
+checkProgram :: Program 'ReturnsCheckedP -> (Either String (Program 'TypecheckedP), TIState)
+checkProgram program = runTI (checkDecls program)
 
-checkProgram' :: (FunEnv, VarEnv) -> Program ReturnsCheckedP -> TI (Subst, (FunEnv, VarEnv), Program TypecheckedP)
-checkProgram' env [] = return (nullSubst, env, [])
+checkDecls :: Program ReturnsCheckedP -> TI (Program TypecheckedP)
+checkDecls [] = return []
+checkDecls ( vardecl@(VarDecl meta name Nothing expr):later) = do
+  future <- checkDecls later
+  (_,ty) <- ti vardecl
+  return $ VarDecl meta name ty (upgrade expr) : future 
+checkDecls ( vardecl@(VarDecl meta name (Just _) expr):later) = do
+  (_,ty) <- ti vardecl
+  future <- checkDecls later
+  return $ VarDecl meta name ty (upgrade expr) : future -- This expre would be trivial to upgrade cause check expr we have the type here
+checkDecls (fundecl@(FunDecl meta name _ args fundecls body):later) = do
+  checked_fundecls <- checkDecls fundecls 
+
+  (_, fun_type) <- ti fundecl 
+  (infered_argument_types, infered_return_type) <- case fun_type of 
+      (FunType argty returnty)-> pure (argty, returnty)
+      _ -> error (red "Ti on fundecl did not retun funtype at" ++ showStart meta)
+  let argsnames = map fst args 
+      typed_args = zip argsnames infered_argument_types
+  future <- checkDecls later
+  return $ FunDecl meta name infered_return_type typed_args checked_fundecls (map upgrade body) : future -- This expre would be trivial to upgrade cause check expr we have the type here
+
+
+
+
+{-
+
 -- If they did not give a type then just infer it :)   todo we could also give it a type var and just call it again to go to the case with Just type, probably simpeler
 checkProgram' (funenv, varenv) (VarDecl meta name Nothing expr : unchecked_program) = do
   let ti_env = TIenv {getMeta = meta, getFunName = Nothing, getFunenv = funenv, getVarenv = varenv}
@@ -597,6 +658,7 @@ checkProgram' (initial_funenv, initial_varenv) (fun@(FunDecl meta name (Just ret
       -- _ <- Debug.trace ("Infered fuction " ++ blue name ++ " as " ++ show (apply sub funtype) ++ " after applying sub ("  ++ show sub ++ ") but we have" ++ show retty ++ " so apply s retty gives " ++ show ( apply sub retty)) pure ()
 
       return (sub, env, FunDecl meta name updated_retty (zip argnames updated_args) updated_funvardecls (map upgrade body) : checked_program)
+-}
 
 instance Types (Decl TypecheckedP) where
       ftv (VarDecl _ _ ty _) = ftv ty
@@ -612,15 +674,19 @@ instance (Types typeable1, Types typeable2) => Types (typeable1, typeable2) wher
       ftv (typeable1, typeable2) = ftv typeable1 <> ftv typeable2 -- This might be wrong because it merges both envs.
       apply sub (typeable1, typeable2) = (apply sub typeable1, apply sub typeable2)
 
-getDeclType :: Decl TypecheckedP -> Type
-getDeclType (VarDecl _ _ ty _) = ty
-getDeclType (FunDecl _ _ retty args _ _) = FunType (map snd args) retty
+getDeclName :: Decl a -> String
+getDeclName (VarDecl _ name _ _) = name
+getDeclName (FunDecl _ name _ _ _ _) = name 
+
+-- getDeclType :: Decl TypecheckedP -> Type
+-- getDeclType (VarDecl _ _ ty _) = ty
+-- getDeclType (FunDecl _ _ retty args _ _) = FunType (map snd args) retty
 
 getReturnType :: Decl TypecheckedP -> Type
 getReturnType (VarDecl _ _ _ty _) = error "A var decl has no return type" -- But it can if you want to :) but I don't need that yet
 getReturnType (FunDecl _ _ retty _ _ _) = retty
 
-updateFunArgs :: [String] -> Map.Map String Type -> [(String, Type)]
+updateFunArgs :: [String] -> Map String Type -> [(String, Type)]
 updateFunArgs argnames function_sub =
   let maybe_types = map (\name -> (name, Map.lookup name function_sub)) argnames
     in map resolve_maybe maybe_types
@@ -632,28 +698,18 @@ updateFunArgs argnames function_sub =
         in (name, ty)
 
 -- Insert arguments into the var env
-insertFunArgsIntoEnv :: Map.Map String Type -> (String, Maybe Type) -> TI (Map.Map String Type)
+insertFunArgsIntoEnv :: Map String Type -> (String, Maybe Type) -> TI (Map String Type)
 insertFunArgsIntoEnv _env (name, maybeType) = do
   ty <- maybe newTyVar pure maybeType
   return $ Map.insert name ty _env
-
--- We need to add the return type to the enviroment, maybe do that earlier?
--- Then we need to add the function arguments to the variables map
--- These we then should put in the fun decl at the end after we get the substitution map
--- Make sure that they only exist with this function that takes a temperary env!
--- Try to unify the statements, I think we already have ti for lists of statements!
-
-insertJust :: (Ord a) => Map.Map a b -> a -> Maybe b -> Map.Map a b
-insertJust m key (Just b) = Map.insert key b m
-insertJust m _ Nothing = m
 
 -- Check duplicate declerations 
 checkDuplicateDecls ::  Program ReturnsCheckedP -> Either String String
 checkDuplicateDecls = checkDuplicateDecl' Map.empty Map.empty
   where
         checkDuplicateDecl' _ _ [] = Right "No duplicate declerations"
-        checkDuplicateDecl' funmemory varmemory (FunDecl meta name _ _ _ _ : program) =
-          case Map.lookup name funmemory of
+        checkDuplicateDecl' funmemory varmemory (FunDecl meta name _ _ vardelcs _ : program) =
+          checkDuplicateDecls vardelcs >> case Map.lookup name funmemory of
             Nothing -> checkDuplicateDecl' (Map.insert name meta funmemory) varmemory program
             Just meta' -> Left $ red "Function with name '"
                           ++ blue name
@@ -698,8 +754,18 @@ mergeTypesFunvars ((VarDecl meta name _ expr) : rest) env =
 
 -- todo Later this one shall have the buildins
 --  Phase that we check that none of the user functions are named the default names!
-defaultFunEnv :: Map.Map String Scheme
+defaultFunEnv :: Map String Scheme
 defaultFunEnv = Map.fromList [("print", Scheme (Set.singleton "print_inputty") (FunType [TypeVar "print_inputty" False] VoidType))]
 
-defaultVarEnv :: Map.Map String Type
+defaultVarEnv :: Map String Type
 defaultVarEnv = Map.fromList []
+
+
+-- checkStmp :: Stmt ReturnsCheckedP -> Stmt TypecheckedP
+-- checkStmp = 137
+
+-- checkExpr :: Expr ReturnsCheckedP -> Expr TypecheckedP
+-- checkExpr = 137
+
+
+-- Shouldn't are varenv also be Map String Scheme

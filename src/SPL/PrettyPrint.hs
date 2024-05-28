@@ -202,27 +202,28 @@ indentlittle :: String -> String
 indentlittle str = unlines $ map (replicate 1 ' ' ++) $ lines str
 
 instance Prettier (Expr p) where
-  pretty (BinOpExpr _ op expr1 expr2) = pretty expr1 ++ formatBinOp op ++ pretty expr2
-    where
-      formatBinOp Mul = " * "
-      formatBinOp Div = " / "
-      formatBinOp Mod = " % "
-      formatBinOp Add = " + "
-      formatBinOp Sub = " - "
-      formatBinOp Cons = ":"
-      formatBinOp Gt = " > "
-      formatBinOp Gte = " >= "
-      formatBinOp Lt = " < "
-      formatBinOp Lte = " <= "
-      formatBinOp Eq = " == "
-      formatBinOp Neq = " != "
-      formatBinOp And = " && "
-      formatBinOp Or = " || "
+  pretty (BinOpExpr _ op expr1 expr2) = pretty expr1 ++ pretty op ++ pretty expr2 
   pretty (UnaryOpExpr _ Negate expr) = "!" ++ pretty expr
   pretty (UnaryOpExpr _ (FieldAccess field) expr) = pretty expr ++ "." ++ pretty field
   pretty (FunctionCallExpr _ name args) = blue name ++ "(" ++ intercalate ", " (map pretty args) ++ ")"
   pretty (VariableExpr _ variable) = pretty variable
   pretty (LiteralExpr _ literal) = pretty literal
+
+instance Prettier BinOp where 
+      pretty Div = " / "
+      pretty Mul = " * "
+      pretty Mod = " % "
+      pretty Add = " + "
+      pretty Sub = " - "
+      pretty Cons = ":"
+      pretty Gt = " > "
+      pretty Gte = " >= "
+      pretty Lt = " < "
+      pretty Lte = " <= "
+      pretty Eq = " == "
+      pretty Neq = " != "
+      pretty And = " && "
+      pretty Or = " || "
 
 instance Prettier Field where
   pretty = show
