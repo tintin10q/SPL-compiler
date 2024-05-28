@@ -1,6 +1,6 @@
 
 
-case2(bb: bb) : a {
+case2(bb: bb) : bb {
     return bb;
 }
 

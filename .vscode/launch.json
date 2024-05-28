@@ -1,27 +1,23 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "ghc",
-            "request": "launch",
-            "name": "haskell(cabal)",
-            "internalConsoleOptions": "openOnSessionStart",
-            "workspace": "${workspaceFolder}",
-            "startup": "${workspaceFolder}/app/Main.hs",
-            "startupFunc": "",
-            "startupArgs": "",
-            "stopOnEntry": false,
-            "mainArgs": "",
-            "ghciPrompt": "H>>= ",
-            "ghciInitialPrompt": "> ",
-            "ghciCmd": "cabal repl -w ghci-dap --repl-no-load --builddir=${workspaceFolder}/.vscode/dist-cabal-repl",
-            "ghciEnv": {},
-            "logFile": "${workspaceFolder}/.vscode/phoityne.log",
-            "logLevel": "WARNING",
-            "forceInspect": false
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "ghc",
+      "request": "launch",
+      "name": "Debug SPL Executable",
+      "startup": "app/Main.hs",
+      "startupArgs": "",
+      "ghciCmd": "cabal repl SPL",
+      "ghciPrompt": "ghci>",
+      "ghciInitialPrompt": "ghci>",
+      "logFile": "${workspaceFolder}/.vscode/ghci-debug.log",
+      "logLevel": "ERROR",
+      "internalConsoleOptions": "openOnSessionStart",
+      "stopOnEntry": false,
+      "mainArgs": "",
+      "ghciEnv": {},
+      "workspace":"${workspaceFolder}",
+      "ghciInitialCommand": ":main",
+    }
+  ]
 }

@@ -1,8 +1,8 @@
 var b = 3;
 
-fib(n : Int) : Int {
-    if (n == 0) {
-        return 0;
+fib(n : Bool) : Bool {
+    if (1 && True) {
+        return n;
     }
 
     if (n == 1) {

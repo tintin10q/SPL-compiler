@@ -2,7 +2,9 @@
 var hoiInt = 3;
 var hoiStr = "hi there";
 var hoiChar = '3';
+[a] empty = [];
+
 
 main(inp) {
-    return inp + hoiInt;
+    return 3:empty;
 }

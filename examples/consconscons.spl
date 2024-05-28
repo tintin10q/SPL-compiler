@@ -1,6 +1,6 @@
 
 
 
-main() {
-    return []:[]:[]:[];
+main(a) { // [[[Typevar f]]]
+    return a : ([]:[]) :([] : []);
 }

@@ -1,0 +1,14 @@
+
+
+
+hi(a, b:[[Int]] ) {
+    var c = b == a;
+    return a;
+}
+
+
+main() {
+    hi(1);
+    hi(true);
+    return;
+}

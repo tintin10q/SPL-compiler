@@ -1,0 +1,9 @@
+
+
+id(a) {
+    return a;
+}
+
+main(a) {
+   return id(a);
+}

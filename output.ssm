@@ -1,3 +1,24 @@
-#!java -jar ssm/ssm.jar
-	HALT
+	Bra main
+foo:
+	LDC 137
+	TRAP 0
+	LDC 10
+	TRAP 1
+	RET
+foo2:
+	LINK 1
+	LDC 137
+	TRAP 0
+	LDC 10
+	TRAP 1
+	UNLINK
+	RET
+main:
+	Bsr foo
+	LDC 10
+	Bsr foo2
+	LDC 138
+	TRAP 0
+	LDC 10
+	TRAP 1
 	HALT

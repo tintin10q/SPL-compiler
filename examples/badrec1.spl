@@ -1,0 +1,11 @@
+
+
+foo(x) {
+    var y = [];
+    x:y;
+    return foo(3);
+}
+
+main() {
+    3;
+}

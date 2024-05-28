@@ -1,22 +1,13 @@
 
 
-// foo and id2 are not right!
-
-foo(x) {
-    var y = 5;
-    y = x;
-    return foo([]);
-}
 
 
-id (x:a):a {
-    return x;
-}
-
-id2 (x) {
-    return x;
+foo2(x) {
+    var y = 3;
+    //y = x;
+    return foo2([]);
 }
 
 main() {
-    //foo();
+    3;
 }
