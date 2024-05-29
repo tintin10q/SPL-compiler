@@ -235,7 +235,7 @@ instance Show (Literal TypecheckedP) where
   show (TupleLit (expr1, expr2)) = "(" ++ show expr1 ++ "," ++ show expr2 ++ ")"
   show EmptyListLit = black "[]"
 
-data Field = HeadField | TailField
+data Field = HeadField | TailField | FirstField | SecondField
   deriving (Eq, Show)
 
 data Variable

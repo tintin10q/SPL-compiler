@@ -424,10 +424,16 @@ instance Typecheck (Expr TypecheckedP) where
     let s = s1 `composeSubst` s2
     applySubToTIenv s
     return (s, apply s t)
-  ti (UnaryOpExpr meta (FieldAccess field) _expr) = replaceMeta meta >> error "Field access is not working yet :["
-  -- Todo Variables can have fields but I am just going to take the type of the String, I am leaving the warning
-  -- check if its either a tuple or a list 
-  ti (VariableExpr meta (Identifier var (Just field))) = replaceMeta meta >> lookupVarType var >>= \sigma -> pure (nullSubst, sigma)
+  ti (UnaryOpExpr meta (FieldAccess field) expr) = do 
+      replaceMeta meta
+      -- Get the type of the expr and check if its a list type or tuple type if not then its an error
+      (sub, ty) <- ti expr
+      applySubToTIenv sub
+      checkFieldAccess sub ty field
+  ti (VariableExpr meta (Identifier var (Just field))) = do
+      replaceMeta meta
+      vartype <- lookupVarType var
+      checkFieldAccess nullSubst vartype field
   ti (VariableExpr meta (Identifier var Nothing)) = replaceMeta meta >> lookupVarType var >>= \sigma -> pure (nullSubst, sigma)
   ti (FunctionCallExpr meta "print" args) = replaceMeta meta >> pure (nullSubst, VoidType) -- Print is special just return Void, but ok we should do another found where we infer and replace expr, but that is just a checkProgram on stmt and decl!!!!!!
   ti (FunctionCallExpr meta funcName args) = do
@@ -456,6 +462,33 @@ instance Typecheck (Expr TypecheckedP) where
           names <- if funcname == funcName then lookupArgNames >>= \argnames -> pure $ "\nThe missing arguments are called " ++ intercalate " and " (map blue (drop missing argnames)) ++ "." else pure ""
           throwError $ red "Function call at " ++ showStart meta ++ red " is missing " ++ green (show missing) ++ red " argument" ++ if missing == 1 then "" else "s"++ "." ++ names
 
+-- check if its either a tuple or a list 
+checkFieldAccess :: Subst -> Type -> Field -> TI (Subst, Type)
+checkFieldAccess sub ty field = case field of 
+        FirstField -> case ty of 
+          TupleType t1 _ -> return (sub, t1)
+          (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant" ++ pretty HeadField ++  "?"
+          tyvar@(TypeVar _ False) -> newTyVar >>= \secondArgTyvar -> unify (TupleType ty secondArgTyvar) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
+          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty ty2 ++ " red field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty ty2 ++ " field on tuple types."
+
+        SecondField -> case ty of 
+          TupleType _ t2 -> return (sub, t2)
+          (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant" ++ pretty  TailField ++  "?"
+          tyvar@(TypeVar _ False) -> newTyVar >>= \secondArgTyvar -> unify (TupleType ty secondArgTyvar) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
+          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty ty2 ++ " red field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty ty2 ++ " field on tuple types."
+
+        HeadField -> case ty of 
+          ListType t -> return (sub, t)
+          TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant" ++ pretty  FirstField ++  "?"
+          tyvar@(TypeVar _ False) -> unify (ListType ty) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
+          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty ty2 ++ " red field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty ty2 ++ " field on list types."
+
+        TailField -> case ty of 
+          ListType t -> return (sub, t)
+          TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant" ++ pretty  SecondField ++  "?"
+          tyvar@(TypeVar _ False) -> unify (ListType ty) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
+          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty ty2 ++ " red field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty ty2 ++ " field on list types."
+  
 
 instance Typecheck (Stmt TypecheckedP) where
   ti (ReturnStmt meta (Just expr)) = do

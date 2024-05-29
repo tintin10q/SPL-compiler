@@ -157,6 +157,12 @@ tHead = symbol "hd"
 tTail :: Parser T.Text
 tTail = symbol "tl"
 
+tFst :: Parser T.Text
+tFst = symbol "fst"
+
+tSnd :: Parser T.Text
+tSnd= symbol "snd"
+
 -- Types
 
 tIntType :: Parser T.Text
