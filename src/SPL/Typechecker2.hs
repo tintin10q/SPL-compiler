@@ -419,11 +419,14 @@ instance Typecheck (Expr TypecheckedP) where
     return (s, apply s $ ListType t1) -- This is good because we always get a list type like this and we are sure we can put t1 inside it 
   ti (UnaryOpExpr meta Negate e) = do
     replaceMeta meta
-    (s1, t) <- ti e
-    s2 <- unify BoolType t -- Check if its a bool, again here we could actually negate the bool maybe, like dependent types but only for bools?
-    let s = s1 `composeSubst` s2
+    s <- tc e BoolType
     applySubToTIenv s
-    return (s, apply s t)
+    return (s, BoolType)
+  ti (UnaryOpExpr meta Min e) = do
+    replaceMeta meta
+    s <- tc e IntType 
+    applySubToTIenv s
+    return (s, IntType)
   ti (UnaryOpExpr meta (FieldAccess field) expr) = do 
       replaceMeta meta
       -- Get the type of the expr and check if its a list type or tuple type if not then its an error

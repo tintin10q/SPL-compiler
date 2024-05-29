@@ -139,7 +139,7 @@ type family VarStmt (p :: Phase) where
   VarStmt ReturnsCheckedP = SourceSpan
   VarStmt TypecheckedP = SourceSpan
 
-data UnaryOp = Negate | FieldAccess Field
+data UnaryOp = Negate | FieldAccess Field | Min
   deriving (Eq, Show)
 
 data BinOp =

@@ -57,6 +57,7 @@ operatorTable =
       ]
     , [ InfixL (binary Add L.tPlus)
       , InfixL (binary Sub L.tMin)
+      , Prefix (unary Min L.tMin)
       ]
     , [ InfixR (binary Cons L.tColon)]
     , [

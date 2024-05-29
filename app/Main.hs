@@ -44,7 +44,7 @@ main = do
     source <- TIO.readFile filename
     -- putStrLn $ blue "Read in Source:\n" ++ T.unpack source
     parsed_ast <- eitherParserToIO  $ parse filename source
-    -- print parsed_ast
+    print parsed_ast
     putStr (blue "Parsing completed! ")
     eitherStrIO $ checkHasMain parsed_ast
     putStrLn (blue "(program has main function) ")

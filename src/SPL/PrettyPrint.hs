@@ -204,6 +204,7 @@ indentlittle str = unlines $ map (replicate 1 ' ' ++) $ lines str
 instance Prettier (Expr p) where
   pretty (BinOpExpr _ op expr1 expr2) = pretty expr1 ++ pretty op ++ pretty expr2 
   pretty (UnaryOpExpr _ Negate expr) = "!" ++ pretty expr
+  pretty (UnaryOpExpr _ Min expr) = "-" ++ pretty expr
   pretty (UnaryOpExpr _ (FieldAccess field) expr) = pretty expr ++ "." ++ pretty field
   pretty (FunctionCallExpr _ name args) = blue name ++ "(" ++ intercalate ", " (map pretty args) ++ ")"
   pretty (VariableExpr _ variable) = pretty variable
@@ -228,6 +229,8 @@ instance Prettier BinOp where
 instance Prettier Field where
   pretty HeadField = "hd"
   pretty TailField = "lt"
+  pretty SecondField = "snd"
+  pretty FirstField = "fst"
 
 instance Prettier Variable where
   pretty (Identifier name Nothing) = blue name
