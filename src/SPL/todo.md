@@ -52,3 +52,6 @@ Finish brief printing, but we have to get GOING!
 
 
 Global variables could also be functions without args that return the value? 
+
+
+We can make it so ti does not return a subst but it is all saved in the monad

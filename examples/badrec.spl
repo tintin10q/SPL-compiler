@@ -2,9 +2,9 @@
 
 
 
-foo2(x) {
+foo2(x) : Int {
     var y = 3;
-    //y = x;
+    y = x;
     return foo2([]);
 }
 

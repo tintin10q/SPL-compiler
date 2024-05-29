@@ -1,0 +1,25 @@
+main() {
+    var a = 3;
+    while ( n < 20 ) {
+        facN = facR ( n );
+        if ( facN != facI ( n ) || facN != facL ( n )) {
+        
+            print ( n : facN : facI ( n ) : facL ( n ) : [] );
+            ok = False;
+        
+        }
+        n = n + 1;
+    }
+}
+
+fromTo ( from : Int, to : Int) : [Int] {
+    if ( from >= to ) {
+         return from : fromTo ( from + 1, to );
+    } else {
+        return [];
+    }
+     if ( ! isEmpty (list) ) {
+         list.hd = list.hd * list.hd;
+         list.tl = squareOddNumbers(list.tl);
+    }
+}

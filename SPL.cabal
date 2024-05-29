@@ -43,6 +43,7 @@ library spl-lib
         SPL.PrettyPrint
         SPL.Parser.SourceSpan
         SPL.Preprocess
+
     build-depends:    base ^>=4.17.2.1,
                       megaparsec,
                       containers,
@@ -57,7 +58,7 @@ library spl-lib
 test-suite tests
     import:           warnings
     type:             exitcode-stdio-1.0
-    main-is:          Main.hs
+    main-is:          app/Main.hs
     other-modules:
         Test.Parser.DeclSpec
         Test.Parser.ExprSpec

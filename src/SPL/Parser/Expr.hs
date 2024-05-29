@@ -59,10 +59,11 @@ operatorTable =
       , InfixL (binary Sub L.tMin)
       ]
     , [ InfixR (binary Cons L.tColon)]
-    , [ InfixN (binary Gt L.tGt)
-      , InfixN (binary Gte L.tGte)
-      , InfixN (binary Lt L.tLt)
+    , [
+        InfixN (binary Gte L.tGte) -- Gte and Lte have to go before > and < because otherwise it thinks its = after
+      , InfixN (binary Gt L.tGt)
       , InfixN (binary Lte L.tLte)
+      , InfixN (binary Lt L.tLt)
       , InfixN (binary Eq L.tDoubleEq)
       , InfixN (binary Neq L.tExclEq)
       ]
@@ -117,7 +118,7 @@ pStringExpr =  do
     let meta = srcSpan posStart posEnd
 
     -- todo make this a nicer parse error from parsec
-    if null tokens then error $ red "Empty string not allowed at " ++ showStart meta ++ ". The string syntax is just syntactic suger for a large cons expression.\nBut that means that \"\" == [] which is not ideal because the typeof \"\" is [Char] while typeof [] is [a]. But the type checker can't know this anymore as this information is thrown away. So to prevent this confusion just no empty strings."
+    if null tokens then error $ red "Empty string not allowed at " ++ showStart meta ++ ". The string syntax is just syntactic suger for a large cons expression.\nBut that means that \"\" == [] which is not ideal because the typeof \"\" is [Char] while typeof [] is [a]. But the type checker can't know this anymore as this information is thrown away with the desuggering. So to prevent this confusion just no empty strings."
     else return $ foldl (\previous token -> BinOpExpr meta Cons (LiteralExpr meta $ CharLit token ) previous) (LiteralExpr meta EmptyListLit) tokens
   -- pStringExpr
   -- UnaryOpExpr _ op expr
@@ -156,9 +157,9 @@ pVariableExpr = do
 pVariable :: Parser Variable
 pVariable = do
   identifier <- T.unpack <$> L.tIdentifier
-  -- field <- optional pField
-  return $ Identifier identifier Nothing
-  -- where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail))
+  field <- optional pField
+  return $ Identifier identifier field
+  where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail))
 
 -- Parse any literal value
 pLiteral :: Parser (Literal ParsedP)

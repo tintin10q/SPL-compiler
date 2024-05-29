@@ -1,15 +1,18 @@
 
 
+/*
+
 foo() {
     print(130 + 6 + 1);
 }
-
+*/
 foo2(a) {
-    print(130 + 6 + 1);
+    //print(130 + 6 + 1 + a);
+    return a;
 }
 
 main() : Void {
-    foo();
+    //foo();
     foo2(10);
-    print(138);
+    //print(138);
 }

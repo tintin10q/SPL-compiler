@@ -1,0 +1,12 @@
+2024-05-28 17:00:14.810779810000 [41902(ThreadId 20)] CRITICAL REQUEST - invalid HANDLE. eof.
+2024-05-28 17:00:29.520348332000 [46128(ThreadId 21)] ERROR APP - invalid dap result from ghci. ["unknown command ':dap-set-breakpoints'","use :? for help.","H>>= "]
+2024-05-28 17:00:29.521651766000 [46128(ThreadId 21)] ERROR APP - invalid dap result from ghci. ["unknown command ':dap-set-function-breakpoints'","use :? for help.","H>>= "]
+2024-05-28 17:00:29.609390119000 [46128(ThreadId 21)] CRITICAL APP - invalid dap result from ghci. ["unknown command ':dap-continue'","use :? for help.","H>>= "]
+2024-05-28 17:02:10.333080758000 [52203(ThreadId 21)] ERROR APP - app/Main.hs: runProcess: exec: permission denied (Permission denied)
+2024-05-28 17:02:15.066755700000 [52259(ThreadId 21)] ERROR APP - app/Main.hs: runProcess: exec: permission denied (Permission denied)
+2024-05-28 17:02:36.059137746000 [52342(ThreadId 21)] ERROR APP - invalid dap result from ghci. ["unknown command ':dap-set-breakpoints'","use :? for help.","H>>= "]
+2024-05-28 17:02:36.060346422000 [52342(ThreadId 21)] ERROR APP - invalid dap result from ghci. ["unknown command ':dap-set-function-breakpoints'","use :? for help.","H>>= "]
+2024-05-28 17:02:36.148592140000 [52342(ThreadId 21)] CRITICAL APP - invalid dap result from ghci. ["unknown command ':dap-continue'","use :? for help.","H>>= "]
+2024-05-28 17:04:42.217735336000 [55769(ThreadId 21)] ERROR APP - invalid dap result from ghci. ["unknown command ':dap-set-breakpoints'","use :? for help.","H>>= "]
+2024-05-28 17:04:42.219289900000 [55769(ThreadId 21)] ERROR APP - invalid dap result from ghci. ["unknown command ':dap-set-function-breakpoints'","use :? for help.","H>>= "]
+2024-05-28 17:04:42.340731606000 [55769(ThreadId 21)] CRITICAL APP - invalid dap result from ghci. ["unknown command ':dap-continue'","use :? for help.","H>>= "]

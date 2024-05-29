@@ -211,10 +211,21 @@ deriving instance Eq (Literal TypecheckedP)
 deriving instance Show (Literal EmptyP)
 
 instance Show (Literal ParsedP) where
-  show lit = show (upgrade lit  :: Literal ReturnsCheckedP)
+  show TrueLit = black "True"
+  show FalseLit = black "False"
+  show (IntLit n) = black $ show n
+  show (CharLit c) = black $ show c
+  show (TupleLit (expr1, expr2)) = "(" ++ show expr1 ++ "," ++ show expr2 ++ ")"
+  show EmptyListLit = black "[]"
+
 
 instance Show (Literal ReturnsCheckedP) where
-  show lit = show (upgrade lit  :: Literal TypecheckedP)
+  show TrueLit = black "True"
+  show FalseLit = black "False"
+  show (IntLit n) = black $ show n
+  show (CharLit c) = black $ show c
+  show (TupleLit (expr1, expr2)) = "(" ++ show expr1 ++ "," ++ show expr2 ++ ")"
+  show EmptyListLit = black "[]"
 
 instance Show (Literal TypecheckedP) where
   show TrueLit = black "True"
@@ -276,7 +287,6 @@ instance Convertable Decl ParsedP ReturnsCheckedP where
 -- type instance LiteralExpr TypecheckedP = (SourceSpan, Type)
 
 
--- Convertable to upgrade ParsedP to TypecheckedP
 
 instance Convertable Expr ReturnsCheckedP TypecheckedP where
   upgrade (BinOpExpr meta op e1 e2) = BinOpExpr (meta :: BinOpExpr TypecheckedP) op (upgrade e1) (upgrade e2)

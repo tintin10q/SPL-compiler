@@ -91,7 +91,7 @@ runtime = [Bra "main"]
 
 instance GenSSM [Expr TypecheckedP] where
       generate = combineCodeM . mapM generate
-      
+
 instance GenSSM [Stmt TypecheckedP] where
       generate = combineCodeM . mapM generate
 
@@ -116,23 +116,30 @@ instance GenSSM (Program TypecheckedP) where
 instance GenSSM (Decl TypecheckedP) where
       generate :: Decl TypecheckedP -> Env Code
       generate  (FunDecl _ name VoidType [] [] body) = do
-            return [ LABEL name ] <> 
-                   generate body <> 
+            return [ LABEL name ] <>
+                   generate body <>
                    pure [if name == "main" then HALT else RET]
       generate  (FunDecl _ name VoidType args [] body) = do
             -- If we have args we need to put them in the enviroment 
             env <- get
             -- add arguments to the enviroments
             put $ env <> Map.fromList [(Var argname, FunArgument i argtype) | ((argname, argtype), i) <- zip args [1..]]
-            
-            code <- pure [ LABEL name, LINK $ length args ] <> 
-                      generate body <> 
+
+            code <- pure [ LABEL name, LINK 0 ] <>
+                      generate body <>
                        pure [ UNLINK, if name == "main" then HALT else RET]
             put env
             return code
+            -- l
 
       generate (VarDecl _ name _ expr)  = return [HALT, HALT]
-      generate  (FunDecl _ name ty args funvardecl body) = error "this type of funcall is not supported yet support yet"
+      generate  (FunDecl _ name ty args funvardecl body) = error "Not supported"
+            -- do
+      -- let n_local = length funvardecl
+
+      --     code combineCodeM $ mapM generate funvardecl
+      --     return [LABEL name, LINK n_local] <> code combineCodeM
+          -- anyways negative mark pointrr relaitve good ideaa.
 
 
 instance GenSSM (Literal TypecheckedP) where
@@ -158,9 +165,9 @@ newline = 10
 
 -- Look up a variable from enviroment, doing it in a function gives worse error messages but after type checking we should never error here
 getkey :: Key -> Env Location
-getkey key = do 
+getkey key = do
             env <- get
-            case Map.lookup key env of 
+            case Map.lookup key env of
                   Nothing -> error $ red "Key called '"++ blue (show key) ++"'" ++ red " not in enviroment!"
                   Just location -> pure location
 
@@ -171,11 +178,11 @@ instance GenSSM (Expr TypecheckedP) where
       generate (FunctionCallExpr meta "print" [arg]) = generate arg <> pure [TRAP 0, LDC newline, TRAP 1]
       -- generate (FunctionCallExpr meta "print" (_:_)) = error $ "At " ++ (showStart meta ) + " you call print with too many arguments"
       generate (FunctionCallExpr meta func args) = generate args <> pure [Bsr func]
-      generate (VariableExpr meta (Identifier varname Nothing)) = do 
+      generate (VariableExpr meta (Identifier varname Nothing)) = do
                                                             location <- getkey (Var varname)
-                                                            case location of 
-                                                                  Adress  int ty -> return [] 
-                                                                  LocalVar  int ty  -> return []  
+                                                            case location of
+                                                                  Adress  int ty -> return []
+                                                                  LocalVar  int ty  -> return []
                                                                   FunArgument  int ty  -> return []
                                                                   _ -> return []
       generate (VariableExpr meta (Identifier varname (Just _))) = error "Fields on variables are unsupported atm!"
@@ -224,7 +231,7 @@ instance GenSSM BinOp where
 -- put (value, addr) on the heap, and put the
 -- address back on the stack at the top.
       generate Cons = pure [STMH 2]
- 
+
 
 instance GenSSM UnaryOp where
       generate Negate = pure [NEG]
@@ -251,3 +258,4 @@ genSaveGlobalCode (VarDecl _ name t e) = case t of
                                           _ -> undefined
 genSaveGlobalCode _ = undefined
 
+-- isEmpty is another build in. I guess you just see if its an empty cons cell 

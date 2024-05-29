@@ -37,10 +37,14 @@ main = do
     args <- getArgs
     let outputFile = getOutputValue args
     -- todo better error msg for this
-    let file:_ = args 
-    source <- TIO.readFile file
+    let filename = case args of
+                [] -> error $ red "No output file specified!"
+                [filenam] -> filenam
+    putStrLn $ "Reading file " ++ blue filename
+    source <- TIO.readFile filename
     -- putStrLn $ blue "Read in Source:\n" ++ T.unpack source
-    parsed_ast <- eitherParserToIO  $ parse file source
+    parsed_ast <- eitherParserToIO  $ parse filename source
+    -- print parsed_ast
     putStr (blue "Parsing completed! ")
     eitherStrIO $ checkHasMain parsed_ast
     putStrLn (blue "(program has main function) ")
@@ -54,17 +58,13 @@ main = do
     eitherStrIO $ checkDuplicateDecls return_checked_ast
     putStrLn $ blue "No duplicate declerations!"
     -- todo, do we need to do anything with this sub?
-    -- (checked_globals_ast, varenv) <- eitherStrIO $ checkGlobalVars return_checked_ast
-    -- putStrLn $ blue "Checked Global vars!"
-    -- putStrLn $ "Global Var env:\n" ++ prettyPrintMap varenv
-    -- putStrLn $ pretty checked_globals_ast
-    (_sub', _env, typceched_ast) <- eitherStrIO $ checkProgram (defaultFunEnv, defaultVarEnv) return_checked_ast
+    typechecked_ast <- eitherStrIO $ fst $ checkProgram return_checked_ast
     putStrLn $ blue "Typechecked AST:"
-    putStrLn $ pretty typceched_ast
+    putStrLn $ pretty typechecked_ast
   -- Boolean Literal evaluation, todo this makes a small part lazy, which means that if you would have 1 && true it would be ok. So its important that this runs after type checking I think
   -- Also todo we should repeat this opti function until there is no improvement anymore
-    let optimized_ast = collapseBlocks $ map opti typceched_ast
-        improvement' = - opti_improvement typceched_ast optimized_ast
+    let optimized_ast = collapseBlocks $ map opti typechecked_ast
+        improvement' = - opti_improvement typechecked_ast optimized_ast
     -- print optimized_ast
     putStrLn $ blue "Optimizing step shrunk AST with by " ++ green (show improvement' ++ "%")
     when (improvement' > 0) (putStrLn $ blue "New Optimised AST:" ++  pretty optimized_ast)

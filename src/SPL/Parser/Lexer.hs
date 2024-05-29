@@ -46,10 +46,10 @@ tFloat :: Parser Float
 tFloat = lexeme $ L.signed whitespace L.float
 
 tTrue :: Parser T.Text
-tTrue = symbol "True" <|> symbol "true" -- Both cases why not
+tTrue = symbol "True" 
 
 tFalse :: Parser T.Text
-tFalse = symbol "false"
+tFalse = symbol "False"
 
 tEmptyList :: Parser T.Text
 tEmptyList = symbol "[]"

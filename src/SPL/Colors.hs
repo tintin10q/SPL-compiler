@@ -16,7 +16,6 @@ blink      str = "\ESC[5m" ++ str ++ reset
 reverse    str = "\ESC[7m" ++ str ++ reset
 hidden     str = "\ESC[8m" ++ str ++ reset
 
- 
 black str = "\ESC[;30m" ++ str ++ reset
 red str = "\ESC[;31m" ++ str ++ reset
 green  str = "\ESC[;32m" ++ str ++ reset

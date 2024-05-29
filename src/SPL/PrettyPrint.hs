@@ -226,7 +226,8 @@ instance Prettier BinOp where
       pretty Or = " || "
 
 instance Prettier Field where
-  pretty = show
+  pretty HeadField = "hd"
+  pretty TailField = "lt"
 
 instance Prettier Variable where
   pretty (Identifier name Nothing) = blue name
@@ -242,73 +243,3 @@ instance Prettier (Literal p) where
   pretty (CharLit c) = black $ show c
   pretty (TupleLit (expr1, expr2)) = "(" ++ pretty expr1 ++ "," ++ pretty expr2 ++ ")"
   pretty EmptyListLit = black "[]"
-
-{-
-indent :: String -> String
-indent str = unlines $ map (replicate 4 ' ' ++) $ lines str
-
-formatProgram :: Program -> String
-formatProgram = concatMap formatDecl
-
-formatType :: Type -> String
-formatType IntType = "Int"
-formatType CharType = "Char"
-formatType BoolType = "Bool"
-formatType VoidType = "Void"
-formatType (TupleType ty1 ty2) = "(" ++ formatType ty1 ++ ", " ++ formatType ty2 ++ ")"
-formatType (ListType ty) = "[" ++ formatType ty ++ "]"
-formatType (TypeVar var) = var
-
-formatDecl :: Decl -> String
-formatDecl (FunDecl name Nothing args body) =
-    name ++ "(" ++ formatFuncArgs args  ++ ")" ++ " {\n"
-        ++ indent (foldMap (\x -> formatStmt x ++ "\n") body)
-    ++ "\n}\n\n"
-formatDecl (FunDecl name (Just ty) args body) =
-    name ++ "(" ++ formatFuncArgs args ++ ") : " ++ formatType ty ++ " {\n"
-        ++ indent (foldMap (\x -> formatStmt x ++ "\n") body)
-    ++ "\n}\n\n"
-
-formatFuncArgs :: [(String, Maybe Type)] -> String
-formatFuncArgs args = intercalate ", " $ map formatSingle args
-    where formatSingle (name, Nothing) = name
-          formatSingle (name, Just ty) = name ++ " : " ++ formatType ty
-
-formatStmt :: Stmt -> String
-formatStmt (ReturnStmt Nothing) = "return;"
-formatStmt (ReturnStmt (Just expr)) = "return " ++ formatExpr expr ++ ";"
-formatStmt (IfStmt condition consequence Nothing) =
-    "if (" ++ formatExpr condition ++ ") {\n"
-        ++ indent (foldMap (\x -> formatStmt x ++ "\n") consequence)
-    ++ "}"
-formatStmt (IfStmt condition consequence (Just alternative)) =
-    "if (" ++ formatExpr condition ++ ") {\n"
-        ++ indent (foldMap (\x -> formatStmt x ++ "\n") consequence)
-    ++ "} else {\n"
-        ++ indent (foldMap (\x -> formatStmt x ++ "\n") alternative)
-    ++ "}"
-formatStmt (WhileStmt condition body) =
-    "while (" ++ formatExpr condition ++ ") {\n"
-        ++ indent (foldMap (\x -> formatStmt x ++ "\n") body)
-    ++ "}"
-formatStmt (ExprStmt expr) = formatExpr expr ++ ";"
-formatStmt (VarStmt Nothing identifier expr) = "var " ++ identifier ++ " = " ++ formatExpr expr ++ ";"
-formatStmt (VarStmt (Just ty) identifier expr) = formatType ty ++ " " ++ identifier ++ " = " ++ formatExpr expr ++ ";"
-
-formatField :: Field -> String
-formatField HeadField = "hd"
-formatField TailField = "tl"
-
-formatVariable :: Variable -> String
-formatVariable (Identifier name Nothing) = name
-formatVariable (Identifier name (Just field)) = name ++ "." ++ formatField field
-
-formatLiteral :: Literal -> String
-formatLiteral TrueLit = "true"
-formatLiteral FalseLit = "false"
-formatLiteral (IntLit n) = show n
-formatLiteral (FloatLit n) = show n
-formatLiteral (CharLit c) = show c
-formatLiteral (TupleLit (expr1, expr2)) = "(" ++ formatExpr expr1 ++ "," ++ formatExpr expr2 ++ ")"
-formatLiteral EmptyListLit = "[]"
--}
