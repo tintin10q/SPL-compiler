@@ -439,6 +439,7 @@ instance Typecheck (Expr TypecheckedP) where
       checkFieldAccess nullSubst vartype field
   ti (VariableExpr meta (Identifier var Nothing)) = replaceMeta meta >> lookupVarType var >>= \sigma -> pure (nullSubst, sigma)
   ti (FunctionCallExpr meta "print" args) = replaceMeta meta >> pure (nullSubst, VoidType) -- Print is special just return Void, but ok we should do another found where we infer and replace expr, but that is just a checkProgram on stmt and decl!!!!!!
+  ti (FunctionCallExpr meta "isEmpty" args) = replaceMeta meta >> pure (nullSubst, BoolType) -- isEmpty is special just return Void, but we should actually infer if its a container type 
   ti (FunctionCallExpr meta funcName args) = do
     replaceMeta meta
     funtype <- lookupFunTypeOf funcName
@@ -487,7 +488,7 @@ checkFieldAccess sub ty field = case field of
           ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty ty2 ++ " red field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty ty2 ++ " field on list types."
 
         TailField -> case ty of 
-          ListType t -> return (sub, t)
+          ListType t -> return (sub, ListType t)
           TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant" ++ pretty  SecondField ++  "?"
           tyvar@(TypeVar _ False) -> unify (ListType ty) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
           ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty ty2 ++ " red field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty ty2 ++ " field on list types."

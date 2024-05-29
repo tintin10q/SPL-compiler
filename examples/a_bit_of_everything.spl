@@ -10,6 +10,15 @@ facR ( n : Int ) : Int {
     }
 }
 
+// Computes the product of a list of integers
+product ( list : [Int] ) : Int {
+    if ( isEmpty ( list ) ) {
+        return 1;
+    } else {
+        return list.hd * product ( list.tl );
+    }
+}
+
 // The iterative version of the factorial function
 facI ( n : Int ) : Int {
     var r = 1;
@@ -20,37 +29,10 @@ facI ( n : Int ) : Int {
     return r;
 }
 
-// A main function to check the results
-// It takes no arguments, so the type looks like this:
-main ( ) : Void {
-    var n = 0;
-    var facN = 1;
-    var ok = True;
-    while ( n < 20 ) {
-        facN = facR ( n );
-        if ( facN != facI ( n ) || facN != facL ( n )) {
-            print ( n : facN : facI ( n ) : facL ( n ) : [] );
-            ok = False;
-        }
-        n = n + 1;
-    }
-    print ( ok );
-}
 
-// A list based factorial function
-// Defined here to show that functions can be given in any order (unlike C)
-facL ( n : Int ) : Int {
-    return product (fromTo ( 1, n ));
-}
 
-// Computes the product of a list of integers
-product ( list : [Int] ) : Int {
-    if ( isEmpty ( list ) ) {
-        return 1;
-    } else {
-        return list.hd * product ( list.tl );
-    }
-}
+
+
 
 // Generates a list of integers from the first to the last argument
 fromTo ( from : Int, to : Int) : [Int] {
@@ -87,6 +69,8 @@ swap ( tuple : (a, a) ) : (a, a) {
 	tuple.snd = tmp;
 	return tuple;
 }
+*/
+
 
 // list append
 append ( l1 : [t] , l2 : [t]) : [t] {
@@ -97,8 +81,8 @@ append ( l1 : [t] , l2 : [t]) : [t] {
 		return l1;
 	}
 }
-*/
 
+/*
 // square the odd numbers in a list and remove the even numbers
 squareOddNumbers ( list : [Int] ) : [Int] {
     while (! isEmpty (list) && list.hd % 2 == 0) {
@@ -110,3 +94,26 @@ squareOddNumbers ( list : [Int] ) : [Int] {
     }
     return list;
 }
+*/
+// A list based factorial function
+// Defined here to show that functions can be given in any order (unlike C)
+facL ( n : Int ) : Int {
+    return product (fromTo ( 1, n ));
+}
+// A main function to check the results
+// It takes no arguments, so the type looks like this:
+main ( ) : Void {
+    var n = 0;
+    var facN = 1;
+    var ok = True;
+    while ( n < 20 ) {
+        facN = facR ( n );
+        if ( facN != facI ( n ) || facN != facL ( n )) {
+            print ( n : facN : facI ( n ) : facL ( n ) : [] );
+            ok = False;
+        }
+        n = n + 1;
+    }
+    print ( ok );
+}
+

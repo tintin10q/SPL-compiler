@@ -88,6 +88,9 @@ instance Optimise (Expr TypecheckedP) where
                                         (e1', e2') -> BinOpExpr meta Neq e1' e2'
   -- Other binops
   opti (BinOpExpr m op ex1 ex2) = BinOpExpr m op (opti ex1) (opti ex2)
+  opti (UnaryOpExpr meta Min expr) = case opti expr of 
+                                              (LiteralExpr m (IntLit lit)) ->  (LiteralExpr m (IntLit (-lit)))
+                                              a -> (UnaryOpExpr meta Min a)
   opti (UnaryOpExpr meta Negate expr) = case opti expr of 
                                             (LiteralExpr m TrueLit) -> LiteralExpr m FalseLit
                                             (LiteralExpr m FalseLit) -> LiteralExpr m TrueLit
