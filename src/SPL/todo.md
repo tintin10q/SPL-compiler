@@ -5,7 +5,7 @@
 - Return type analysis
 - SSM code gen
 - Hoist global var decls to the top by doing a sort.
-- Make one check function that checks both vars and decls. Woah
+- Make one check function that checks both vars and decls. Woah ,DONE 
 - Return type check.
     - How would that work?
         - Sjaak said a partially applied unify function with the return type. Or Return just changes the func enviroment??

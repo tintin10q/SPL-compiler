@@ -48,6 +48,8 @@ operatorTable :: [[Operator Parser (Expr ParsedP)]]
 operatorTable =
     [ [ Postfix (unary (FieldAccess HeadField) (try (L.tDot <* L.tHead)))
       , Postfix (unary (FieldAccess TailField) (try (L.tDot <* L.tTail)))
+      , Postfix (unary (FieldAccess SecondField) (try (L.tDot <* L.tSnd)))
+      , Postfix (unary (FieldAccess FirstField) (try (L.tDot <* L.tFst)))
       ]
     , [ Prefix (unary Negate L.tExcl)
       ]

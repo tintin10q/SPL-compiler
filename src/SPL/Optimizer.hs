@@ -19,7 +19,6 @@ import SPL.Parser.SourceSpan (showStart)
 
     Statements
     If an if statement is false we can remove it
-    If aw whil
 -}
 
 class Optimise a where

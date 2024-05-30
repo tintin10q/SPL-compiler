@@ -43,7 +43,7 @@ removeStmtAfterReturns (iff@(IfStmt meta _ consequent  (Just alternative)): rest
 removeStmtAfterReturns (a: later) = a : removeStmtAfterReturns later
 
 preprocesAST :: Program ParsedP -> Program ParsedP
-preprocesAST =Debug.trace "hihih"  hoistGlobalVars . removeDeadCode
+preprocesAST =  hoistGlobalVars . removeDeadCode
 
 checkHasMain :: Program ParsedP -> Either String ()
 checkHasMain [] = Left (red "No main function in your program! " ++ "\nPlease add a main function to your program.")

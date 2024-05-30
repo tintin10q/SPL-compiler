@@ -1,0 +1,10 @@
+
+main(a:a):a {
+    return a;
+}
+
+foo() {
+    main(1);
+    main(2);
+    main(Tru);
+}
