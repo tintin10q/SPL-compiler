@@ -6,7 +6,7 @@ author:
 - "Quinten Cabo (s1076992)"
 lang: en
 documentclass: article
-toc: false
+toc: true
 numbersections: true
 fontsize: 11pt
 font-family: fourier
@@ -20,7 +20,6 @@ titlepage: true
 listings-disable-line-numbers: true
 footnotes-pretty: true
 titlepage-rule-height: 0
-
 ---
 
 \pagebreak
@@ -69,7 +68,7 @@ fac() {
 }
 ```
 
-An important things about SPL is that you can only define variables at the top of a function.
+An important thing about SPL is that you can only define variables at the top of a function.
  
 
 ## Implementation Language
@@ -78,6 +77,7 @@ We went with [Haskell](https://www.haskell.org/) to implement our compiler. We m
 
 We also choose Haskell because we wanted to learn it more. This made the first phases of the project quite a bit more difficult because both of our Haskell knowledge was quite rusty. But in the end this project provided an amazing learning opportunity for me to learn loads more about haskell and functional programming in general.
 Yes, I have followed the bachelors functional programming course but after implementing the type checker for the compiler (and also taking the advanced programming course) I learned, so much about Haskell. 
+
 I now feel like I actually have an intuition for Monads and Monoids.
 
 # General Architecture
@@ -244,7 +244,7 @@ class Prettier a where
 ```
 
 You still need to implement it for every phase separately. Even though in reality the actual types of `UnaryOpExpr p` are all the same.
-At least here the upgrade function helps a little but because you can just most things to the latest phase (in this case TypecheckedP), and only implement pretty for that. 
+At least here the upgrade function helps a little but because you can just `upgrade` most things to the latest phase (in this case TypecheckedP), and only implement pretty for that. 
 
 # Phases of the compiler
 
@@ -656,7 +656,7 @@ We will probably not implement overloading except for the print function.
 ## Problems
 
 - Mutual recursion is not implemented, we now generate code by first generating code for all the var decls, then the funcdecls in order from top down.
-- Specializing functions after (or during?) type inference. 
+- Specializing functions after type inference by collecting all the different invocations when type checking the function call expression. 
 
 # Optimizing
 
