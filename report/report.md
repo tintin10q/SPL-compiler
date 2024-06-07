@@ -246,6 +246,8 @@ class Prettier a where
 You still need to implement it for every phase separately. Even though in reality the actual types of `UnaryOpExpr p` are all the same.
 At least here the upgrade function helps a little but because you can just `upgrade` most things to the latest phase (in this case TypecheckedP), and only implement pretty for that. 
 
+Later I learned about [unsafeCoerce](https://hackage.haskell.org/package/base-4.20.0.1/docs/Unsafe-Coerce.html#v:unsafeCoerce) which probably would have worked as well.
+
 # Phases of the compiler
 
 The compiler currently consists out of the following phases:
@@ -519,7 +521,7 @@ The type checking was by far the hardest and most exciting part of this project.
 I based implementation of on Hindley–Milner type system from the AlogithmW paper. 
 I started out by following the tutorial paper. 
 
-It took me a while to get to this stage with many ahha moments but I really enjoyed it.
+It took me a while to get to this stage with many ahha moments, but I really enjoyed it.
 
 
 ## We define a type class for type instance like so:
@@ -609,7 +611,9 @@ type TIState = TIenv
 type TI a = ExceptT String (State TIState) a
 ```
 
-We track many things in this monad. The main thing being that we should not instantiate a type scheme for the function your checking but get the type directly from the environment. 
+We track many things in this monad. 
+This allows for making nice error messages. 
+The main thing being that we should not instantiate a type scheme for the function your checking but get the type directly from the environment. 
 
 What really caused big trouble is that the type nodes where Maybe in ParsedP, and I was trying to resolve that in the same function
 as the function that called ti on the decls. This added a bunch of complexity but only yesterday I found out that THIS was the source of it.
@@ -675,7 +679,6 @@ In the last two cases I replace the statements with a BlockStatement which I lat
 
 We are not very far yet on the code generation. We implemented a data with every SSM instruction and WASM instruction as data. 
 We implemented Monoid for these data so that the instructions can be chained together with the `<>` operator and a state monad that has the current variables.
-
 
 Then we made a type class called `GenSSM` and `GenWASM` with a single generate function that takes an environment and an AST node that implements the type generate class.
 

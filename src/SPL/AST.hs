@@ -169,32 +169,32 @@ type family BinOpExpr (p :: Phase) where
   BinOpExpr EmptyP = ()
   BinOpExpr ParsedP = SourceSpan
   BinOpExpr ReturnsCheckedP = SourceSpan
-  BinOpExpr TypecheckedP = SourceSpan
+  BinOpExpr TypecheckedP = (Type, SourceSpan)
 
 
 type family UnaryOpExpr (p :: Phase) where
   UnaryOpExpr EmptyP = ()
   UnaryOpExpr ParsedP = SourceSpan
   UnaryOpExpr ReturnsCheckedP = SourceSpan
-  UnaryOpExpr TypecheckedP = SourceSpan
+  UnaryOpExpr TypecheckedP = (Type, SourceSpan)
 
 type family FunctionCallExpr (p :: Phase) where
   FunctionCallExpr EmptyP = ()
   FunctionCallExpr ParsedP = SourceSpan
   FunctionCallExpr ReturnsCheckedP = SourceSpan
-  FunctionCallExpr TypecheckedP = SourceSpan
+  FunctionCallExpr TypecheckedP = (Type,SourceSpan)
 
 type family VariableExpr (p :: Phase) where
   VariableExpr EmptyP = ()
   VariableExpr ParsedP = SourceSpan
   VariableExpr ReturnsCheckedP = SourceSpan
-  VariableExpr TypecheckedP = SourceSpan
+  VariableExpr TypecheckedP = (Type, SourceSpan)
 
 type family LiteralExpr (p :: Phase) where
   LiteralExpr EmptyP = ()
   LiteralExpr ParsedP = SourceSpan
   LiteralExpr ReturnsCheckedP = SourceSpan
-  LiteralExpr TypecheckedP = SourceSpan
+  LiteralExpr TypecheckedP = (Type, SourceSpan)
 
 data Literal (p :: Phase) =
   TrueLit
@@ -285,33 +285,6 @@ instance Convertable Decl ParsedP ReturnsCheckedP where
 -- type instance FunctionCallExpr TypecheckedP = (SourceSpan, Type)
 -- type instance VariableExpr TypecheckedP = (SourceSpan, Type)
 -- type instance LiteralExpr TypecheckedP = (SourceSpan, Type)
-
-
-
-instance Convertable Expr ReturnsCheckedP TypecheckedP where
-  upgrade (BinOpExpr meta op e1 e2) = BinOpExpr (meta :: BinOpExpr TypecheckedP) op (upgrade e1) (upgrade e2)
-  upgrade (UnaryOpExpr meta op e) = UnaryOpExpr meta op (upgrade e)
-  upgrade (FunctionCallExpr meta name exprs) = FunctionCallExpr meta name (map upgrade exprs)
-  upgrade (VariableExpr meta var) = VariableExpr meta var
-  upgrade (LiteralExpr meta lit) = LiteralExpr meta (upgrade lit)
-
-instance Convertable Literal ReturnsCheckedP TypecheckedP where
-  upgrade (TupleLit (e1, e2)) = TupleLit (upgrade e1, upgrade e2)
-  upgrade TrueLit = TrueLit
-  upgrade FalseLit = FalseLit
-  upgrade (IntLit i) = IntLit i
-  upgrade (CharLit c) = CharLit c
-  upgrade EmptyListLit = EmptyListLit
-
-instance Convertable Stmt ReturnsCheckedP TypecheckedP where
-  upgrade (AssignStmt meta var e) = AssignStmt (meta :: AssignStmt TypecheckedP) var (upgrade e)
-  upgrade (ReturnStmt meta (Just e)) = ReturnStmt (meta :: ReturnStmt TypecheckedP) (Just (upgrade e))
-  upgrade (ReturnStmt meta Nothing) = ReturnStmt (meta :: ReturnStmt TypecheckedP) Nothing
-  upgrade (IfStmt meta e body Nothing) = IfStmt (meta :: IfStmt TypecheckedP) (upgrade e) (map upgrade body) Nothing
-  upgrade (IfStmt meta e body (Just alternative)) = IfStmt (meta :: IfStmt TypecheckedP) (upgrade e) (map upgrade body) (Just (map upgrade alternative))
-  upgrade (WhileStmt meta e body) = WhileStmt (meta :: WhileStmt TypecheckedP) (upgrade e) (map upgrade body)
-  upgrade (ExprStmt meta e) = ExprStmt (meta :: ExprStmt TypecheckedP) (upgrade e)
-  upgrade (BlockStmt list) = BlockStmt (map upgrade list) 
 
 
 {- EmptyP instaces-}

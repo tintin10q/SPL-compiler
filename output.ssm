@@ -1,9 +1,5 @@
 	Bra main
-foo2:
-	LINK 1
-	UNLINK
-	RET
+	HALT
+	HALT
 main:
-	LDC 10
-	Bsr foo2
 	HALT

@@ -60,6 +60,7 @@ main = do
     -- todo, do we need to do anything with this sub?
     typechecked_ast <- eitherStrIO $ fst $ checkProgram return_checked_ast
     putStrLn $ blue "Typechecked AST:"
+    print typechecked_ast
     putStrLn $ pretty typechecked_ast
   -- Boolean Literal evaluation, todo this makes a small part lazy, which means that if you would have 1 && true it would be ok. So its important that this runs after type checking I think
   -- Also todo we should repeat this opti function until there is no improvement anymore
@@ -67,7 +68,7 @@ main = do
         improvement' = - opti_improvement typechecked_ast optimized_ast
     -- print optimized_ast
     putStrLn $ blue "Optimizing step shrunk AST with by " ++ green (show improvement' ++ "%")
-    when (improvement' > 0) (putStrLn $ blue "New Optimised AST:" ++  pretty optimized_ast)
+    when (improvement' > 0) (putStrLn $ blue "New Optimised AST:\n" ++  pretty optimized_ast)
     putStrLn $ blue "Generating ssm ast"
     let code = getSmmCode optimized_ast
         formatted_code = formatCode code

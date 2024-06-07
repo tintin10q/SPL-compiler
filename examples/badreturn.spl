@@ -4,4 +4,6 @@ case2(bb: bb) : bb {
     return bb;
 }
 
-main() {}
+main() : Void {
+    return 3;
+}

@@ -48,8 +48,8 @@ instance Optimise (Expr TypecheckedP) where
                                         ((LiteralExpr m (IntLit a)),  (LiteralExpr _ (IntLit b))) -> LiteralExpr m $ IntLit $ a * b
                                         (e1', e2') -> BinOpExpr meta Mul e1' e2'
   opti (BinOpExpr meta Div e1 e2) = case (opti e1, opti e2) of 
-                                        ((LiteralExpr m (IntLit 0)),  (LiteralExpr _ (IntLit _))) -> error $ red "Detected divide by zero error during optimzing at " ++ showStart m
-                                        ((LiteralExpr m (IntLit _)),  (LiteralExpr _ (IntLit 0))) -> error $ red "Detected divide by zero error during optimzing at " ++ showStart m 
+                                        ((LiteralExpr (_,m) (IntLit 0)),  (LiteralExpr _ (IntLit _))) -> error $ red "Detected divide by zero error during optimzing at " ++ showStart m
+                                        ((LiteralExpr (_,m) (IntLit _)),  (LiteralExpr _ (IntLit 0))) -> error $ red "Detected divide by zero error during optimzing at " ++ showStart m 
                                         ((LiteralExpr m (IntLit a)),  (LiteralExpr _ (IntLit b))) -> LiteralExpr m $ IntLit $ a `div` b
                                         (e1', e2') -> BinOpExpr meta Div e1' e2'
   opti (BinOpExpr meta Mod e1 e2) = case (opti e1, opti e2) of 
