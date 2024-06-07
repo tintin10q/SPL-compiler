@@ -1,0 +1,9 @@
+
+
+var woah = 3;
+
+main() {
+    var a = (4,4);
+    if (a.hd.fst > 3) {return woah;} 
+    else {return 9;}
+}

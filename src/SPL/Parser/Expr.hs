@@ -162,7 +162,7 @@ pVariable = do
   identifier <- T.unpack <$> L.tIdentifier
   field <- optional pField
   return $ Identifier identifier field
-  where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail)) <|> try (FirstField <$ L.tFst) <|> try (SecondField <$ L.tSnd)
+  where pField = L.tDot *> (try (HeadField <$ L.tHead) <|> try (TailField <$ L.tTail) <|> try (FirstField <$ L.tFst) <|> try (SecondField <$ L.tSnd))
 
 -- Parse any literal value
 pLiteral :: Parser (Literal ParsedP)

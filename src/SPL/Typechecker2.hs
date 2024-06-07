@@ -196,7 +196,7 @@ newTyVar = do
 extendVarEnv :: VarEnv -> TI ()
 extendVarEnv new_varenv = 
 
-              modify (\env@TIenv {currentVarEnv = varenv} -> let new = varenv <> new_varenv in Debug.trace ("Extending var env with" ++ show new_varenv ++ "now its "++ show new) env  {currentVarEnv = new })
+              modify (\env@TIenv {currentVarEnv = varenv} -> let new = varenv <> new_varenv in Debug.trace ("Extending var env with" ++ show new_varenv ++ " now its "++ show new) env  {currentVarEnv = new })
 
 extendFunEnv :: String -> Scheme -> TI ()
 extendFunEnv funname fun_type = modify (\env@TIenv {currentFunEnv = funenv} -> env {currentFunEnv = Map.insert funname fun_type funenv })
@@ -555,27 +555,27 @@ checkFieldAccess expr field = do
   case field of 
         FirstField -> case ty of 
           TupleType t1 _ -> return (sub, t1)
-          (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant" ++ pretty HeadField ++  "?"
+          (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant ."  ++ pretty HeadField ++  "?"
           tyvar@(TypeVar _ False) -> newTyVar >>= \secondArgTyvar -> unify (TupleType ty secondArgTyvar) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
-          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty ty2 ++ " red field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty ty2 ++ " field on tuple types."
+          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types."
 
         SecondField -> case ty of 
           TupleType _ t2 -> return (sub, t2)
-          (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant" ++ pretty  TailField ++  "?"
+          (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant ." ++ pretty  TailField ++  "?"
           tyvar@(TypeVar _ False) -> newTyVar >>= \secondArgTyvar -> unify (TupleType ty secondArgTyvar) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
-          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty ty2 ++ " red field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty ty2 ++ " field on tuple types."
+          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types."
 
         HeadField -> case ty of 
           ListType t -> return (sub, t)
-          TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant" ++ pretty  FirstField ++  "?"
+          TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant ." ++ pretty  FirstField ++  "?"
           tyvar@(TypeVar _ False) -> unify (ListType ty) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
-          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty ty2 ++ " red field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty ty2 ++ " field on list types."
+          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types."
 
         TailField -> case ty of 
           ListType t -> return (sub, ListType t)
-          TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant" ++ pretty  SecondField ++  "?"
+          TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant ." ++ pretty  SecondField ++  "?"
           tyvar@(TypeVar _ False) -> unify (ListType ty) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
-          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty ty2 ++ " red field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty ty2 ++ " field on list types."
+          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types."
   
 
 instance Typecheck (Stmt TypecheckedP) where
@@ -592,13 +592,14 @@ instance Typecheck (Stmt TypecheckedP) where
     -- todo Now either get the return type again from the env or 
     return (s1, returntype)
   ti (ReturnStmt _ Nothing) = return (nullSubst, VoidType)
-  ti (IfStmt meta cond consequent (Just alternative)) = do
+  ti iff@(IfStmt meta cond consequent (Just alternative)) = do
     replaceMeta meta
     s1 <- tc cond BoolType
     (s2, ty1) <- ti consequent
     (s3, ty2) <- ti alternative
     s4 <- unify ty1 ty2
     let s = s1 `composeSubst` s2 `composeSubst` s3 `composeSubst` s4
+    Debug.trace ("Typing if: " ++ show iff ++ " with sub" ++ show s) pure ()
     applySubToTIenv s
     return (s, apply s ty1) -- we can do ty1 because of the previous returns checks, we know we can just pick one
   ti (IfStmt meta cond consequent Nothing) = do
@@ -735,7 +736,7 @@ unifyErrorHead :: TI String
 unifyErrorHead = do 
   functionName <- gets currentFunName
   case functionName of 
-    Just name -> pure $ "Inside function "++blue name ++":\n"
+    Just name -> pure $ "Inside function "++blue name ++";\n"
     Nothing -> pure ""
 
 
@@ -756,11 +757,11 @@ unifyError ty1 ty2@(TypeVar u True) = do
 unifyError ty1 ty2 = unifyErrorHead >>= \errorHead -> unifyErrorTail ty1 ty2 >>= \errorTail -> throwError $ errorHead ++ "Types do not unify:\n" ++ show ty1 ++ " vs. " ++ show ty2 ++ errorTail
 
 unifyErrorTail :: Type -> Type -> TI String
-unifyErrorTail ty1 _ty2 = do
+unifyErrorTail ty1 ty2 = do
   relevant1 <- getRelevantVars ty1
-  -- relevant2 <- getRelevantVars ty2
+  relevant2 <- getRelevantVars ty2
   meta <- gets currentMeta
-  return $ " at " ++ showStart meta ++ " until line " ++ (case endPos meta of SourcePos _ b a -> show (unPos b) ++ " column " ++ show (unPos a)) ++ relevant1 -- ++ relevant2 -- Only first one is really 
+  return $ " at " ++ showStart meta ++ " until line " ++ (case endPos meta of SourcePos _ b a -> show (unPos b) ++ " column " ++ show (unPos a)) ++ relevant1  ++ relevant2 -- Only first one is really 
             ++ ".\n\nlearn more about unification errors here: https://en.wikipedia.org/wiki/unification_(computer_science) or here https://cloogle.org/#unify%20error"
 
 

@@ -35,7 +35,7 @@ instance Show Type where
   show CharType = yellow "Char"
   show BoolType = yellow "Bool"
   show VoidType = yellow "Void"
-  show (TupleType ty1 ty2) = yellow $  "(" ++ show ty1 ++ show ty2 ++ ")"
+  show (TupleType ty1 ty2) = yellow "(" ++ show ty1 ++ yellow "," ++ show ty2 ++ yellow ")"
   show (ListType ty) = yellow $ "[" ++ show ty ++ yellow "]"
   show (TypeVar name False) = yellow $ 'T':'y':'p':'e':'v':'a':'r':' ':blue name 
   show (TypeVar name True) = yellow $ 'R':'i':'g':'i':'d':' ':'T':'y':'p':'e':'v':'a':'r':' ':blue name

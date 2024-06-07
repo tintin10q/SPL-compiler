@@ -161,7 +161,7 @@ tFst :: Parser T.Text
 tFst = symbol "fst"
 
 tSnd :: Parser T.Text
-tSnd= symbol "snd"
+tSnd = symbol "snd"
 
 -- Types
 

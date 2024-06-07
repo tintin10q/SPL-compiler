@@ -194,6 +194,8 @@ instance Prettier (Stmt p) where
 formatField :: Field -> String
 formatField HeadField = "hd"
 formatField TailField = "tl"
+formatField SecondField = "snd"
+formatField FirstField = "fst"
 
 indent :: String -> String
 indent str = unlines $ map (replicate 4 ' ' ++) $ lines str
