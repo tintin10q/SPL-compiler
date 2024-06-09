@@ -415,11 +415,8 @@ instance Typecheck (Expr TypecheckedP) where
   ti (LiteralExpr (ty, meta) lit) = do
     replaceMeta meta
     (s1, ty') <- ti lit
-    Debug.trace ("Typing literal expr 1 ty':" ++ show ty') pure ()
     s2 <- unify ty ty' -- Fix the type of the node
-    Debug.trace ("Typing literal expr 2 s2:" ++ show s2) pure ()
     let s = s1 `composeSubst` s2
-    Debug.trace ("Typing literal expr 3 s:" ++ show s) pure ()
     applySubToTIenv s
     return (s, ty')
 

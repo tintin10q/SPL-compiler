@@ -3,10 +3,10 @@ main () {
     //var b = 62;
     //var a = 63;
     if (1000 > 100) {
-        print(62);
+        print('Q');
     }
     else {
-        print(67);
+        print('U');
     }
     print(63);
 }
