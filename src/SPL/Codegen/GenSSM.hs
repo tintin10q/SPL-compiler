@@ -111,7 +111,7 @@ getSmmCode p = let (code, env) = runState (generate p) emptyEnv in code
 
 
 -- Store Heap pointer into r5
-runtime = [LDR HP, STR gvr, Bra "main"]
+runtime = [LDR HP, STR gvr, Bra "main"] -- Deal with returns from main!
 
 instance GenSSM [Expr TypecheckedP] where
       generate = combineCodeM . mapM generate
@@ -142,21 +142,8 @@ instance GenSSM (Decl TypecheckedP) where
       generate  (FunDecl _ name VoidType [] [] body) = do
             return [ LABEL name ] <>
                    generate body <>
-                   pure [if name == "main" then HALT else RET]
+                   pure [if name == "main" then HALT else RET] -- todo Oh implicit returns? 
 
-      -- Funtion that does not return anything
-      generate  (FunDecl _ name VoidType args [] body) = do
-            -- If we have args we need to put them in the enviroment 
-            env@(Info {genEnv = genenv }) <- get
-            -- add arguments to the enviroments
-            let newGenEnv = genenv <> Map.fromList [(Var argname, LocalVar i argtype) | ((argname, argtype), i) <- zip args [1..]]
-            put $ env {genEnv = newGenEnv}
-
-            code <- pure [ LABEL name, LINK 0 ] <> -- todo we can take out the links and unlinks I think?
-                      generate body <>
-                      pure [ UNLINK, if name == "main" then HALT else RET]
-            put env -- remove arguments again
-            return code
       -- Put the var decl on the heap, as in at the start save the heap start into a regsiter. When we then want to load vars we 
       --  Load from that register add the offset that we know and load that. 
       -- This only works if we do the var decls first but we do because we hoist them to the top
@@ -166,7 +153,7 @@ instance GenSSM (Decl TypecheckedP) where
             modify $ \env@(Info {genEnv = genenv}) -> env {genEnv = Map.insert (Var name) (GlobalVar globalvarcount (getType expr)) genenv}
             generate expr <> pure [STH, AJS (-1)] -- todo, this could be stmh if we do all the vardelc first, more safe
                   -- Check if AJS -1 works
-      generate  (FunDecl _ name retty args funvardecl body) = do 
+      generate  (FunDecl _ name retty args funvardecl body) = do
 
             -- Load the args and funvardecls into the enviroment
             env@(Info {genEnv = genenv }) <- get
@@ -177,7 +164,8 @@ instance GenSSM (Decl TypecheckedP) where
             body_code <- generate body
             put env -- Restore previous env
             -- make space for locals, load the fundecls, the arguments should already be there? 
-            return $ LINK local_length : fundecl_code <> body_code <> [UNLINK]
+            return $ LINK local_length : fundecl_code <> body_code <> [UNLINK, if name == "main" then HALT else RET] -- The red here could be better 
+
       -- We could also do stml where we just see arguments as locals. 
       -- That sounds much easier then doing pointer algoritmatic STML
             -- do
@@ -192,7 +180,7 @@ instance GenSSM (Decl TypecheckedP) where
 loadVar :: String -> Env Code
 loadVar name = do
       value <- getkey (Var name)
-      case value of 
+      case value of
             (GlobalVar offset _) -> return [LDR gvr, LDAA offset]
             (LocalVar offset _) -> return [LDL offset]
 
@@ -200,10 +188,10 @@ loadVar name = do
 storeVar :: String -> Env Code
 storeVar name = do
       value <- getkey (Var name)
-      case value of 
+      case value of
             (GlobalVar offset _) -> return [LDR gvr, STA offset]
             (LocalVar offset _) -> return [STL offset]
- 
+
 
 instance GenSSM (Literal TypecheckedP) where
       generate TrueLit = pure [LDC 1] -- There is also a True and False but its just a bit pattern https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#True
@@ -214,12 +202,12 @@ instance GenSSM (Literal TypecheckedP) where
       generate EmptyListLit = pure [LDC 0, STH]
 
 -- Generate an annotate instruction
-annotate = Annote SP 0 1 Green 
+annotate = Annote SP 0 1 Green
 
 instance GenSSM (Stmt TypecheckedP) where
       generate (ExprStmt _ expr) = generate expr -- Todo clean these up though? Right? 
-      generate (AssignStmt _ (Identifier name Nothing) expr) = generate expr <> storeVar name 
-      generate (AssignStmt _ (Identifier name (Just field)) expr) = error "Field assignment is not supported yet" 
+      generate (AssignStmt _ (Identifier name Nothing) expr) = generate expr <> storeVar name
+      generate (AssignStmt _ (Identifier name (Just field)) expr) = error "Field assignment is not supported yet"
       -- Based on the field we have to find out the adress. We can get the adress of locals and also the adress of globals. 
       --  Then we have to dereference them and do get the next adress and store something there!
 
@@ -230,12 +218,12 @@ instance GenSSM (Stmt TypecheckedP) where
                                                  consequenceCode <- generate consequent
                                                  return $ conditionCode  <> [BRF (codeSize consequenceCode)] <> consequenceCode
       generate (IfStmt _ condition consequent (Just alternative)) = do
-                                                 conditionCode <- generate condition 
+                                                 conditionCode <- generate condition
                                                  alternativeCode <- generate alternative
                                                  consequentCode <- generate consequent >>= \code -> pure $ code <> [BRA $ codeSize alternativeCode]
                                                  return $ conditionCode <> [BRF (codeSize consequentCode)] <> consequentCode <> alternativeCode
       generate (WhileStmt _ condition body) = do
-            conditionCode <- generate condition 
+            conditionCode <- generate condition
             bodyCode <- generate body >>= \bodyCode -> pure $ bodyCode <> [BRA (- (codeSize bodyCode + codeSize conditionCode + 2))] -- +2 for the branch instruction added to condition code
             let conditionCodeWithBranch = conditionCode ++ [BRT (codeSize bodyCode)]
             return $ conditionCodeWithBranch <> bodyCode
@@ -249,20 +237,28 @@ newline :: Int
 newline = 10
 
 
+printStringCode :: String -> Code
+printStringCode =  foldMap (\c -> [LDC (ord c), TRAP 1])
+
 
 instance GenSSM (Expr TypecheckedP) where
       generate (BinOpExpr _ op left right) = generate left <> generate right <> generate op
       generate (UnaryOpExpr _ op operand) = generate  operand <> generate op
       -- Now it would be really nice if we could know the type of arg 
+      generate (FunctionCallExpr meta "print" [arg]) = let argType = getType arg in generate arg <> case Debug.trace ("Printing the type " ++ show argType) argType of
+                                                                                                      (TypeVar tyname False) -> pure $ printStringCode ("Non rigid TypeVar "++ show tyname ++", idk how to print this!") ++ [LDC newline, TRAP 1]
+                                                                                                      (TypeVar tyname True) -> pure $ printStringCode ("Rigid TypeVar"++ show tyname ++", idk how to print this!") ++ [LDC newline, TRAP 1]
+                                                                                                      CharType -> pure [TRAP 1, LDC newline, TRAP 1] -- Print adds a newline
+                                                                                                      BoolType -> error "Printing bool types is not implemented yet"
+                                                                                                      IntType -> pure [TRAP 0, LDC newline, TRAP 1] -- Print adds a newline
+                                                                                                      _ -> pure $ printStringCode "Idk how to print this type!" ++ [LDC newline, TRAP 1] -- Print adds a newline
       generate (FunctionCallExpr meta "print" [arg]) = generate arg <> pure [TRAP 0, LDC newline, TRAP 1] -- Print adds a newline
       -- generate (FunctionCallExpr meta "print" (_:_)) = error $ "At " ++ (showStart meta ) + " you call print with too many arguments"
-      generate (FunctionCallExpr meta func args) = generate args <> pure [Bsr func]
-      generate (VariableExpr meta (Identifier varname Nothing)) = do
-                                                            location <- getkey (Var varname)
-                                                            case location of
-                                                                  LocalVar  int ty  -> return []
-                                                                  _ -> return []
-      generate (VariableExpr meta (Identifier varname (Just _))) = error "Fields on variables are unsupported atm!"
+      generate (FunctionCallExpr (ty, _) func args) = do argcode <- generate args
+                                                         return $ argcode <> [Bsr func] <> ([LDR RR | ty /= VoidType])
+
+      generate (VariableExpr meta (Identifier varname Nothing)) = loadVar varname
+      generate (VariableExpr (ty, _) (Identifier varname (Just _))) = error "Loading fields on variables are unsupported atm!" -- We can know what to do based on the field!
       generate (LiteralExpr meta literal) = generate literal
 
 
