@@ -4,13 +4,16 @@ module SPL.Codegen.SSM where
 data Reg = PC | SP | MP | R3 | R4 | R5 | R6 | R7 | RR | HP
    deriving Show
 
+gvr :: Reg
+gvr = R5
+
 r0, r1, r2, r3, r4, r5, r6, r7 :: Reg
 r0 = PC -- Program Counter
 r1 = SP -- Stack Pointer
 r2 = MP -- Mark Pointer
 r3 = R3
 r4 = R4
-r5 = R5
+r5 = gvr -- Global vars heap pointer
 r6 = R6
 r7 = R7
 
@@ -19,7 +22,8 @@ data Instr
     = STR Reg | STL Int  | STS Int  | STA Int        -- Store from stack
     | LDR Reg | LDL Int  | LDS Int  | LDA Int        -- Load on stack
     | LDC Int | LDLA Int | LDSA Int | LDAA Int       -- Load on stack
-    | BRA Int | Bra String                           -- Branch always (relative/to label) string versions go to a label ints adds to PC
+    |           LDML Int | STML Int                  -- Load/Store local multiple
+    | BRA Int | Bra String                           -- Branch always (relative/to label) string versions go to a label ints adds to PC, its NOT an absolute jump!
     | BRF Int | Brf String                           -- Branch on false
     | BRT Int | Brt String                           -- Branch on true
     | BSR Int | Bsr String                           -- Branch to subroutine
@@ -32,7 +36,7 @@ data Instr
     | JSR | TRAP Int | NOP | HALT                    -- Other instructions
     | LABEL String                                   -- Pseudo-instruction for generating a label
     | LDH Int | STH | STMH Int                       -- Heap variables
-    | Annotate Reg Int Int AnnotateColor String      -- Meta instruction to add color https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#annote
+    | Annote Reg Int Int AnnotateColor String      -- Meta instruction to add color https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#annote
     deriving Show
 
 data AnnotateColor = Black | Blue | Cyan
@@ -60,7 +64,8 @@ instrSize i = case i of {
                   LDR  _   -> 2;    LDL   _   -> 2;    LDS  _    -> 2;   LDA  _ -> 2;   LDC  _ -> 2;
                   LDLA _   -> 2;    LDSA  _   -> 2;    LDAA _    -> 2;   STR  _ -> 2;   STL  _ -> 2;
                   STS  _   -> 2;    STA   _   -> 2;    AJS  _    -> 2;   LINK _ -> 2;   TRAP _ -> 2;
-                  SWPR _   -> 2;    LABEL _   -> 0;    LDH  _    -> 2;   _ -> 1;
+                  SWPR _   -> 2;    LABEL _   -> 0;    LDH  _    -> 2;   LDML _ -> 2;   STML _ -> 2;
+                  _ -> 1;
               }
 
 -- For prettyprinting SSM code
