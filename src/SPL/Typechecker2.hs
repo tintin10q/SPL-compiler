@@ -186,7 +186,8 @@ newTyVar :: ExceptT String (State TIState) Type
 newTyVar = do
   s <- increaseTypeVarCounter
   let name = toTyVar s
-  return $ Debug.trace ("Making type var " ++ show name) TypeVar (reverse name) False
+  -- Debug.trace ("Making type var " ++ show name) pure ()
+  return $  TypeVar (reverse name) False
   where
     toTyVar c
       | c < 26 = [toEnum (97 + c)]
@@ -202,7 +203,7 @@ extendFunEnv :: String -> Scheme -> TI ()
 extendFunEnv funname fun_type = modify (\env@TIenv {currentFunEnv = funenv} -> env {currentFunEnv = Map.insert funname fun_type funenv })
 
 resetVarEnv :: VarEnv -> TI ()
-resetVarEnv varenv = debugEnv "Before RESET!" >> modify (\env -> env {currentVarEnv = varenv}) >> debugEnv "After RESET!"
+resetVarEnv varenv = debugEnv "Reseting var env from!" >> modify (\env -> env {currentVarEnv = varenv}) >> debugEnv "To this!"
 
 -- If the string is the current function return the type of the current function else instanctiate the type scheme and return that. 
 lookupFunTypeOf :: String -> TI Type
@@ -414,8 +415,11 @@ instance Typecheck (Expr TypecheckedP) where
   ti (LiteralExpr (ty, meta) lit) = do
     replaceMeta meta
     (s1, ty') <- ti lit
+    Debug.trace ("Typing literal expr 1 ty':" ++ show ty') pure ()
     s2 <- unify ty ty' -- Fix the type of the node
+    Debug.trace ("Typing literal expr 2 s2:" ++ show s2) pure ()
     let s = s1 `composeSubst` s2
+    Debug.trace ("Typing literal expr 3 s:" ++ show s) pure ()
     applySubToTIenv s
     return (s, ty')
 
@@ -505,6 +509,7 @@ instance Typecheck (Expr TypecheckedP) where
     s2 <- unify ty VoidType
     let s = s1 `composeSubst` s2
     applySubToTIenv s
+    -- todo why doesn't this know the type?? If its an int literal we should be able to know. 
     return  (s, VoidType)
 
   ti (FunctionCallExpr (ty, meta) "isEmpty" args) = do
@@ -600,7 +605,7 @@ instance Typecheck (Stmt TypecheckedP) where
     (s3, ty2) <- ti alternative
     s4 <- unify ty1 ty2
     let s = s1 `composeSubst` s2 `composeSubst` s3 `composeSubst` s4
-    Debug.trace ("Typing if: " ++ show iff ++ " with sub" ++ show s) pure ()
+    logTI ("Typing if: " ++ show iff ++ "\n\n with sub " ++ show s) 
     applySubToTIenv s
     return (s, apply s ty1) -- we can do ty1 because of the previous returns checks, we know we can just pick one
   ti (IfStmt meta cond consequent Nothing) = do
@@ -654,13 +659,14 @@ instance Typecheck [Stmt TypecheckedP] where
     (mysub, mytype) <- ti stmt
     (latersub, othertype) <- ti later
     let sub = mysub `composeSubst` latersub
+    logTI ("Got sub in stmt list checker" ++ show sub)
     case (mytype, othertype) of
       -- I think we have to have these cases so that unify does not have to deal with VoidType
-      (VoidType, VoidType) -> pure (nullSubst, VoidType)
+      (VoidType, VoidType) -> pure (sub, VoidType)
       -- If retty1 is not Void and the rest is void it means that I return something! In that case just propagete what I return, todo check this 
-      (retty1, VoidType) -> pure (nullSubst, retty1)
+      (retty1, VoidType) -> pure (sub, retty1)
       -- If retty1 is Void and the rest is not void it means that I do not return something but later we do! In that case just propagete what we return later
-      (VoidType, retty2) -> pure (nullSubst, retty2) -- I think we have to have this case so that unify does not have to deal with VoidType
+      (VoidType, retty2) -> pure (sub, retty2) -- I think we have to have this case so that unify does not have to deal with VoidType
       (retty1, retty2) -> do
                             retsub <- unify retty1 retty2 `catchError` \err -> throwError $  red " Could not unify return types of statement list.\n" ++ err
                             let subsub = retsub `composeSubst` sub
@@ -685,7 +691,8 @@ instance Typecheck (Decl TypecheckedP) where
     -- debugEnv "Exstending the type env"
     extendVarEnv (Map.fromList [(name, ty)])
     -- debugEnv "After Exstending the type env"
-    applySubToTIenv sub >> pure (sub, ty)
+    applySubToTIenv sub
+    return (sub, ty)
   ti (FunDecl meta name initial_retty args fundelcs body) = do -- The returned sub contains the information of the args, decls and body, the caller does not need to add anything to the env
       -- Debug.trace (blue ("Inferencing function '" ++ name ++ "': ")) pure () -- this was as tight as I could make it
 
@@ -701,7 +708,7 @@ instance Typecheck (Decl TypecheckedP) where
       let initial_fun_type = FunType (map snd args) initial_retty
       replaceCurrentFunType initial_fun_type
 
-      let argvar = Map.fromList args
+      let argvar = Map.fromList args -- Add args to var env
       extendVarEnv argvar
 
       fundelc_inference <- mapM ti fundelcs -- These extends the var env with the arguments by itself
@@ -712,6 +719,7 @@ instance Typecheck (Decl TypecheckedP) where
       applySubToTIenv infered_fundelc_sub -- Not needed because ti does it already doesn't hurt.
 
       infered_body_sub <- tc body initial_retty
+      logTI $ "Infered body sub: " ++ show infered_body_sub ++ "from body : " ++ show body
 
       let function_sub = infered_fundelc_sub `composeSubst` infered_body_sub
 
@@ -727,6 +735,8 @@ instance Typecheck (Decl TypecheckedP) where
 
       return (function_sub, apply function_sub current_function_type)
 
+logTI :: String -> TI ()
+logTI s = Debug.trace (black s) $ pure ()
 
 getRelevantVars :: Type -> TI String
 getRelevantVars ty = do
