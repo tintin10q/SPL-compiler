@@ -19,7 +19,7 @@ import SPL.Colors (blue, red)
 import Data.Maybe (fromMaybe)
 import SPL.PrettyPrint (Prettier(..))
 
-data Location = Adress Int Type  | LocalVar  Int Type | GlobalVar Int Type
+data Location =  LocalVar  Int Type | GlobalVar Int Type
               deriving (Eq, Ord, Show)
 data Key = Fun String | Var String
               deriving (Eq, Ord, Show)
@@ -193,10 +193,16 @@ loadVar :: String -> Env Code
 loadVar name = do
       value <- getkey (Var name)
       case value of 
-            (GlobalVar offset _) -> return [LDR gvr, LDH offset]
-            (Adress adress _) -> return [LDA adress]
+            (GlobalVar offset _) -> return [LDR gvr, LDAA offset]
             (LocalVar offset _) -> return [LDL offset]
 
+-- Returns code to store the value on the head of the stack into a variable
+storeVar :: String -> Env Code
+storeVar name = do
+      value <- getkey (Var name)
+      case value of 
+            (GlobalVar offset _) -> return [LDR gvr, STA offset]
+            (LocalVar offset _) -> return [STL offset]
  
 
 instance GenSSM (Literal TypecheckedP) where
@@ -212,22 +218,28 @@ annotate = Annote SP 0 1 Green
 
 instance GenSSM (Stmt TypecheckedP) where
       generate (ExprStmt _ expr) = generate expr -- Todo clean these up though? Right? 
-      generate (AssignStmt _ var e) = undefined 
-      generate (ReturnStmt _ (Just e)) = undefined 
-      generate (ReturnStmt _ Nothing) =  undefined
+      generate (AssignStmt _ (Identifier name Nothing) expr) = generate expr <> storeVar name 
+      generate (AssignStmt _ (Identifier name (Just field)) expr) = error "Field assignment is not supported yet" 
+      -- Based on the field we have to find out the adress. We can get the adress of locals and also the adress of globals. 
+      --  Then we have to dereference them and do get the next adress and store something there!
+
+      generate (ReturnStmt _ (Just e)) = generate e <> pure [STR RR, UNLINK, RET]
+      generate (ReturnStmt _ Nothing) = pure [UNLINK, RET] -- todo having this kind of forces to always do link even if there is no vars.
       generate (IfStmt _ condition consequent Nothing) = do
-                                                 condition <- generate condition
+                                                 conditionCode <- generate condition
                                                  consequenceCode <- generate consequent
-                                                 return $ condition  <> [BRF (codeSize consequenceCode)] <> consequenceCode
+                                                 return $ conditionCode  <> [BRF (codeSize consequenceCode)] <> consequenceCode
       generate (IfStmt _ condition consequent (Just alternative)) = do
                                                  conditionCode <- generate condition 
                                                  alternativeCode <- generate alternative
-                                                 consequentCode <- generate consequent >>= \code -> pure (code <> [BRA $ codeSize alternativeCode])
+                                                 consequentCode <- generate consequent >>= \code -> pure $ code <> [BRA $ codeSize alternativeCode]
                                                  return $ conditionCode <> [BRF (codeSize consequentCode)] <> consequentCode <> alternativeCode
-
-      generate (WhileStmt meta e body) = undefined
+      generate (WhileStmt _ condition body) = do
+            conditionCode <- generate condition 
+            bodyCode <- generate body >>= \bodyCode -> pure $ bodyCode <> [BRA (- (codeSize bodyCode + codeSize conditionCode + 2))] -- +2 for the branch instruction added to condition code
+            let conditionCodeWithBranch = conditionCode ++ [BRT (codeSize bodyCode)]
+            return $ conditionCodeWithBranch <> bodyCode
       generate (BlockStmt list) = foldMap generate list
-      generate a = return [NOP, annotate "An-unsupported-statement"]
 
 
 
@@ -248,7 +260,6 @@ instance GenSSM (Expr TypecheckedP) where
       generate (VariableExpr meta (Identifier varname Nothing)) = do
                                                             location <- getkey (Var varname)
                                                             case location of
-                                                                  Adress  int ty -> return []
                                                                   LocalVar  int ty  -> return []
                                                                   _ -> return []
       generate (VariableExpr meta (Identifier varname (Just _))) = error "Fields on variables are unsupported atm!"
