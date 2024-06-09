@@ -1,6 +1,4 @@
 
-var a = [];
-
 main() {
     var a = 3:[];
     var list = 3:2:[];
@@ -9,14 +7,16 @@ main() {
 }
 
 foo3(c) {
+    var a = [];
     return c :a;
 }
 
 foo() {
     var a = True;
-    return a  && a;
+    return a && a;
 }
 
 foo2(b) {
+    var a = [];
     return b :a;
 }

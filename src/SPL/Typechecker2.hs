@@ -470,16 +470,18 @@ instance Typecheck (Expr TypecheckedP) where
     return (s, IntType)
   ti (UnaryOpExpr (nodeTy, meta) (FieldAccess field) expr) = do 
       replaceMeta meta
-      (s1, inferredType) <- checkFieldAccess expr field -- This gets the type of the expr and check if its a list type or tuple type if not then its an error
-      s2 <- unify inferredType nodeTy -- fix the node type after figering out the field
-      let s = s1 `composeSubst` s2
+      (s1, ty) <- ti expr
+      (s2, inferredType) <- checkFieldAccess ty field -- This gets the type of the expr and check if its a list type or tuple type if not then its an error
+      s3 <- unify inferredType nodeTy -- fix the node type after figering out the field
+      let s = s1 `composeSubst` s2 `composeSubst` s3
       applySubToTIenv s
       return (s, inferredType)
   ti (VariableExpr (nodeTy, meta) (Identifier var (Just field))) = do
       replaceMeta meta
       -- Send a var expr
-      let expr = VariableExpr (nodeTy, meta) (Identifier var Nothing)
-      (s1, inferredType) <- checkFieldAccess expr field
+      -- let expr = VariableExpr (nodeTy, meta) (Identifier var Nothing)
+      sigma <- lookupVarType var 
+      (s1, inferredType) <- checkFieldAccess sigma field
       s2 <- unify inferredType nodeTy -- fix the node type after figering out the field
       let s = s1 `composeSubst` s2
       applySubToTIenv s
@@ -549,33 +551,32 @@ instance Typecheck (Expr TypecheckedP) where
 
 -- Check if a field fits with the type of the expression is on 
 -- Then gives back the correct type from the expression
-checkFieldAccess :: Expr TypecheckedP -> Field -> TI (Subst, Type)
-checkFieldAccess expr field = do
-  (sub, ty) <- ti expr
+checkFieldAccess :: Type -> Field -> TI (Subst, Type)
+checkFieldAccess ty field = do
   case field of 
         FirstField -> case ty of 
-          TupleType t1 _ -> return (sub, t1)
+          TupleType t1 _ -> return (nullSubst, t1)
           (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant ."  ++ pretty HeadField ++  "?"
           tyvar@(TypeVar _ False) -> newTyVar >>= \secondArgTyvar -> unify (TupleType ty secondArgTyvar) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
-          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types."
+          _ -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types."
 
         SecondField -> case ty of 
-          TupleType _ t2 -> return (sub, t2)
+          TupleType _ t2 -> return (nullSubst, t2)
           (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant ." ++ pretty  TailField ++  "?"
           tyvar@(TypeVar _ False) -> newTyVar >>= \secondArgTyvar -> unify (TupleType ty secondArgTyvar) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
-          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types."
+          _ -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types."
 
         HeadField -> case ty of 
-          ListType t -> return (sub, t)
+          ListType t -> return (nullSubst, t)
           TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant ." ++ pretty  FirstField ++  "?"
           tyvar@(TypeVar _ False) -> unify (ListType ty) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
-          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types."
+          _ -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types."
 
         TailField -> case ty of 
-          ListType t -> return (sub, ListType t)
+          ListType t -> return (nullSubst, ListType t)
           TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant ." ++ pretty  SecondField ++  "?"
           tyvar@(TypeVar _ False) -> unify (ListType ty) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
-          ty2 -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types."
+          _ -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types."
   
 
 instance Typecheck (Stmt TypecheckedP) where
@@ -611,11 +612,13 @@ instance Typecheck (Stmt TypecheckedP) where
     return (s, apply s ty)
   -- todo add fields
   ti (AssignStmt meta (Identifier var (Just field)) expr) = do
+    -- The field is applied on the var! So we must check if the field can happen on the var
+      -- Then check the expr with the type of the var after the field. Errors are propegated natrually.
       replaceMeta meta
       varT <- lookupVarType var
-      (s1, exprType) <- checkFieldAccess expr field
-      s2 <- unify varT exprType
-      let s  = s1 `composeSubst` s2
+      (s1, varTAfterField) <- checkFieldAccess varT field
+      s2 <- tc expr varTAfterField
+      let s  = s1 `composeSubst` s2 
       applySubToTIenv s
       return (s, VoidType)
   ti (AssignStmt meta (Identifier var Nothing) expr) = do
@@ -871,7 +874,9 @@ checkDuplicateDecls = checkDuplicateDecl' Map.empty Map.empty
   where
         checkDuplicateDecl' _ _ [] = Right "No duplicate declerations"
         checkDuplicateDecl' funmemory varmemory (FunDecl meta name _ _ vardelcs _ : program) =
-          checkDuplicateDecls vardelcs >> case Map.lookup name funmemory of
+          -- todo this used to be a checkDuplicateDecls call but now we do a checkDuplicateDecl' to avoid having to make global vars scopeing work properly :)
+            -- By not taking the output of the call we do allow same names within functions just not shadowing global variables. -- I think this it good design anyhow.
+          checkDuplicateDecl' funmemory varmemory vardelcs >> case Map.lookup name funmemory of
             Nothing -> checkDuplicateDecl' (Map.insert name meta funmemory) varmemory program
             Just meta' -> Left $ red "Function with name '"
                           ++ blue name
