@@ -1,5 +1,22 @@
+	LDR HP
+	STR R5
 	Bra main
-	HALT
-	HALT
 main:
+	LDC 1000
+	LDC 100
+	GT
+	BRF 10
+	LDC 62
+	TRAP 0
+	LDC 10
+	TRAP 1
+	BRA 8
+	LDC 67
+	TRAP 0
+	LDC 10
+	TRAP 1
+	LDC 63
+	TRAP 0
+	LDC 10
+	TRAP 1
 	HALT

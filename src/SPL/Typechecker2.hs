@@ -19,7 +19,7 @@ import qualified Data.Set as Set
 import qualified Debug.Trace as Debug
 import Text.Megaparsec (SourcePos (SourcePos), unPos)
 import SPL.PrettyPrint
-import Data.List (intercalate)
+import Data.List ( intercalate, isPrefixOf )
 import Data.Map (Map)
 
 data Scheme = Scheme (Set.Set String) Type
@@ -194,7 +194,7 @@ newTyVar = do
 
 -- Automatically takes care of shadowed variables based on the current global Var names
 extendVarEnv :: VarEnv -> TI ()
-extendVarEnv new_varenv = 
+extendVarEnv new_varenv =
 
               modify (\env@TIenv {currentVarEnv = varenv} -> let new = varenv <> new_varenv in Debug.trace ("Extending var env with" ++ show new_varenv ++ " now its "++ show new) env  {currentVarEnv = new })
 
@@ -354,13 +354,13 @@ tcBinOp checkType e1 e2 = do
   s2 <- tc e2 checkType
   let s = s1 `composeSubst` s2
   applySubToTIenv s
-  return s 
+  return s
 
 -- todo Dependent types for booleans...? 
 
 -- First tries to infer two expressions as 2 ints and then as 2 chars if both fail an error is thrown using throwError
 tcBinOpCharOrInt :: BinOp -> Expr TypecheckedP -> Expr TypecheckedP -> TI (Subst)
-tcBinOpCharOrInt op e1 e2 = tcBinOp IntType e1 e2 `catchError` 
+tcBinOpCharOrInt op e1 e2 = tcBinOp IntType e1 e2 `catchError`
                                 \_ -> tcBinOp CharType e1 e2  `catchError`
                                   \_ -> do
                                     (_, t1) <- ti e1 -- Get the type for the error
@@ -371,7 +371,7 @@ tcBinOpCharOrInt op e1 e2 = tcBinOp IntType e1 e2 `catchError`
 
 
 tiBinaryIntOp :: Expr TypecheckedP -> Expr TypecheckedP -> Type -> TI (Subst, Type)
-tiBinaryIntOp e1 e2 ty = do 
+tiBinaryIntOp e1 e2 ty = do
   s1 <- tcBinOp IntType e1 e2
   s2 <- unify ty IntType
   let s = s1 `composeSubst` s2
@@ -380,7 +380,7 @@ tiBinaryIntOp e1 e2 ty = do
 
 -- Checks if two expressions can be bool and if the type of the node can be bool
 tiBinaryBoolOp :: Expr TypecheckedP -> Expr TypecheckedP -> Type -> TI (Subst, Type)
-tiBinaryBoolOp e1 e2 ty = do 
+tiBinaryBoolOp e1 e2 ty = do
   s1 <- tc e1 BoolType
   s2 <- tc e2 BoolType
   s3 <- unify ty BoolType -- check type of the node
@@ -392,17 +392,17 @@ tiBinaryBoolOp e1 e2 ty = do
 {- An operation that needs equal types but you don't know which ones. This we might also have to see as a function application to get good polymorpic types, the result is bool anyways!
 We are checking if the two types of the expressions are equal in a sense -}
 tiEqualityOp :: Expr TypecheckedP -> Expr TypecheckedP -> Type -> TI (Subst, Type)
-tiEqualityOp e1 e2 ty = do 
-  (s1, ty1) <- ti e1 
-  (s2, ty2)  <- ti e2 
+tiEqualityOp e1 e2 ty = do
+  (s1, ty1) <- ti e1
+  (s2, ty2)  <- ti e2
   s3 <- unify ty1 ty2 -- todo this could be a nicer error message like you can only compare things of the same type? 
   s4 <- unify ty BoolType
   let s = s1 `composeSubst` s2 `composeSubst` s3 `composeSubst` s4
   applySubToTIenv s -- We could put the whole decl in there and keep applying it!
-  return (s, BoolType) 
+  return (s, BoolType)
 
 tiCharOrIntToBoolOp :: Type -> Expr TypecheckedP -> BinOp -> Expr TypecheckedP -> TI (Subst, Type)
-tiCharOrIntToBoolOp ty e1 op e2 = do 
+tiCharOrIntToBoolOp ty e1 op e2 = do
       s1 <- tcBinOpCharOrInt op e1 e2
       s2 <- unify ty BoolType
       let s = s1 `composeSubst` s2
@@ -411,8 +411,8 @@ tiCharOrIntToBoolOp ty e1 op e2 = do
 
 instance Typecheck (Expr TypecheckedP) where
   -- ti (LiteralExpr (ty, meta) lit) = replaceMeta meta >> ti lit 
-  ti (LiteralExpr (ty, meta) lit) = do 
-    replaceMeta meta 
+  ti (LiteralExpr (ty, meta) lit) = do
+    replaceMeta meta
     (s1, ty') <- ti lit
     s2 <- unify ty ty' -- Fix the type of the node
     let s = s1 `composeSubst` s2
@@ -427,7 +427,7 @@ instance Typecheck (Expr TypecheckedP) where
     -- Debug.trace ("Doing Cons " ++ show t1 ++ " : " ++ show t2 ++  " s2: " ++ show s2 ) pure ()
     s3 <- case listty of -- If t2 is a list type we have to unify with the type inside the list
             ListType u1 -> unify t1 u1  `catchError` \err -> throwError $ "You tried to cons " ++ show t1 ++ " with " ++ show listty ++ ", but this is not legal.\n" ++ err
-            _ -> throwError $ red "You tried to " ++ bold "cons" ++ " " ++ show listty ++ red " with "++ show t1 ++" but that does work. The right of a cons should always be a list type."   
+            _ -> throwError $ red "You tried to " ++ bold "cons" ++ " " ++ show listty ++ red " with "++ show t1 ++" but that does work. The right of a cons should always be a list type."
     let inferredType = ListType t1
     s4 <- unify ty inferredType -- Check the type of this node and save the result
     let s = s1 `composeSubst` s2 `composeSubst` s3 `composeSubst` s4
@@ -449,7 +449,7 @@ instance Typecheck (Expr TypecheckedP) where
 
   -- Check Lte, Gt, Lt and Lt 
   -- In these last ones we could make the op a var and make them the same but more explicit is better
-  ti (BinOpExpr (ty, meta) Gte e1 e2) = replaceMeta meta >> tiCharOrIntToBoolOp ty e1 Gte e2 
+  ti (BinOpExpr (ty, meta) Gte e1 e2) = replaceMeta meta >> tiCharOrIntToBoolOp ty e1 Gte e2
   ti (BinOpExpr (ty, meta) Lte e1 e2) = replaceMeta meta >> tiCharOrIntToBoolOp ty e1 Lte e2
   ti (BinOpExpr (ty, meta) Gt e1 e2) = replaceMeta meta >> tiCharOrIntToBoolOp ty e1 Lt e2
   ti (BinOpExpr (ty, meta) Lt e1 e2) = replaceMeta meta >> tiCharOrIntToBoolOp ty e1 Lt e2
@@ -463,12 +463,12 @@ instance Typecheck (Expr TypecheckedP) where
     return (s, BoolType)
   ti (UnaryOpExpr (ty,meta) Min e) = do
     replaceMeta meta
-    s1 <- tc e IntType 
-    s2 <- unify ty IntType 
+    s1 <- tc e IntType
+    s2 <- unify ty IntType
     let s = s1 `composeSubst` s2
     applySubToTIenv s
     return (s, IntType)
-  ti (UnaryOpExpr (nodeTy, meta) (FieldAccess field) expr) = do 
+  ti (UnaryOpExpr (nodeTy, meta) (FieldAccess field) expr) = do
       replaceMeta meta
       (s1, ty) <- ti expr
       (s2, inferredType) <- checkFieldAccess ty field -- This gets the type of the expr and check if its a list type or tuple type if not then its an error
@@ -480,36 +480,36 @@ instance Typecheck (Expr TypecheckedP) where
       replaceMeta meta
       -- Send a var expr
       -- let expr = VariableExpr (nodeTy, meta) (Identifier var Nothing)
-      sigma <- lookupVarType var 
+      sigma <- lookupVarType var
       (s1, inferredType) <- checkFieldAccess sigma field
       s2 <- unify inferredType nodeTy -- fix the node type after figering out the field
       let s = s1 `composeSubst` s2
       applySubToTIenv s
       return (s, inferredType)
-  ti (VariableExpr (ty, meta) (Identifier var Nothing)) = do 
-    replaceMeta meta 
-    sigma <- lookupVarType var 
+  ti (VariableExpr (ty, meta) (Identifier var Nothing)) = do
+    replaceMeta meta
+    sigma <- lookupVarType var
     s <- unify ty sigma
     applySubToTIenv s
     return (s, sigma)
-  ti (FunctionCallExpr (ty, meta) "print" args) = do 
+  ti (FunctionCallExpr (ty, meta) "print" args) = do
     replaceMeta meta
      -- Print is special just return Void, later when we have the types of all expr we rewrite it to the right one! 
        -- To do that we do need to know the type of the arga
-    arg <- case args of 
+    arg <- case args of
       [] ->  throwError $ "You called the print function with no arguments at " ++ showStart meta ++ ". The isEmpty function takes exactly one argument. The argument should be either a list or a tuple."
       (_:_:_) -> throwError $ "You called the isEmpty function with too many arguments at " ++ showStart meta ++ ". The isEmpty function takes exactly one argument. The argument should be either a list or a tuple."
       [arg] -> pure arg
-    
+
     (s1, _) <- ti arg -- we need the sub for the type var in the argument
-    s2 <- unify ty VoidType 
+    s2 <- unify ty VoidType
     let s = s1 `composeSubst` s2
     applySubToTIenv s
-    return  (s, VoidType) 
+    return  (s, VoidType)
 
   ti (FunctionCallExpr (ty, meta) "isEmpty" args) = do
-    replaceMeta meta 
-    arg <- case args of 
+    replaceMeta meta
+    arg <- case args of
       [] ->  throwError $ "You called the isEmpty function with no arguments at"  ++ showStart meta ++ ". The isEmpty function takes exactly one argument. The argument should be either a list or a tuple."
       (_:_:_) -> throwError $ "You called the isEmpty function with too many arguments at " ++ showStart meta ++ ". The isEmpty function takes exactly one argument. The argument should be either a list or a tuple."
       [arg] -> pure arg
@@ -553,31 +553,31 @@ instance Typecheck (Expr TypecheckedP) where
 -- Then gives back the correct type from the expression
 checkFieldAccess :: Type -> Field -> TI (Subst, Type)
 checkFieldAccess ty field = do
-  case field of 
-        FirstField -> case ty of 
+  case field of
+        FirstField -> case ty of
           TupleType t1 _ -> return (nullSubst, t1)
-          (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant ."  ++ pretty HeadField ++  "?"
+          (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant ."  ++ pretty HeadField ++  "?"
           tyvar@(TypeVar _ False) -> newTyVar >>= \secondArgTyvar -> unify (TupleType ty secondArgTyvar) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
           _ -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types."
 
-        SecondField -> case ty of 
+        SecondField -> case ty of
           TupleType _ t2 -> return (nullSubst, t2)
-          (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant ." ++ pretty  TailField ++  "?"
+          (ListType _) -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types." ++ "\nMaybe you meant ." ++ pretty  TailField ++  "?"
           tyvar@(TypeVar _ False) -> newTyVar >>= \secondArgTyvar -> unify (TupleType ty secondArgTyvar) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
           _ -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on tuple types."
 
-        HeadField -> case ty of 
+        HeadField -> case ty of
           ListType t -> return (nullSubst, t)
-          TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant ." ++ pretty  FirstField ++  "?"
+          TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++  red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant ." ++ pretty  FirstField ++  "?"
           tyvar@(TypeVar _ False) -> unify (ListType ty) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
           _ -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types."
 
-        TailField -> case ty of 
+        TailField -> case ty of
           ListType t -> return (nullSubst, ListType t)
-          TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red" field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant ." ++ pretty  SecondField ++  "?"
+          TupleType {} -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types." ++ "\nMaybe you meant ." ++ pretty  SecondField ++  "?"
           tyvar@(TypeVar _ False) -> unify (ListType ty) tyvar >>= \s -> applySubToTIenv s >> pure (s, ty)
           _ -> gets currentMeta >>= \meta -> throwError $ red "You accessed the " ++ pretty field ++ red " field on a " ++ pretty ty ++ red " at " ++ showStart meta ++ red ". " ++ "But that is invalid you can only access the " ++ pretty field ++ " field on list types."
-  
+
 
 instance Typecheck (Stmt TypecheckedP) where
   ti (ReturnStmt meta (Just expr)) = do
@@ -618,7 +618,7 @@ instance Typecheck (Stmt TypecheckedP) where
       varT <- lookupVarType var
       (s1, varTAfterField) <- checkFieldAccess varT field
       s2 <- tc expr varTAfterField
-      let s  = s1 `composeSubst` s2 
+      let s  = s1 `composeSubst` s2
       applySubToTIenv s
       return (s, VoidType)
   ti (AssignStmt meta (Identifier var Nothing) expr) = do
@@ -735,10 +735,10 @@ getRelevantVars ty = do
       if null relevant  then pure "" else pure $ "\nPotential variables of type " ++ show ty ++ " in scope include " ++ printWithCommas (typeListToStrings relevant)
   where typeListToStrings = map (\r -> '\'' : blue r ++ "'")
 
-unifyErrorHead :: TI String 
-unifyErrorHead = do 
+unifyErrorHead :: TI String
+unifyErrorHead = do
   functionName <- gets currentFunName
-  case functionName of 
+  case functionName of
     Just name -> pure $ "Inside function "++blue name ++";\n"
     Nothing -> pure ""
 
@@ -873,35 +873,43 @@ checkDuplicateDecls ::  Program ReturnsCheckedP -> Either String String
 checkDuplicateDecls = checkDuplicateDecl' Map.empty Map.empty
   where
         checkDuplicateDecl' _ _ [] = Right "No duplicate declerations"
-        checkDuplicateDecl' funmemory varmemory (FunDecl meta name _ _ vardelcs _ : program) =
-          -- todo this used to be a checkDuplicateDecls call but now we do a checkDuplicateDecl' to avoid having to make global vars scopeing work properly :)
-            -- By not taking the output of the call we do allow same names within functions just not shadowing global variables. -- I think this it good design anyhow.
-          checkDuplicateDecl' funmemory varmemory vardelcs >> case Map.lookup name funmemory of
-            Nothing -> checkDuplicateDecl' (Map.insert name meta funmemory) varmemory program
-            Just meta' -> Left $ red "Function with name '"
-                          ++ blue name
-                          ++ red "' is defined two times!\n"
-                          ++ "The first time at: "
-                          ++ showStart meta'
-                          ++ " and the second time at: "
-                          ++ showStart meta
         checkDuplicateDecl' funmemory varmemory (VarDecl meta name _ _: program) =
           case Map.lookup name varmemory of
             Nothing -> checkDuplicateDecl' funmemory (Map.insert name meta varmemory) program
             Just meta' -> Left $ red "Variable with name '"
                                 ++ blue name
-                                ++ red "' is defined two times!\n"
-                                ++ "The first time at: "
+                                ++ red "' is defined two times!" ++ "\nThe first time at: "
                                 ++ showStart meta'
-                                ++ " and "
-                                ++ "the second time at: "
+                                ++ " and the second time at: "
                                 ++ showEnd meta
+        checkDuplicateDecl' funmemory varmemory (FunDecl meta name _ args vardelcs _ : program) = do
+          -- todo this used to be a checkDuplicateDecls call but now we do a checkDuplicateDecl' to avoid having to make global vars scopeing work properly :)
+            -- By not taking the output of the call we do allow same names within functions just not shadowing global variables. -- I think this it good design anyhow.
+          varmemoryWithArgs <- checkDuplicateArgs varmemory args
+          checkDuplicateDecl' funmemory varmemoryWithArgs vardelcs >> case Map.lookup name funmemory of
+            Nothing -> checkDuplicateDecl' (Map.insert name meta funmemory) varmemory program
+            Just meta' -> Left $ red "Function with name '"
+                          ++ blue name
+                          ++ red "' is defined two times!" ++ "\nThe first time at: "
+                          ++ showStart meta'
+                          ++ " and the second time at: "
+                          ++ showStart meta
+         where
+           checkDuplicateArgs :: (Map String SourceSpan) -> [(String, a)] -> Either String (Map String SourceSpan)
+           checkDuplicateArgs varenv [] = Right varenv
+           checkDuplicateArgs varenv ((argname, _):next_args) =
+             case Map.lookup argname varmemory of
+               Nothing -> checkDuplicateArgs (Map.insert argname meta varenv) next_args
+               Just meta' -> Left $ red "The argument name '"++blue argname ++red "' of the '" ++ blue name ++ red "' function has already been defined earlier."
+                                    ++ "\nThe first time at: " ++ showStart meta' ++ " and the second time at: " ++ showStart meta
+                                    ++ "\nNames used for global variables and argument names should not overlap. \nYou could consider renaming the argument to " ++ 
+                                    blue (argname ++ "'") ++ " (adding a ' behind the name)" ++ (if name `isPrefixOf` argname then "" else (" or " ++ blue (name ++ "_" ++ argname) ++ " (adding the function name as a prefix) ")) ++ "."
 
 -- Todo this should be another phase. We go from maybe type to type, but now fun decl is actually the same
 --
 
 varDeclTypeNotFoundError :: Show a1 => String -> a1 -> a2
-varDeclTypeNotFoundError name env = error $ "Type of " ++ blue name ++ " not found in type envrioment. This should not happen. It probably was never added to the variable enviroment " ++ show env
+varDeclTypeNotFoundError name env = error $ "Type of " ++ blue name ++ " not found in type enviroment. This should not happen. It probably was never added to the variable enviroment " ++ show env
 
 mergeTypesGlobalvars :: Program ReturnsCheckedP -> VarEnv -> Program ReturnsCheckedP
 mergeTypesGlobalvars [] _ = []
@@ -933,29 +941,29 @@ initTyCounterStart = 1
 
 
 instantiateExpr :: Expr ReturnsCheckedP -> TI (Expr TypecheckedP)
-instantiateExpr (BinOpExpr meta op e1 e2) = do 
+instantiateExpr (BinOpExpr meta op e1 e2) = do
   e1' <- instantiateExpr e1
   e2' <- instantiateExpr e2
   newTy <- newTyVar
-  return $ BinOpExpr (newTy, meta) op e1' e2' 
-instantiateExpr (UnaryOpExpr meta op e) = do 
+  return $ BinOpExpr (newTy, meta) op e1' e2'
+instantiateExpr (UnaryOpExpr meta op e) = do
   e' <- instantiateExpr e
   newTy <- newTyVar
   return $ UnaryOpExpr (newTy, meta) op e'
-instantiateExpr (FunctionCallExpr meta name exprs) = do 
-  exprs' <- mapM instantiateExpr exprs 
+instantiateExpr (FunctionCallExpr meta name exprs) = do
+  exprs' <- mapM instantiateExpr exprs
   newTy <- newTyVar
   return $ FunctionCallExpr (newTy, meta) name exprs'
-instantiateExpr (VariableExpr meta var) = do 
+instantiateExpr (VariableExpr meta var) = do
   newTy <- newTyVar
   return $ VariableExpr (newTy, meta) var
-instantiateExpr (LiteralExpr meta lit) = do 
+instantiateExpr (LiteralExpr meta lit) = do
   newTy <- newTyVar
   lit' <- instantiateLiteral lit
   return $ LiteralExpr (newTy, meta) lit'
 
 instantiateLiteral :: Literal ReturnsCheckedP -> TI (Literal TypecheckedP)
-instantiateLiteral (TupleLit (e1, e2)) = do 
+instantiateLiteral (TupleLit (e1, e2)) = do
   e1' <- instantiateExpr e1
   e2' <- instantiateExpr e2
   return $ TupleLit (e1', e2')
@@ -969,7 +977,7 @@ instantiateStmt :: Stmt ReturnsCheckedP -> TI (Stmt TypecheckedP)
 instantiateStmt (AssignStmt meta var e) = instantiateExpr e >>= \e' -> return $ AssignStmt meta var e'
 instantiateStmt (ReturnStmt meta (Just e)) = instantiateExpr e >>= \e' -> return $ ReturnStmt meta (Just e')
 instantiateStmt (ReturnStmt meta Nothing) = return $ ReturnStmt meta Nothing
-instantiateStmt (IfStmt meta e body Nothing) = do 
+instantiateStmt (IfStmt meta e body Nothing) = do
   e' <- instantiateExpr e
   body' <- mapM instantiateStmt body
   return $ IfStmt (meta :: IfStmt TypecheckedP) e' body' Nothing
@@ -978,10 +986,10 @@ instantiateStmt (IfStmt meta e body (Just alternative)) = do
   body' <- mapM instantiateStmt body
   alternative' <- mapM instantiateStmt alternative
   return $ IfStmt (meta :: IfStmt TypecheckedP) e' body' (Just alternative')
-instantiateStmt (WhileStmt meta e body) = do 
+instantiateStmt (WhileStmt meta e body) = do
   e' <- instantiateExpr e
   body' <- mapM instantiateStmt body
-  return $ WhileStmt (meta :: WhileStmt TypecheckedP) e' body' 
+  return $ WhileStmt (meta :: WhileStmt TypecheckedP) e' body'
 instantiateStmt (ExprStmt meta e) = instantiateExpr e >>= \e' -> return $ ExprStmt (meta :: ExprStmt TypecheckedP) e'
 instantiateStmt (BlockStmt list) = mapM instantiateStmt list >>= \list' -> return $ BlockStmt list'
 
@@ -1001,7 +1009,7 @@ instantiateProgram (FunDecl meta name maybeRetty args funvardecl body :other) = 
   instanciated_retty <- maybe newTyVar pure maybeRetty
   instanciated_fundecls <- instantiateProgram funvardecl
 
-  
+
   instanciated_body <- mapM instantiateStmt body
 
   later <- instantiateProgram other

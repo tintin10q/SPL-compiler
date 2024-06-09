@@ -1,0 +1,13 @@
+
+
+var c = True;
+
+main(a': Int) {
+    var b = True;
+    return b;
+}
+
+main'(a': Int) {
+    var a = True;
+    return a;
+}
