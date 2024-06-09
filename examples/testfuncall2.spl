@@ -1,0 +1,13 @@
+
+
+get137() {
+    var b = 137;
+    return b;
+}
+
+
+main() {
+    var a = -10;
+    a = get137();
+    print(a);
+}

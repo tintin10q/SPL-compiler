@@ -15,7 +15,7 @@ import qualified Debug.Trace as Debug
 import Control.Monad.State.Lazy
 import Text.Megaparsec (ErrorItem(Label))
 import SPL.Parser.SourceSpan (showStart, SourceSpan)
-import SPL.Colors (blue, red)
+import SPL.Colors (blue, red, black)
 import Data.Maybe (fromMaybe)
 import SPL.PrettyPrint (Prettier(..))
 
@@ -27,7 +27,8 @@ data Key = Fun String | Var String
 -- Map from a variable name to the code required to get the value on the stack
 data Info = Info {
                    genEnv :: Map.Map Key Location, -- genEnv has the data needed to generate code like variables and where they are 
-                   globalVarCounter :: Int
+                   globalVarCounter :: Int,
+                   needsUnlink :: Bool
                   }
 
 -- Functions defined on Info!
@@ -35,6 +36,7 @@ data Info = Info {
 -- Look up a variable from enviroment, doing it in a function gives worse error messages but after type checking we should never error here
 getkey :: Key -> Env Location
 getkey key = do
+            debugEnv
             env <- gets genEnv
             case Map.lookup key env of
                   Nothing -> error $ red "Key called '"++ blue (show key) ++"'" ++ red " not in enviroment!"
@@ -45,6 +47,19 @@ increaseGlobalVarCount = do
       modify (\env@(Info {globalVarCounter = count}) -> env {globalVarCounter = count + 1})
       gets globalVarCounter
 
+setUnlinkNeeded :: Env ()
+setUnlinkNeeded = modify (\env -> env {needsUnlink = True})
+
+setUnlinkNotNeeded :: Env ()
+setUnlinkNotNeeded = modify (\env -> env {needsUnlink = False})
+
+logEnv s = Debug.trace (black s) pure ()
+
+debugEnv :: Env ()
+debugEnv = do
+      (Info env counter needsUnlink) <- get
+      logEnv $ "Current gen env: " ++ show env ++ "\nCounter: " ++ show counter ++ "\nNeeds unlink: " ++ show needsUnlink
+      return ()
 
 
 type Env = State Info
@@ -82,7 +97,8 @@ throw error = [LDS i | i <- chars] <> [TRAP 1 | _ <- chars] <> [HALT]
               where chars = map ord error
 
 emptyEnv :: Info
-emptyEnv = Info Map.empty 0
+emptyEnv = Info Map.empty 0 False
+
 
 getSmmCode :: Program TypecheckedP -> Code
 getSmmCode p = let (code, env) = runState (generate p) emptyEnv in code
@@ -140,6 +156,7 @@ instance GenSSM (Program TypecheckedP) where
 instance GenSSM (Decl TypecheckedP) where
       generate :: Decl TypecheckedP -> Env Code
       generate  (FunDecl _ name VoidType [] [] body) = do
+            setUnlinkNotNeeded
             return [ LABEL name ] <>
                    generate body <>
                    pure [if name == "main" then HALT else RET] -- todo Oh implicit returns? 
@@ -154,26 +171,21 @@ instance GenSSM (Decl TypecheckedP) where
             generate expr <> pure [STH, AJS (-1)] -- todo, this could be stmh if we do all the vardelc first, more safe
                   -- Check if AJS -1 works
       generate  (FunDecl _ name retty args funvardecl body) = do
-
             -- Load the args and funvardecls into the enviroment
             env@(Info {genEnv = genenv }) <- get
-            let newGenEnv = genenv <> Map.fromList [(Var argname, LocalVar i argtype) | ((argname, argtype), i) <- zip args [1..]]
+            -- Get the args 
+            let argEnv = Map.fromList [(Var argname, LocalVar i argtype) | ((argname, argtype), i) <- zip args [1..]]
+                declEnv = Map.fromList [(Var varname, LocalVar i (getType varexpr)) | (VarDecl _ varname _ varexpr, i) <- zip funvardecl [(length argEnv)..]]
+            let newGenEnv = genenv <> argEnv <> declEnv
             put env {genEnv = newGenEnv}
             let local_length = length args + length funvardecl
-            fundecl_code <- foldMap (generate . getExpr) funvardecl
+            when (local_length > 0) setUnlinkNeeded
+            fundecl_code <- foldMap (\(VarDecl _ varname _ expr) -> generate expr <> storeVar varname) funvardecl
             body_code <- generate body
             put env -- Restore previous env
             -- make space for locals, load the fundecls, the arguments should already be there? 
-            return $ LINK local_length : fundecl_code <> body_code <> [UNLINK, if name == "main" then HALT else RET] -- The red here could be better 
-
-      -- We could also do stml where we just see arguments as locals. 
-      -- That sounds much easier then doing pointer algoritmatic STML
-            -- do
-      -- let n_local = length funvardecl
-
-      --     code combineCodeM $ mapM generate funvardecl
-      --     return [LABEL name, LINK n_local] <> code combineCodeM
-          -- anyways negative mark pointrr relaitve good ideaa.
+            return $ [LABEL name] <> [LINK local_length | local_length > 0] <> fundecl_code <> body_code <> [UNLINK | local_length > 0] <> [if name == "main" then HALT else RET] -- The ret here could be better , only add if needed!
+            -- todo remove extra return by having phase that explicity adds the implcit return
 
 -- Loading global vars is
 
@@ -211,8 +223,11 @@ instance GenSSM (Stmt TypecheckedP) where
       -- Based on the field we have to find out the adress. We can get the adress of locals and also the adress of globals. 
       --  Then we have to dereference them and do get the next adress and store something there!
 
-      generate (ReturnStmt _ (Just e)) = generate e <> pure [STR RR, UNLINK, RET]
-      generate (ReturnStmt _ Nothing) = pure [UNLINK, RET] -- todo having this kind of forces to always do link even if there is no vars.
+      generate (ReturnStmt _ (Just e)) = do 
+            unlinkNeeded <- gets needsUnlink 
+            exprCode <- generate e 
+            return $ exprCode <> [STR RR] <> [UNLINK | unlinkNeeded] <> [RET]
+      generate (ReturnStmt _ Nothing) = gets needsUnlink >>= \unlink_needed -> pure $ [UNLINK | unlink_needed] <> [RET] -- todo having this kind of forces to always do link even if there is no vars.
       generate (IfStmt _ condition consequent Nothing) = do
                                                  conditionCode <- generate condition
                                                  consequenceCode <- generate consequent
@@ -328,6 +343,7 @@ instance GenSSM BinOp where
 
 instance GenSSM UnaryOp where
       generate Negate = pure [NEG]
+      generate Min = pure [NEG] 
       -- TODO: Fix generate for FieldAccess
       generate _ = error "Field access is not supported. :("
 
