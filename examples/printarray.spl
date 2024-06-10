@@ -1,0 +1,40 @@
+
+nestedBoolList() {
+    var a = [];
+    var b = False:False:False:[];
+    var c = True:True:True:[];
+    var d = b:c:a; 
+    var e = d:[];
+    return e:[];
+}
+
+nestedIntList() {
+    var a = [];
+    var b = 1:2:3:[];
+    var c = 4:5:6:[];
+    var d = b:c:a; 
+    var e = d:[];
+    return e:[];
+}
+
+nestedChrList() {
+    var a = [];
+    var b = 'H':'o':'i':[];
+    var c = 'D':'a':'a':'r':[];
+    var d = b:c:a; 
+    var e = d:[];
+    return e:[];
+}
+
+main() {
+    print("Hoi daar!\n");
+    print(3);
+    print();
+    print(True);
+    print(nestedBoolList());
+    print();
+    print(nestedIntList());
+    print();
+    print(nestedChrList());
+}
+

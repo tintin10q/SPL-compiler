@@ -1,7 +1,8 @@
 module SPL.Parser.SourceSpan where 
-import Text.Megaparsec (SourcePos)
-import Text.Megaparsec.Pos (sourcePosPretty)
+import Text.Megaparsec (SourcePos (SourcePos))
+import Text.Megaparsec.Pos (sourcePosPretty, unPos)
 import SPL.Colors (green)
+import System.FilePath (takeFileName)
 
 -- This is the type we use to keep track to what things relate in the original source code
 
@@ -19,6 +20,22 @@ showEnd pos = green $ sourcePosPretty $ startPos pos
 
 endPos :: SourceSpan -> SourcePos
 endPos (SourceSpan (_, end)) = end
+
+startCol :: SourceSpan -> Int
+startCol s = case startPos s of 
+                      (SourcePos _ line _) -> unPos line
+
+startFilename :: SourceSpan -> String
+startFilename s = case startPos s of 
+                      (SourcePos filepath _ _) -> takeFileName filepath
+
+
+
+startLine :: SourceSpan -> Int
+startLine s = case startPos s of 
+                      (SourcePos _ _ col) -> unPos col
+
+
 
 instance Show SourceSpan where
   -- show (SourceSpan (start, end)) = sourcePosPretty start ++ "->" ++ sourcePosPretty end

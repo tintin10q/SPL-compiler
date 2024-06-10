@@ -65,6 +65,7 @@ instrSize i = case i of {
                   LDLA _   -> 2;    LDSA  _   -> 2;    LDAA _    -> 2;   STR  _ -> 2;   STL  _ -> 2;
                   STS  _   -> 2;    STA   _   -> 2;    AJS  _    -> 2;   LINK _ -> 2;   TRAP _ -> 2;
                   SWPR _   -> 2;    LABEL _   -> 0;    LDH  _    -> 2;   LDML _ _ -> 3; STML  _ _ -> 3;
+                  Annote {} -> 0; 
                   _ -> 1;
               }
 

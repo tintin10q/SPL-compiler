@@ -39,7 +39,8 @@ main = do
     -- todo better error msg for this
     let filename = case args of
                 [] -> error $ red "No output file specified!"
-                [filenam] -> filenam
+                [filename] -> filename
+                (filename:_) -> filename
     putStrLn $ "Reading file " ++ blue filename
     source <- TIO.readFile filename
     -- putStrLn $ blue "Read in Source:\n" ++ T.unpack source
@@ -54,29 +55,33 @@ main = do
     when (improvement < 0) $ putStrLn (blue "Pruned " ++ green (show (-improvement) ++ "%") ++ blue " of tree by removing dead code.")
     putStrLn $ pretty preprocessed_ast
     return_checked_ast <- eitherStrIO $ checkReturns preprocessed_ast
+    let explicit_returns_ast = makeVoidReturnsExplicit return_checked_ast
+    putStr $ pretty explicit_returns_ast
     putStrLn (blue "Succesfull return path analysis!")
-    eitherStrIO $ checkDuplicateDecls return_checked_ast
+    _ <- eitherStrIO $ checkDuplicateDecls explicit_returns_ast 
     putStrLn $ blue "No duplicate declerations!"
     -- todo, do we need to do anything with this sub?
-    typechecked_ast <- eitherStrIO $ fst $ checkProgram return_checked_ast
+    typechecked_ast <- eitherStrIO $ fst $ checkProgram explicit_returns_ast
     putStrLn $ blue "Typechecked AST:"
     print typechecked_ast
     putStrLn $ pretty typechecked_ast
   -- Boolean Literal evaluation, todo this makes a small part lazy, which means that if you would have 1 && true it would be ok. So its important that this runs after type checking I think
   -- Also todo we should repeat this opti function until there is no improvement anymore
+
     let optimized_ast = collapseBlocks $ map opti typechecked_ast
         improvement' = - opti_improvement typechecked_ast optimized_ast
+
     -- print optimized_ast
     putStrLn $ blue "Optimizing step shrunk AST with by " ++ green (show improvement' ++ "%")
     when (improvement' > 0) (putStrLn $ blue "New Optimised AST:\n" ++  pretty optimized_ast)
     putStrLn $ blue "Generating ssm ast"
-    let code = getSmmCode optimized_ast
+    let code = getSmmCode typechecked_ast-- optimized_ast
         formatted_code = formatCode code
     putStrLn formatted_code
     -- "#!java -jar ssm/ssm.jar\n"
     writeFile outputFile formatted_code
     putStrLn $ "Wrote " ++ show (length code) ++ " instructions to " ++ outputFile
-    return undefined
+    return ()
 
 
     {-

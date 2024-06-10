@@ -1,0 +1,15 @@
+
+
+go(n) {
+   if (n == 0) {
+    return 0;
+   } 
+   else {
+    return 1 + go(n-1);
+   }
+}
+
+
+main() {
+    print(go(5));
+}

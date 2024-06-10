@@ -55,3 +55,21 @@ Global variables could also be functions without args that return the value?
 
 
 We can make it so ti does not return a subst but it is all saved in the monad
+
+
+Polymorphic types
+
+- Track all fun calls, at the end of tc return a list of funcalls with given type arguments
+   For each funcall we can generate a substitution to apply to the decl. This will be a special apply that also takes care of nested funcalls?
+   We could do this by just starting with main cause in main we should have all the types because there are no arguments to the main function.
+   Then based on the arguments we can (once) generate new fun decls for every fun call where there used to be a rigid polymorphic type.
+   Then we repalce the name of that funcall to the new name generated.
+
+   Here we could also specialize print away but I think that its better to leave the print in the code generator.
+
+- Lists and tuples
+
+- fib(n-1) + fib(n-2) fix recursion
+
+- Out of bounds exeption, with file reference, we have meta at generation time!
+    - We could even link the scource code (or just the filename) into it haha 

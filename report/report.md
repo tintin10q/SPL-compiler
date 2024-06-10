@@ -647,6 +647,10 @@ In this phase I also spend a lot of time on the error messages. Here is an examp
 
 There are many more.
 
+I also included some runtime error messages. 
+A cool feature of these is that the code will still keep the connection to the original file. 
+So `[].hd` will say where this out of bounds error happened in the file.
+
 ### Polymorphism
 
 One of the types we have is type var. We added a boolean to this type to indicate the type var is rigid or not.
@@ -697,6 +701,9 @@ Especially for the parsing. However, during the type checking things kept changi
 ## Extensions 
 
 I have implemented tuples and string literals. The string literals are just syntactic suger for the parsing but the tuple is an actual thing in the ast which is also type checked.
+
+- Print can also be called without arguments to just print a new line
+- Added a `TRAP 2` to ssm to print char arrays.
 
 # Appendix
 

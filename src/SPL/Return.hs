@@ -429,3 +429,20 @@ checkReturns (f@(FunDecl meta name retty args funvars body) : later) = do
                                     ++ "- If you do want to return a value but you don't know what type (yet), just remove the return type annotation of the function all together and let the compiler figure it out."
                   _ -> pure f -- Everything else its up to the type checker
   (upgrade new_fundecl : ) <$> checkReturns later
+
+{- Makes void returns explicit in the ast if its not there already. This way code gen can assume its always there
+  In the previous step we have already add void types so we can rely on that.
+  This could add an unnecessary return after an if else that returns but optimizing will remove it again.
+  .-}
+makeVoidReturnsExplicit :: [Decl ReturnsCheckedP] -> [Decl ReturnsCheckedP]
+makeVoidReturnsExplicit [] = []
+makeVoidReturnsExplicit (var@(VarDecl {}) : later) = var : makeVoidReturnsExplicit later
+makeVoidReturnsExplicit ((FunDecl meta name (Just VoidType) args vars []) : later) = FunDecl meta name (Just VoidType) args vars [ReturnStmt meta Nothing] : makeVoidReturnsExplicit later
+makeVoidReturnsExplicit (fun@(FunDecl meta name (Just VoidType) args vars body) : later) =
+  let lastStmt = last body
+  in (if isReturnStatement lastStmt then fun else FunDecl meta name (Just VoidType) args vars (body ++ [ReturnStmt meta Nothing])) : makeVoidReturnsExplicit later
+          where isReturnStatement s = case s of
+                                         ReturnStmt {} -> True
+                                         _ -> False
+makeVoidReturnsExplicit (fun@(FunDecl {}) : later) = fun : makeVoidReturnsExplicit later
+

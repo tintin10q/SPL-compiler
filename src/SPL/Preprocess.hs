@@ -11,7 +11,7 @@ import SPL.AST
 
 import qualified Debug.Trace as Debug
 import SPL.Parser.SourceSpan 
-import SPL.Colors (black, red)
+import SPL.Colors (black, red, blue)
 import SPL.Return
 
 compareDecl :: Decl p1 -> Decl p2 -> Ordering
@@ -47,5 +47,6 @@ preprocesAST =  hoistGlobalVars . removeDeadCode
 
 checkHasMain :: Program ParsedP -> Either String ()
 checkHasMain [] = Left (red "No main function in your program! " ++ "\nPlease add a main function to your program.")
+checkHasMain (FunDecl _ "main" _ (_:_) _ _:_) = Left (red "The '" ++ blue "main" ++ red "' function can not have any arguments."++"\nIt can't have arguments because there is no way for you to initialize them." ++ "\nPlease remove the arguments.")
 checkHasMain (FunDecl _ "main" _ _ _ _:_) = Right ()
 checkHasMain (_:later) = checkHasMain later

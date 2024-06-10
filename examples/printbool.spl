@@ -1,0 +1,7 @@
+
+
+main() {
+    print(True);
+    print();
+    print(False);
+}

@@ -75,6 +75,7 @@ class Types a where
 
 
 instance Types TIenv where
+
   typevars (TIenv {currentVarEnv = varenv, currentFunType = funtype}) = typevars funtype <> typevars varenv-- Je moet blijven applyen want dan krijg je goede errors 
   apply sub tienv@(TIenv {currentVarEnv = currentvarenv, currentFunType = currentfuntype}) = tienv {currentVarEnv = apply sub currentvarenv, currentFunType = apply sub currentfuntype}
 
@@ -83,7 +84,7 @@ instance (Types a) => Types [a] where
   typevars = foldr (Set.union . typevars) Set.empty
 
 instance Types a => Types (Maybe a) where
-  typevars Nothing =  Debug.traceStack (black "hi") error "Trying to get type vars from a nothing!!!!"
+  typevars Nothing =  Debug.traceStack (red "Weird error.") error " Trying to get type vars from a nothing!!!!"
   typevars (Just a) = typevars a
   apply sub Nothing =  Debug.trace ("Trying to apply sub "++ show sub ++" on empty maybe") Nothing
   apply sub (Just a) = Just (apply sub a)
@@ -230,9 +231,14 @@ instance Types Type where
   typevars (FunType args rt) =  typevars args <> typevars rt
   typevars (TypeVar var False) = Set.singleton var
   typevars _ = Set.empty -- No rigid!
-  apply subst t@(TypeVar var False) = case Map.lookup var subst of
-                                          Nothing -> t; -- Return the same type variable  
-                                          Just concrete -> concrete -- Replace type variable with the type of the sub
+  apply subst t@(TypeVar var False) = 
+    case Map.lookup var subst of
+        Nothing -> t; -- Return the same type variable  
+        Just concrete -> Debug.trace ("Narrowing typevar: " ++ show var ++ " to " ++ show concrete) $ 
+                  case concrete of 
+                    TypeVar tyvarname False -> let further = apply subst concrete -- lookup if there is 2 people with typevars that are the same type. 
+                                                in Debug.trace ("Narrowed typevar: " ++ tyvarname ++ " further to " ++ show further) further
+                    c -> c
   apply subst (TupleType t1 t2) = TupleType (apply subst t1) (apply subst t2)
   apply subst (ListType t) = ListType (apply subst t)
   apply subst (FunType args rt) = FunType (apply subst args) (apply subst rt)
@@ -497,17 +503,16 @@ instance Typecheck (Expr TypecheckedP) where
     replaceMeta meta
      -- Print is special just return Void, later when we have the types of all expr we rewrite it to the right one! 
        -- To do that we do need to know the type of the arga
-    arg <- case args of
-      [] ->  throwError $ "You called the print function with no arguments at " ++ showStart meta ++ ". The isEmpty function takes exactly one argument. The argument should be either a list or a tuple."
-      (_:_:_) -> throwError $ "You called the isEmpty function with too many arguments at " ++ showStart meta ++ ". The isEmpty function takes exactly one argument. The argument should be either a list or a tuple."
-      [arg] -> pure arg
-
-    (s1, _) <- ti arg -- we need the sub for the type var in the argument
-    s2 <- unify ty VoidType
-    let s = s1 `composeSubst` s2
-    applySubToTIenv s
-    -- todo why doesn't this know the type?? If its an int literal we should be able to know. 
-    return  (s, VoidType)
+    case args of
+      [] ->  return (nullSubst, VoidType) 
+      (_:_:_) -> throwError $ "You called the print function with too many arguments at " ++ showStart meta ++ ". The print function takes exactly one argument of any type." 
+      [arg] -> do
+              (s1, _) <- ti arg -- we need the sub for the type var in the argument
+              s2 <- unify ty VoidType
+              let s = s1 `composeSubst` s2
+              applySubToTIenv s
+              -- todo why doesn't this know the type?? If its an int literal we should be able to know. 
+              return  (s, VoidType)
 
   ti (FunctionCallExpr (ty, meta) "isEmpty" args) = do
     replaceMeta meta
@@ -716,7 +721,7 @@ instance Typecheck (Decl TypecheckedP) where
       applySubToTIenv infered_fundelc_sub -- Not needed because ti does it already doesn't hurt.
 
       infered_body_sub <- tc body initial_retty
-      logTI $ "Infered body sub: " ++ show infered_body_sub ++ "from body : " ++ show body
+      logTI $ "Infered body sub: " ++ show infered_body_sub ++ "\nfrom body : " ++ show body
 
       let function_sub = infered_fundelc_sub `composeSubst` infered_body_sub
 
@@ -771,7 +776,7 @@ unifyErrorTail ty1 ty2 = do
   relevant1 <- getRelevantVars ty1
   relevant2 <- getRelevantVars ty2
   meta <- gets currentMeta
-  return $ " at " ++ showStart meta ++ " until line " ++ (case endPos meta of SourcePos _ b a -> show (unPos b) ++ " column " ++ show (unPos a)) ++ relevant1  ++ relevant2 -- Only first one is really 
+  return $ " at " ++ showStart meta ++ " until line " ++ (case endPos meta of SourcePos _ line col -> show (unPos line) ++ " column " ++ show (unPos col)) ++ relevant1  ++ relevant2 -- Only first one is really 
             ++ ".\n\nlearn more about unification errors here: https://en.wikipedia.org/wiki/unification_(computer_science) or here https://cloogle.org/#unify%20error"
 
 
@@ -827,7 +832,7 @@ instance Types (Expr TypecheckedP) where
   typevars (LiteralExpr (ty, _) lit) = typevars ty <> typevars lit
   apply s (BinOpExpr (ty, meta) op e1 e2) = (BinOpExpr (apply s ty, meta) op (apply s e1) (apply s e2))
   apply s (UnaryOpExpr (ty, meta) op e) = (UnaryOpExpr (apply s ty, meta) op e)
-  apply s (FunctionCallExpr (ty, meta) name args) = (FunctionCallExpr (apply s ty, meta) name (map (apply s) args))
+  apply s (FunctionCallExpr (ty, meta) name args) = (FunctionCallExpr (apply s ty, meta) name (apply s args))
   apply s (VariableExpr (ty, meta) var) = (VariableExpr (apply s ty, meta) var)
   apply s (LiteralExpr (ty, meta) lit) = (LiteralExpr (apply s ty, meta) (apply s lit))
 

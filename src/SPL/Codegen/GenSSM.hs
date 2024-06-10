@@ -14,8 +14,8 @@ import qualified Debug.Trace as Debug
 -- import Control.Monad.Reader
 import Control.Monad.State.Lazy
 import Text.Megaparsec (ErrorItem(Label))
-import SPL.Parser.SourceSpan (showStart, SourceSpan)
-import SPL.Colors (blue, red, black)
+import SPL.Parser.SourceSpan (showStart, SourceSpan, startLine, startCol)
+import SPL.Colors (blue, red, black, yellow)
 import Data.Maybe (fromMaybe)
 import SPL.PrettyPrint (Prettier(..))
 
@@ -28,7 +28,8 @@ data Key = Fun String | Var String
 data Info = Info {
                    genEnv :: Map.Map Key Location, -- genEnv has the data needed to generate code like variables and where they are 
                    globalVarCounter :: Int,
-                   needsUnlink :: Bool
+                   needsUnlink :: Bool,
+                   needsOutOfBoundsRuntimeExeptionCode :: Bool
                   }
 
 -- Functions defined on Info!
@@ -53,13 +54,20 @@ setUnlinkNeeded = modify (\env -> env {needsUnlink = True})
 setUnlinkNotNeeded :: Env ()
 setUnlinkNotNeeded = modify (\env -> env {needsUnlink = False})
 
+includeOutOfBoundsRuntimeExceptionCode :: Env ()
+includeOutOfBoundsRuntimeExceptionCode = Debug.trace "Needing out of bounds runtime" modify (\env -> env {needsOutOfBoundsRuntimeExeptionCode = True})
+
+replaceGenEnv :: Map.Map Key Location -> Env ()
+replaceGenEnv genenv = modify (\env -> env {genEnv = genenv})
+
+
 logEnvBlack s = Debug.trace (black s) pure ()
 logEnv s = Debug.trace s pure ()
 
 debugEnv :: Env ()
 debugEnv = do
-      (Info env counter needsUnlink) <- get
-      logEnv $ black"Current gen env: " ++ show env ++ black "\nCounter: " ++ show counter ++ black "\nNeeds unlink: " ++ show needsUnlink
+      (Info env counter needUnlink needsOutOfBoundsRuntimeCode) <- get
+      logEnv $ black "Current gen env: " ++ show env ++ black "\nCounter: " ++ show counter ++ black "\nNeeds unlink: " ++ show needUnlink ++ black "\nNeeds outOfBound expection runtime code: " ++ show needsOutOfBoundsRuntimeCode
       return ()
 
 
@@ -91,14 +99,19 @@ instance Monoid (Env Code) where
 
 
 
--- Generate INLINE code that prints a runtime error and then halts.
--- Maybe we could also include this in the runtime and then we jump to it instead
+-- Generate INLINE code that prints a runtime error and then halts. Only for simple exceptions.
+-- For exceptions with arguments include something in the runtime and pop of the stack 
 throw :: String -> Code
-throw error = [LDS i | i <- chars] <> [TRAP 1 | _ <- chars] <> [HALT]
-              where chars = map ord error
+-- throw msg = [LDS i | i <- chars] <> [TRAP 1 | _ <- chars] <> [HALT] where chars = map ord msg 
+throw msg = [LDS 0] <> reverse [LDS i | i <- chars] <> [TRAP 2] <> [HALT] where chars = map ord msg
+
+-- To use this runtime function, first push the column and then the line number. Do not push return adress on the stack as there is no returning from this
+outOfBoundExpectionRuntimeCode :: Code
+outOfBoundExpectionRuntimeCode = [LABEL "'outOfBoundExpection"] <> printStringCode "\nArray out of bounds runtime expection:\nTrying to access .hd on an empty array. \nCaused by line "
+                                 <> [TRAP 0] <> printStringCode " column " <> [TRAP 0, LDC (ord '.'), TRAP 1, HALT]
 
 emptyEnv :: Info
-emptyEnv = Info Map.empty (-1) False
+emptyEnv = Info Map.empty (-1) False False
 
 
 getSmmCode :: Program TypecheckedP -> Code
@@ -144,21 +157,10 @@ instance GenSSM (Program TypecheckedP) where
                 varDeclCount = length varDecls
             vardecl_code <- foldMap generate varDecls >>= \code -> pure $ code <> if null varDecls then [] else [LDR HP, STR R5, STMH varDeclCount, AJS (-1)]
             fundecls_code <- foldMap generate funDecls                                      -- Not needed as we just enter it
-            return $ vardecl_code <> [Bra "main"] <> fundecls_code  
+            needOutOfBoundExpectionRuntimeCode <- gets needsOutOfBoundsRuntimeExeptionCode
+            return $ vardecl_code <> [Bsr "main", HALT] <> fundecls_code <> if needOutOfBoundExpectionRuntimeCode then outOfBoundExpectionRuntimeCode else []
              where isVarDecl f = case f of {FunDecl {} -> False; VarDecl {} -> True}
                    isFunDecl f = case f of {FunDecl {} -> True; VarDecl {} -> False}
-
-      -- generate program = gnerate program
-      {-
-      generate program = let
-                        varDecls = filter isFunction program
-                        funDecls = filter isFunction program
-                        storeGlobalVarOnHeapCode = foldMap generate varDecls
-                        programCode = foldMap generate funDecls
-                        in storeGlobalVarOnHeapCode <> programCode
-                  where isFunction f = case f of  {FunDecl {} -> True; VarDecl {} -> False}
-                        isVarDecl = not . isFunction
-                        -}
 
 -- Yo jsr looks to be dynamic function calls!
 
@@ -166,9 +168,7 @@ instance GenSSM (Decl TypecheckedP) where
       generate :: Decl TypecheckedP -> Env Code
       generate  (FunDecl _ name VoidType [] [] body) = do
             setUnlinkNotNeeded
-            return [ LABEL name ] <>
-                   generate body <>
-                   pure [if name == "main" then HALT else RET] -- todo Oh implicit returns? 
+            return [ LABEL name ] <> generate body 
 
       -- Put the var decl on the heap, as in at the start save the heap start into a regsiter. When we then want to load vars we 
       --  Load from that register add the offset that we know and load that. 
@@ -178,28 +178,26 @@ instance GenSSM (Decl TypecheckedP) where
             globalvarcount <- increaseGlobalVarCount
             modify $ \env@(Info {genEnv = genenv}) -> env {genEnv = Map.insert (Var name) (GlobalVar globalvarcount (getType expr)) genenv}
             generate expr -- The program generator generates the actual saving cause we do it in one go
-      generate  (FunDecl _ name retty args funvardecl body) = do
+      generate  (FunDecl _ name _ args funvardecl body) = do
             -- Load the args and funvardecls into the enviroment
-            env@(Info {genEnv = genenv }) <- get
-            -- Get the args 
+            Info {genEnv = original_genenv } <- get
+            -- Get the args ;
             let argEnv = Map.fromList [(Var argname, LocalVar i argtype) | ((argname, argtype), i) <- zip args [1..]]
                 argcount = length args
-                funvarcount = length funvardecl
                 -- So we load from -(argcount + 1) from the mark pointer and we actually load argcount values from there. 
                 -- -(argcount + 1) gives -2 with argcount = 1 and -3 with argcount = 2 and so on. Argcount = 0 gives [] so that ok. 
                                                                                   -- Then store these values from the stack as the first argcount locals
-                argLoadCode = [LDML (-(argcount + 1)) argcount | argcount > 0] ++ [STML 1 argcount | argcount > 0] 
+                argLoadCode = [LDML (-(argcount + 1)) argcount | argcount > 0] ++ [STML 1 argcount | argcount > 0]
                 declEnv = Map.fromList [(Var varname, LocalVar i (getType varexpr)) | (VarDecl _ varname _ varexpr, i) <- zip funvardecl [(argcount+1)..]]
-            let newGenEnv = genenv <> argEnv <> declEnv
-            put env {genEnv = newGenEnv}
+            replaceGenEnv $ original_genenv <> argEnv <> declEnv
             let local_length = length args + length funvardecl
-            when (local_length > 0) setUnlinkNeeded                             -- Store fun decls in one go
-            fundecl_code <- foldMap (generate . getExpr) funvardecl <> pure [STML (1 + argcount) funvarcount  | funvarcount > 0]
-            debugEnv
+            when (local_length > 0) setUnlinkNeeded
+            fundecl_code <- foldMap (\(local_index, decl) -> generate (getExpr decl) <> pure [STL local_index]) $ zip [(1+argcount)..] funvardecl -- Important to store fun var decls as you go otherwise later ones refering to earlier ones get 0 
+            -- debugEnv
             body_code <- generate body
-            put env -- Restore previous env
+            replaceGenEnv original_genenv -- Restore previous gen env
             -- make space for locals, load the fundecls, the arguments should already be there? 
-            return $ [LABEL name] <> [LINK local_length | local_length > 0] <> argLoadCode <> fundecl_code <> body_code <> [UNLINK | local_length > 0] <> [if name == "main" then HALT else RET] -- The ret here could be better , only add if needed!
+            return $ [LABEL name] <> [LINK local_length | local_length > 0] <> argLoadCode <> fundecl_code {-<> [Annote MP (-1) local_length Pink "Locals" | local_length > 0]-} <> body_code <> [UNLINK | local_length > 0] 
             -- todo remove extra return by having phase that explicity adds the implcit return
 
 -- Loading global vars is
@@ -226,7 +224,7 @@ instance GenSSM (Literal TypecheckedP) where
       generate (IntLit int)  = pure [LDC int]
       generate (CharLit char)  = pure [LDC $ ord char] -- Here we forget that it was a char
       generate (TupleLit (e1, e2)) = pure [LDH 0] <> generate e1 <> pure [LDH 1] <> generate e2 -- Wrong but yeah maybe store in heap?
-      generate EmptyListLit = pure [LDC 0, STH]
+      generate EmptyListLit = pure [LDC 0, LDC 0, STMH 2] -- address of 0 marks the end of the array!
 
 -- Generate an annotate instruction
 annotate = Annote SP 0 1 Green
@@ -271,31 +269,131 @@ newline :: Int
 newline = 10
 
 
+-- Does not include new lines!
 printStringCode :: String -> Code
-printStringCode =  foldMap (\c -> [LDC (ord c), TRAP 1])
+printStringCode str =  [LDC 0] <> reverse (foldMap (\c -> [LDC (ord c)]) str) <> [TRAP 2]
 
+-- todo We know that this function always has 1 argument so we could do register arg passing, load R6 and then the bool code and then return 
+
+generatePrint :: Type -> Code
+generatePrint ty = case Debug.trace ("Printing the type " ++ show ty) ty of
+                              (TypeVar tyname False) -> printStringCode ("Non rigid TypeVar "++ show tyname ++", idk how to print this!\n")
+                              (TypeVar tyname True) -> printStringCode ("Rigid TypeVar"++ show tyname ++", idk how to print this!\n")
+                              CharType -> [TRAP 1] -- Print adds a newline
+                              BoolType -> let trueCode = printStringCode "True"
+                                              branchSize = instrSize (BRF undefined)
+                                              falseCode = printStringCode "False"
+                                            in [LABEL "'printBool", BRF (codeSize trueCode + branchSize)] <> trueCode <> [BRA (codeSize falseCode)] <> falseCode
+                              IntType -> [TRAP 0] -- Print does not add a newline, for a newline call print without arguments
+                              ListType IntType -> [
+                                                  LABEL "'printIntList", LDC (ord '['), TRAP 1,
+                                                   LDS 0, -- Remember adress of cons 
+                                                   LDA 0, -- Load the adress
+                                                   BRF 20,  -- If its empty list skip to the end
+                                                   LDS 0, -- Remember the cons cell for the next LDA
+                                                   LDA (-1), -- Otherwise load the value 
+                                                   TRAP 0,  -- Print it 
+                                                   LDA 0, -- Move to the next cons cell 
+                                                   LDS 0, -- Check if we should end it or print a comma and continue
+                                                   LDA 0,
+                                                   BRF 6,
+                                                   LDC (ord ','), -- print comma 
+                                                   TRAP 1,
+                                                   BRA (-20),  -- Jump back to the copy after the inital emtpy check
+                                                   LDC (ord ']'), TRAP 1, AJS (-1)]
+                              ListType CharType ->  [LABEL "'printChrList",LDS 0, -- Save the adress of the cons cell
+                                                     LDA 0, -- Load the first adress
+                                                     BRF 10,  -- If its empty list skip to the end
+                                                     LDS 0, -- Remember the cons cell for the next LDA
+                                                     LDA (-1), -- Load the value 
+                                                     TRAP 1,  -- Print it 
+                                                     LDA 0, -- Move to the next cons cell 
+                                                     BRA (-16), AJS (-1)]   -- Jump back to the brf 12
+                              ListType BoolType -> let printBoolCode = generatePrint BoolType
+                                                       printBoolCodeSize = codeSize printBoolCode
+                                                   in [LABEL "'printBoolList",LDC (ord '['), TRAP 1,
+                                                    LDS 0, -- Check for empty list once 
+                                                    LDA 0,
+                                                    BRF (18 + printBoolCodeSize),
+                                                    LDS 0, -- Remember the cons cell for the next LDA
+                                                    LDA (-1) -- Otherwise load the value 
+                                                    ] <> printBoolCode <> [
+                                                    LDA 0, -- Load the next adress
+                                                    LDS 0, -- Remember adress 
+                                                    LDA 0, -- Load the next cons cell to check for empty 
+                                                    BRF 6,  -- If its empty list skip to the end
+                                                    LDC (ord ','),
+                                                    TRAP 1,
+                                                    BRA ((-20) - printBoolCodeSize +2),   -- Jump back to the brf 12
+                                                    LDC (ord ']'), TRAP 1, AJS (-1)] -- These prints leave 1 value on the stack always just clean that up
+                              -- Detect printing a list of strings to put "" around it
+                              ListType (ListType CharType) -> let printItemCode = generatePrint (ListType CharType)
+                                                                  printItemCodeSize = codeSize printItemCode
+                                                                  in [LABEL "'printStringList",LDC (ord '"'), TRAP 1,
+                                                                  LDS 0, -- Check for empty list once 
+                                                                  LDA 0,
+                                                                  BRF (18 + printItemCodeSize),
+                                                                  LDS 0, -- Remember the cons cell for the next LDA
+                                                                  LDA (-1) -- Otherwise load the value 
+                                                                  ] <> printItemCode <> [
+                                                                  LDA 0, -- Load the next adress
+                                                                  LDS 0, -- Remember adress 
+                                                                  LDA 0, -- Load the next cons cell to check for empty 
+                                                                  BRF 14,  -- If its empty list skip to the end
+                                                                  LDC (ord '"'),
+                                                                  LDC (ord ','),
+                                                                  LDC (ord '"'),
+                                                                  TRAP 1,
+                                                                  TRAP 1,
+                                                                  TRAP 1,
+                                                                  BRA ((-28) - printItemCodeSize +2),   -- Jump back to the brf 12
+                                                                  LDC (ord '"'), TRAP 1, AJS (-1)] -- These prints leave 1 value on the stack always just clean that up 
+                              ListType itemType -> let printItemCode = generatePrint itemType
+                                                       printItemCodeSize = codeSize printItemCode
+                                                   in [LABEL "'printListList",LDC (ord '['), TRAP 1,
+                                                    LDS 0, -- Check for empty list once 
+                                                    LDA 0,
+                                                    BRF (18 + printItemCodeSize),
+                                                    LDS 0, -- Remember the cons cell for the next LDA
+                                                    LDA (-1) -- Otherwise load the value 
+                                                    ] <> printItemCode <> [
+                                                    LDA 0, -- Load the next adress
+                                                    LDS 0, -- Remember adress 
+                                                    LDA 0, -- Load the next cons cell to check for empty 
+                                                    BRF 6,  -- If its empty list skip to the end
+                                                    LDC (ord ','),
+                                                    TRAP 1,
+                                                    BRA ((-20) - printItemCodeSize +2),   -- Jump back to the brf 12
+                                                    LDC (ord ']'), TRAP 1, AJS (-1)] -- These prints leave 1 value on the stack always just clean that up
+                              -- ListType (ListType a) -> 
+                              a -> printStringCode $ "Idk how to print this type! " ++ show a ++ "\n"
 
 instance GenSSM (Expr TypecheckedP) where
       generate (BinOpExpr _ op left right) = generate left <> generate right <> generate op
       generate (UnaryOpExpr _ op operand) = generate  operand <> generate op
       -- Now it would be really nice if we could know the type of arg 
-      generate (FunctionCallExpr meta "print" [arg]) = let argType = getType arg in generate arg <> case Debug.trace ("Printing the type " ++ show argType) argType of
-                                                                                                      (TypeVar tyname False) -> pure $ printStringCode ("Non rigid TypeVar "++ show tyname ++", idk how to print this!") ++ [LDC newline, TRAP 1]
-                                                                                                      (TypeVar tyname True) -> pure $ printStringCode ("Rigid TypeVar"++ show tyname ++", idk how to print this!") ++ [LDC newline, TRAP 1]
-                                                                                                      CharType -> pure [TRAP 1, LDC newline, TRAP 1] -- Print adds a newline
-                                                                                                      BoolType -> error "Printing bool types is not implemented yet"
-                                                                                                      IntType -> pure [TRAP 0, LDC newline, TRAP 1] -- Print adds a newline
-                                                                                                      _ -> pure $ printStringCode "Idk how to print this type!" ++ [LDC newline, TRAP 1] -- Print adds a newline
-      generate (FunctionCallExpr meta "print" [arg]) = generate arg <> pure [TRAP 0, LDC newline, TRAP 1] -- Print adds a newline
-      generate (FunctionCallExpr meta "isEmpty" [arg]) = error "Is empty is not implemented" 
+      generate (FunctionCallExpr _ "print" []) = pure [LDC newline, TRAP 1]
+      generate (FunctionCallExpr _ "print" [arg]) = generate arg <> pure (generatePrint (getType arg))
+
+                              -- IntType -> pure [TRAP 0, LDC newline, TRAP 1] -- Print adds a newline
+
+      -- In theory this is it for isEmpty cause last cons cell is 0 addr, but not super neat cause we assume everything else then 0 is true
+      generate (FunctionCallExpr _ "isEmpty" [arg]) =  generate arg <> pure [LDA 1, NOT]
       -- generate (FunctionCallExpr meta "print" (_:_)) = error $ "At " ++ (showStart meta ) + " you call print with too many arguments"
       generate (FunctionCallExpr (ty, _) func args) = do argcode <- generate args                                         -- Last part removes arguments from the stack again!
                                                          let argcount = length args
                                                              removeArgs = [AJS (-argcount) | argcount > 0]
                                                          return $ argcode <> [Bsr func] <> removeArgs <> [LDR RR | ty /= VoidType]
-      generate (VariableExpr meta (Identifier varname Nothing)) = loadVar varname
-      generate (VariableExpr (ty, _) (Identifier varname (Just _))) = error "Loading fields on variables are unsupported atm!" -- We can know what to do based on the field!
-      generate (LiteralExpr meta literal) = generate literal
+      generate (VariableExpr _ (Identifier varname Nothing)) = loadVar varname
+      generate (VariableExpr (ty, meta) (Identifier varname (Just HeadField))) = includeOutOfBoundsRuntimeExceptionCode >> loadVar varname <> pure ( checkBounds <> [LDA (-1)])
+            where checkBounds1 = [LDA 0]
+                  checkBounds2 = [LDC (startCol meta), LDC (startLine meta), Bra "'outOfBoundExpection"]
+                  jumpSize = codeSize checkBounds2
+                  checkBounds = checkBounds1 <> [BRT jumpSize] <> checkBounds2
+      generate (VariableExpr (ty, _) (Identifier varname (Just TailField))) = loadVar varname  <> pure [LDA 0]
+      generate (VariableExpr (ty, _) (Identifier varname (Just FirstField))) = error "Tuple fields are not implemented yet"
+      generate (VariableExpr (ty, _) (Identifier varname (Just SecondField))) = loadVar "Tuple fields are not implemented yet"
+      generate (LiteralExpr _ literal) = generate literal
 
 
 -- We can generate the enviroment before we do any code generation because we know where it will end up
@@ -333,7 +431,7 @@ combineCode :: [Code] -> Code
 combineCode  = foldr (<>) [] -- todo This could be more effiecient with  : and reverse?
 
 instance GenSSM BinOp where
-      generate  Mul = pure [MUL]
+      generate Mul = pure [MUL]
       generate Div = pure [DIV]
       generate Mod = pure [MOD]
       generate Add = pure [ADD]
@@ -346,15 +444,20 @@ instance GenSSM BinOp where
       generate Neq = pure [NE]
       generate And = pure [AND]
       generate Or = pure [OR]
--- For (:) (cons), the stack looks like this:
---
--- |  value  |
--- |   addr  |
--- |  .....  |
---
--- The application of the cons operation should
--- put (value, addr) on the heap, and put the
--- address back on the stack at the top.
+{- For (:) (cons), the stack looks like this:
+
+|  value  |
+|   addr  |
+|  .....  |
+
+The application of the cons operation should
+put (value, addr) on the heap, and put the
+address back on the stack at the top.
+
+We can not change that value is first and then adress becausea cons bin op goes left to right and left is the value and right the adress. So (value, adress)
+Because we do stmh the adress which points to the adress in the heap of the previous cell is stored.
+
+-}
       generate Cons = pure [STMH 2]
 
 
