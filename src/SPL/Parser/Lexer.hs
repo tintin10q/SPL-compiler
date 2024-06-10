@@ -15,7 +15,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 whitespace = L.space
   space1                         -- skip whitespace, newlines and tabs
   (L.skipLineComment "//")       -- skip line comments (starting with "//")
-  (L.skipBlockComment "/*" "*/") -- skip block comments (starting with "/*" and ending with "*/")
+  (L.skipBlockCommentNested "/*" "*/") -- skip block comments (starting with "/*" and ending with "*/")
 
 -- https://hackage.haskell.org/package/megaparsec-9.6.1/docs/Text-Megaparsec-Char-Lexer.html#v:lexeme
 lexeme = L.lexeme whitespace
