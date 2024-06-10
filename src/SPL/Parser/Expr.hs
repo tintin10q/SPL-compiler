@@ -12,7 +12,7 @@ import qualified Data.Text as T
 import Data.Functor (($>))
 import Text.Megaparsec.Char (char)
 import SPL.Colors (red)
-import SPL.Parser.SourceSpan
+import SPL.Parser.SourceSpan ( endPos, showStart, srcSpan, startPos, SourceSpan )
 
 
 {--
@@ -114,7 +114,7 @@ stringWithEscapes = T.pack <$> many (escapedChar <|> noneOf ['"', '\n', '\r', '\
 pStringExpr :: Parser (Expr ParsedP)
 pStringExpr =  do
     posStart <- getSourcePos
-    _ <- L.tQuotation
+    _ <- char '\"' -- We actually have to care about what is after this and not remove whitespace
     tokens <- reverse . T.unpack <$> stringWithEscapes
     _ <- L.tQuotation
     posEnd <- getSourcePos
