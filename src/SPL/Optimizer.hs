@@ -100,7 +100,6 @@ instance Optimise (Expr TypecheckedP) where
   opti (FunctionCallExpr meta funname args) = FunctionCallExpr meta funname (map opti args)
 
 instance Optimise (Stmt TypecheckedP) where
-  opti (ExprStmt meta expr) = ExprStmt meta (opti expr)
   opti ass@(AssignStmt {}) = ass
   opti (ReturnStmt meta expr) = ReturnStmt meta (opti <$> expr)
   opti (IfStmt meta condition consequent alternative) = case opti condition of
@@ -113,6 +112,12 @@ instance Optimise (Stmt TypecheckedP) where
     LiteralExpr _ FalseLit -> BlockStmt []
     expr -> WhileStmt meta expr (map opti body)
   opti (BlockStmt s) = BlockStmt (map opti s)
+  -- Take out expression statements that do not have side effects and just waste cpu
+  opti (ExprStmt _ BinOpExpr {}) = BlockStmt [] 
+  opti (ExprStmt _ UnaryOpExpr {}) = BlockStmt [] 
+  opti (ExprStmt _ VariableExpr {}) = BlockStmt [] 
+  opti (ExprStmt _ LiteralExpr {}) = BlockStmt [] 
+  opti (ExprStmt meta expr) = ExprStmt meta (opti expr)
 
 instance Optimise (Decl TypecheckedP) where
   opti (FunDecl meta funname retty args funvars body) = FunDecl meta funname retty args (map opti funvars) (map opti body)
