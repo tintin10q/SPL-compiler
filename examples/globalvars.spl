@@ -1,0 +1,8 @@
+
+
+var global = 4;
+
+main() {
+    var result = 2 * global; 
+    print(result);
+}

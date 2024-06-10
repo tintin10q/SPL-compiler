@@ -53,12 +53,13 @@ setUnlinkNeeded = modify (\env -> env {needsUnlink = True})
 setUnlinkNotNeeded :: Env ()
 setUnlinkNotNeeded = modify (\env -> env {needsUnlink = False})
 
-logEnv s = Debug.trace (black s) pure ()
+logEnvBlack s = Debug.trace (black s) pure ()
+logEnv s = Debug.trace s pure ()
 
 debugEnv :: Env ()
 debugEnv = do
       (Info env counter needsUnlink) <- get
-      logEnv $ "Current gen env: " ++ show env ++ "\nCounter: " ++ show counter ++ "\nNeeds unlink: " ++ show needsUnlink
+      logEnv $ black"Current gen env: " ++ show env ++ black "\nCounter: " ++ show counter ++ black "\nNeeds unlink: " ++ show needsUnlink
       return ()
 
 
@@ -97,7 +98,7 @@ throw error = [LDS i | i <- chars] <> [TRAP 1 | _ <- chars] <> [HALT]
               where chars = map ord error
 
 emptyEnv :: Info
-emptyEnv = Info Map.empty 0 False
+emptyEnv = Info Map.empty (-1) False
 
 
 getSmmCode :: Program TypecheckedP -> Code
@@ -126,8 +127,8 @@ getSmmCode p = let (code, env) = runState (generate p) emptyEnv in code
       -- generate a = combineCodeM $ mapM generate 
 
 
--- Store Heap pointer into r5
-runtime = [LDR HP, STR gvr, Bra "main"] -- Deal with returns from main!
+notEmpty :: [a] -> Bool
+notEmpty = not . null
 
 instance GenSSM [Expr TypecheckedP] where
       generate = combineCodeM . mapM generate
@@ -136,9 +137,17 @@ instance GenSSM [Stmt TypecheckedP] where
       generate = combineCodeM . mapM generate
 
 instance GenSSM (Program TypecheckedP) where
-      generate a = do
-            program_code <- combineCodeM $ mapM generate a
-            return $ runtime <> program_code
+      generate program = do
+
+            let varDecls = filter isVarDecl program
+                funDecls = filter isFunDecl program
+                varDeclCount = length varDecls
+            vardecl_code <- foldMap generate varDecls >>= \code -> pure $ code <> if null varDecls then [] else [LDR HP, STR R5, STMH varDeclCount, AJS (-1)]
+            fundecls_code <- foldMap generate funDecls                                      -- Not needed as we just enter it
+            return $ vardecl_code <> [Bra "main"] <> fundecls_code  
+             where isVarDecl f = case f of {FunDecl {} -> False; VarDecl {} -> True}
+                   isFunDecl f = case f of {FunDecl {} -> True; VarDecl {} -> False}
+
       -- generate program = gnerate program
       {-
       generate program = let
@@ -165,26 +174,32 @@ instance GenSSM (Decl TypecheckedP) where
       --  Load from that register add the offset that we know and load that. 
       -- This only works if we do the var decls first but we do because we hoist them to the top
       generate (VarDecl _ name _ expr)  = do
-            -- todo Safe global var
+            -- These are only global vars!
             globalvarcount <- increaseGlobalVarCount
             modify $ \env@(Info {genEnv = genenv}) -> env {genEnv = Map.insert (Var name) (GlobalVar globalvarcount (getType expr)) genenv}
-            generate expr <> pure [STH, AJS (-1)] -- todo, this could be stmh if we do all the vardelc first, more safe
-                  -- Check if AJS -1 works
+            generate expr -- The program generator generates the actual saving cause we do it in one go
       generate  (FunDecl _ name retty args funvardecl body) = do
             -- Load the args and funvardecls into the enviroment
             env@(Info {genEnv = genenv }) <- get
             -- Get the args 
             let argEnv = Map.fromList [(Var argname, LocalVar i argtype) | ((argname, argtype), i) <- zip args [1..]]
-                declEnv = Map.fromList [(Var varname, LocalVar i (getType varexpr)) | (VarDecl _ varname _ varexpr, i) <- zip funvardecl [(length argEnv)..]]
+                argcount = length args
+                funvarcount = length funvardecl
+                -- So we load from -(argcount + 1) from the mark pointer and we actually load argcount values from there. 
+                -- -(argcount + 1) gives -2 with argcount = 1 and -3 with argcount = 2 and so on. Argcount = 0 gives [] so that ok. 
+                                                                                  -- Then store these values from the stack as the first argcount locals
+                argLoadCode = [LDML (-(argcount + 1)) argcount | argcount > 0] ++ [STML 1 argcount | argcount > 0] 
+                declEnv = Map.fromList [(Var varname, LocalVar i (getType varexpr)) | (VarDecl _ varname _ varexpr, i) <- zip funvardecl [(argcount+1)..]]
             let newGenEnv = genenv <> argEnv <> declEnv
             put env {genEnv = newGenEnv}
             let local_length = length args + length funvardecl
-            when (local_length > 0) setUnlinkNeeded
-            fundecl_code <- foldMap (\(VarDecl _ varname _ expr) -> generate expr <> storeVar varname) funvardecl
+            when (local_length > 0) setUnlinkNeeded                             -- Store fun decls in one go
+            fundecl_code <- foldMap (generate . getExpr) funvardecl <> pure [STML (1 + argcount) funvarcount  | funvarcount > 0]
+            debugEnv
             body_code <- generate body
             put env -- Restore previous env
             -- make space for locals, load the fundecls, the arguments should already be there? 
-            return $ [LABEL name] <> [LINK local_length | local_length > 0] <> fundecl_code <> body_code <> [UNLINK | local_length > 0] <> [if name == "main" then HALT else RET] -- The ret here could be better , only add if needed!
+            return $ [LABEL name] <> [LINK local_length | local_length > 0] <> argLoadCode <> fundecl_code <> body_code <> [UNLINK | local_length > 0] <> [if name == "main" then HALT else RET] -- The ret here could be better , only add if needed!
             -- todo remove extra return by having phase that explicity adds the implcit return
 
 -- Loading global vars is
@@ -193,7 +208,7 @@ loadVar :: String -> Env Code
 loadVar name = do
       value <- getkey (Var name)
       case value of
-            (GlobalVar offset _) -> return [LDR gvr, LDAA offset]
+            (GlobalVar offset _) -> return [LDR gvr, LDA offset]
             (LocalVar offset _) -> return [LDL offset]
 
 -- Returns code to store the value on the head of the stack into a variable
@@ -223,9 +238,9 @@ instance GenSSM (Stmt TypecheckedP) where
       -- Based on the field we have to find out the adress. We can get the adress of locals and also the adress of globals. 
       --  Then we have to dereference them and do get the next adress and store something there!
 
-      generate (ReturnStmt _ (Just e)) = do 
-            unlinkNeeded <- gets needsUnlink 
-            exprCode <- generate e 
+      generate (ReturnStmt _ (Just e)) = do
+            unlinkNeeded <- gets needsUnlink
+            exprCode <- generate e
             return $ exprCode <> [STR RR] <> [UNLINK | unlinkNeeded] <> [RET]
       generate (ReturnStmt _ Nothing) = gets needsUnlink >>= \unlink_needed -> pure $ [UNLINK | unlink_needed] <> [RET] -- todo having this kind of forces to always do link even if there is no vars.
       generate (IfStmt _ condition consequent Nothing) = do
@@ -272,10 +287,12 @@ instance GenSSM (Expr TypecheckedP) where
                                                                                                       IntType -> pure [TRAP 0, LDC newline, TRAP 1] -- Print adds a newline
                                                                                                       _ -> pure $ printStringCode "Idk how to print this type!" ++ [LDC newline, TRAP 1] -- Print adds a newline
       generate (FunctionCallExpr meta "print" [arg]) = generate arg <> pure [TRAP 0, LDC newline, TRAP 1] -- Print adds a newline
+      generate (FunctionCallExpr meta "isEmpty" [arg]) = error "Is empty is not implemented" 
       -- generate (FunctionCallExpr meta "print" (_:_)) = error $ "At " ++ (showStart meta ) + " you call print with too many arguments"
-      generate (FunctionCallExpr (ty, _) func args) = do argcode <- generate args
-                                                         return $ argcode <> [Bsr func] <> ([LDR RR | ty /= VoidType])
-
+      generate (FunctionCallExpr (ty, _) func args) = do argcode <- generate args                                         -- Last part removes arguments from the stack again!
+                                                         let argcount = length args
+                                                             removeArgs = [AJS (-argcount) | argcount > 0]
+                                                         return $ argcode <> [Bsr func] <> removeArgs <> [LDR RR | ty /= VoidType]
       generate (VariableExpr meta (Identifier varname Nothing)) = loadVar varname
       generate (VariableExpr (ty, _) (Identifier varname (Just _))) = error "Loading fields on variables are unsupported atm!" -- We can know what to do based on the field!
       generate (LiteralExpr meta literal) = generate literal
@@ -343,7 +360,7 @@ instance GenSSM BinOp where
 
 instance GenSSM UnaryOp where
       generate Negate = pure [NEG]
-      generate Min = pure [NEG] 
+      generate Min = pure [NEG]
       -- TODO: Fix generate for FieldAccess
       generate _ = error "Field access is not supported. :("
 

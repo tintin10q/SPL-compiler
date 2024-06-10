@@ -1,0 +1,11 @@
+
+add8(to_add: Int) {
+    return to_add + 8;
+}
+
+
+main() {
+    var b = 7;
+    var c = add8(1);
+    print(b + c);
+}

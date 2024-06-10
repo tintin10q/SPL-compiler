@@ -1,0 +1,40 @@
+	LDR HP
+	STR R5
+	Bra main
+main:
+	LINK 10
+	LDC 1
+	LDC 2
+	LDC 3
+	LDC 4
+	LDC 5
+	LDC 6
+	LDC 7
+	LDC 8
+	LDC 9
+	LDC 10
+	STML 1 10
+	LDL 1
+	LDL 2
+	ADD
+	LDL 3
+	ADD
+	LDL 4
+	ADD
+	LDL 5
+	ADD
+	LDL 6
+	ADD
+	LDL 7
+	ADD
+	LDL 8
+	ADD
+	LDL 9
+	ADD
+	LDL 10
+	ADD
+	TRAP 0
+	LDC 10
+	TRAP 1
+	UNLINK
+	HALT

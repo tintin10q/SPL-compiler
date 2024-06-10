@@ -21,8 +21,8 @@ r7 = R7
 data Instr
     = STR Reg | STL Int  | STS Int  | STA Int        -- Store from stack
     | LDR Reg | LDL Int  | LDS Int  | LDA Int        -- Load on stack
-    | LDC Int | LDLA Int | LDSA Int | LDAA Int       -- Load on stack
-    |           LDML Int | STML Int                  -- Load/Store local multiple
+    | LDC Int | LDLA Int | LDSA Int | LDAA Int       -- Load on stack, for local always start with 1 and not 0 cause with 0 you overwrite/load the markpointer itself. This can be the source of many bugs.
+    |           LDML Int Int  | STML Int Int         -- Load/Store local multiple, First int args is from which local to start storing/loading, second argument is number of locals to store/load from that offset 
     | BRA Int | Bra String                           -- Branch always (relative/to label) string versions go to a label ints adds to PC, its NOT an absolute jump!
     | BRF Int | Brf String                           -- Branch on false
     | BRT Int | Brt String                           -- Branch on true
@@ -64,7 +64,7 @@ instrSize i = case i of {
                   LDR  _   -> 2;    LDL   _   -> 2;    LDS  _    -> 2;   LDA  _ -> 2;   LDC  _ -> 2;
                   LDLA _   -> 2;    LDSA  _   -> 2;    LDAA _    -> 2;   STR  _ -> 2;   STL  _ -> 2;
                   STS  _   -> 2;    STA   _   -> 2;    AJS  _    -> 2;   LINK _ -> 2;   TRAP _ -> 2;
-                  SWPR _   -> 2;    LABEL _   -> 0;    LDH  _    -> 2;   LDML _ -> 2;   STML _ -> 2;
+                  SWPR _   -> 2;    LABEL _   -> 0;    LDH  _    -> 2;   LDML _ _ -> 3; STML  _ _ -> 3;
                   _ -> 1;
               }
 
