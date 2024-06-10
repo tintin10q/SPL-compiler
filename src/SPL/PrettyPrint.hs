@@ -230,7 +230,7 @@ instance Prettier BinOp where
 
 instance Prettier Field where
   pretty HeadField = "hd"
-  pretty TailField = "lt"
+  pretty TailField = "tl"
   pretty SecondField = "snd"
   pretty FirstField = "fst"
 
