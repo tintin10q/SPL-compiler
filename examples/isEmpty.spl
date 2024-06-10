@@ -1,0 +1,15 @@
+
+
+main() {
+    var string = "/* Hi there */";
+    var empty = [];
+    "Q":empty;
+    print(string);
+    print(" is empty: ");
+    print(isEmpty(string));
+    print();
+    print(empty);
+    print(" is empty: ");
+    print(isEmpty(empty));
+}
+

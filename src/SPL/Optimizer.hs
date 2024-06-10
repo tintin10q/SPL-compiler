@@ -95,6 +95,8 @@ instance Optimise (Expr TypecheckedP) where
                                             (LiteralExpr m FalseLit) -> LiteralExpr m TrueLit
                                             opti_expr -> (UnaryOpExpr meta Negate opti_expr)
   opti (UnaryOpExpr meta (FieldAccess f) expr) = UnaryOpExpr meta (FieldAccess f) (opti expr) -- todo, if its a tuple literal we can get rid of the tuple!
+  opti (FunctionCallExpr _ "isEmpty" [LiteralExpr (_, meta) EmptyListLit]) = LiteralExpr (BoolType, meta) TrueLit 
+  opti (FunctionCallExpr _ "isEmpty" [BinOpExpr (_,meta) Cons _ _]) = LiteralExpr (BoolType, meta) FalseLit 
   opti (FunctionCallExpr meta funname args) = FunctionCallExpr meta funname (map opti args)
 
 instance Optimise (Stmt TypecheckedP) where

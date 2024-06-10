@@ -1,0 +1,6 @@
+
+
+main() {
+    print(isEmpty([]));
+    return isEmpty(3:[]);
+}

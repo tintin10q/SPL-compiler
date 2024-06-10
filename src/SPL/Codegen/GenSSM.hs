@@ -13,11 +13,9 @@ import qualified Data.Map as Map
 import qualified Debug.Trace as Debug
 -- import Control.Monad.Reader
 import Control.Monad.State.Lazy
-import Text.Megaparsec (ErrorItem(Label))
 import SPL.Parser.SourceSpan (showStart, SourceSpan, startLine, startCol)
-import SPL.Colors (blue, red, black, yellow)
-import Data.Maybe (fromMaybe)
-import SPL.PrettyPrint (Prettier(..))
+import SPL.Colors (blue, red, black)
+import Prelude hiding (EQ)
 
 data Location =  LocalVar  Int Type | GlobalVar Int Type
               deriving (Eq, Ord, Show)
@@ -61,7 +59,9 @@ replaceGenEnv :: Map.Map Key Location -> Env ()
 replaceGenEnv genenv = modify (\env -> env {genEnv = genenv})
 
 
+logEnvBlack :: Applicative f => [Char] -> f ()
 logEnvBlack s = Debug.trace (black s) pure ()
+logEnv :: Applicative f => String -> f ()
 logEnv s = Debug.trace s pure ()
 
 debugEnv :: Env ()
@@ -168,7 +168,7 @@ instance GenSSM (Decl TypecheckedP) where
       generate :: Decl TypecheckedP -> Env Code
       generate  (FunDecl _ name VoidType [] [] body) = do
             setUnlinkNotNeeded
-            return [ LABEL name ] <> generate body 
+            return [ LABEL name ] <> generate body
 
       -- Put the var decl on the heap, as in at the start save the heap start into a regsiter. When we then want to load vars we 
       --  Load from that register add the offset that we know and load that. 
@@ -197,7 +197,7 @@ instance GenSSM (Decl TypecheckedP) where
             body_code <- generate body
             replaceGenEnv original_genenv -- Restore previous gen env
             -- make space for locals, load the fundecls, the arguments should already be there? 
-            return $ [LABEL name] <> [LINK local_length | local_length > 0] <> argLoadCode <> fundecl_code {-<> [Annote MP (-1) local_length Pink "Locals" | local_length > 0]-} <> body_code <> [UNLINK | local_length > 0] 
+            return $ [LABEL name] <> [LINK local_length | local_length > 0] <> argLoadCode <> fundecl_code {-<> [Annote MP (-1) local_length Pink "Locals" | local_length > 0]-} <> body_code <> [UNLINK | local_length > 0]
             -- todo remove extra return by having phase that explicity adds the implcit return
 
 -- Loading global vars is
@@ -225,9 +225,6 @@ instance GenSSM (Literal TypecheckedP) where
       generate (CharLit char)  = pure [LDC $ ord char] -- Here we forget that it was a char
       generate (TupleLit (e1, e2)) = pure [LDH 0] <> generate e1 <> pure [LDH 1] <> generate e2 -- Wrong but yeah maybe store in heap?
       generate EmptyListLit = pure [LDC 0, LDC 0, STMH 2] -- address of 0 marks the end of the array!
-
--- Generate an annotate instruction
-annotate = Annote SP 0 1 Green
 
 instance GenSSM (Stmt TypecheckedP) where
       generate (ExprStmt _ expr) = generate expr -- Todo clean these up though? Right? 
@@ -329,10 +326,11 @@ generatePrint ty = case Debug.trace ("Printing the type " ++ show ty) ty of
                               -- Detect printing a list of strings to put "" around it
                               ListType (ListType CharType) -> let printItemCode = generatePrint (ListType CharType)
                                                                   printItemCodeSize = codeSize printItemCode
-                                                                  in [LABEL "'printStringList",LDC (ord '"'), TRAP 1,
+                                                                  in [LABEL "'printStringList",LDC (ord '['), TRAP 1,
                                                                   LDS 0, -- Check for empty list once 
                                                                   LDA 0,
-                                                                  BRF (18 + printItemCodeSize),
+                                                                  BRF (30 + printItemCodeSize), -- Jump over closing "
+                                                                  LDC (ord '"'), TRAP 1,
                                                                   LDS 0, -- Remember the cons cell for the next LDA
                                                                   LDA (-1) -- Otherwise load the value 
                                                                   ] <> printItemCode <> [
@@ -340,14 +338,11 @@ generatePrint ty = case Debug.trace ("Printing the type " ++ show ty) ty of
                                                                   LDS 0, -- Remember adress 
                                                                   LDA 0, -- Load the next cons cell to check for empty 
                                                                   BRF 14,  -- If its empty list skip to the end
-                                                                  LDC (ord '"'),
+                                                                  LDC (ord '"'), TRAP 1,
                                                                   LDC (ord ','),
-                                                                  LDC (ord '"'),
-                                                                  TRAP 1,
-                                                                  TRAP 1,
                                                                   TRAP 1,
                                                                   BRA ((-28) - printItemCodeSize +2),   -- Jump back to the brf 12
-                                                                  LDC (ord '"'), TRAP 1, AJS (-1)] -- These prints leave 1 value on the stack always just clean that up 
+                                                                  LDC (ord '"'), TRAP 1, LDC (ord ']'), TRAP 1, AJS (-1)] -- These prints leave 1 value on the stack always just clean that up 
                               ListType itemType -> let printItemCode = generatePrint itemType
                                                        printItemCodeSize = codeSize printItemCode
                                                    in [LABEL "'printListList",LDC (ord '['), TRAP 1,
@@ -366,7 +361,7 @@ generatePrint ty = case Debug.trace ("Printing the type " ++ show ty) ty of
                                                     BRA ((-20) - printItemCodeSize +2),   -- Jump back to the brf 12
                                                     LDC (ord ']'), TRAP 1, AJS (-1)] -- These prints leave 1 value on the stack always just clean that up
                               -- ListType (ListType a) -> 
-                              a -> printStringCode $ "Idk how to print this type! " ++ show a ++ "\n"
+                              ty' -> printStringCode ("Error: Can not print value of type " ++ showTypeWithoutColor ty' ++ "\n")
 
 instance GenSSM (Expr TypecheckedP) where
       generate (BinOpExpr _ op left right) = generate left <> generate right <> generate op
@@ -377,15 +372,15 @@ instance GenSSM (Expr TypecheckedP) where
 
                               -- IntType -> pure [TRAP 0, LDC newline, TRAP 1] -- Print adds a newline
 
-      -- In theory this is it for isEmpty cause last cons cell is 0 addr, but not super neat cause we assume everything else then 0 is true
-      generate (FunctionCallExpr _ "isEmpty" [arg]) =  generate arg <> pure [LDA 1, NOT]
+      -- In theory this is it for isEmpty cause last cons cell is 0 addr
+      generate (FunctionCallExpr _ "isEmpty" [arg]) =  generate arg <> pure [LDA 0, LDC 0, EQ]
       -- generate (FunctionCallExpr meta "print" (_:_)) = error $ "At " ++ (showStart meta ) + " you call print with too many arguments"
       generate (FunctionCallExpr (ty, _) func args) = do argcode <- generate args                                         -- Last part removes arguments from the stack again!
                                                          let argcount = length args
                                                              removeArgs = [AJS (-argcount) | argcount > 0]
                                                          return $ argcode <> [Bsr func] <> removeArgs <> [LDR RR | ty /= VoidType]
       generate (VariableExpr _ (Identifier varname Nothing)) = loadVar varname
-      generate (VariableExpr (ty, meta) (Identifier varname (Just HeadField))) = includeOutOfBoundsRuntimeExceptionCode >> loadVar varname <> pure ( checkBounds <> [LDA (-1)])
+      generate (VariableExpr (_, meta) (Identifier varname (Just HeadField))) = includeOutOfBoundsRuntimeExceptionCode >> loadVar varname <> pure ( checkBounds <> [LDA (-1)])
             where checkBounds1 = [LDA 0]
                   checkBounds2 = [LDC (startCol meta), LDC (startLine meta), Bra "'outOfBoundExpection"]
                   jumpSize = codeSize checkBounds2
@@ -485,6 +480,3 @@ instance GenSSM UnaryOp where
                                           -- CharType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 0 name offset CharType
                                           -- BoolType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 0 name offset BoolType
                                           -- _ -> undefined
-genSaveGlobalCode _ = undefined
-
--- isEmpty is another build in. I guess you just see if its an empty cons cell 

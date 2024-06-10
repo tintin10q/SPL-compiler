@@ -1,0 +1,10 @@
+
+main() {
+    var a = 'Q';
+    a;
+    3;
+    True;
+    False;
+    a;
+    return a;
+}

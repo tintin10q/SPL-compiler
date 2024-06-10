@@ -27,6 +27,8 @@ nestedChrList() {
 }
 
 main() {
+    print(nestedChrList().tl);
+    return;
     print("Hoi daar!\n");
     print(3);
     print();

@@ -42,6 +42,19 @@ instance Show Type where
   show (FunType argtypes rettype) =  yellow $ listTypes " -> " argtypes ++ show rettype 
     where listTypes sep = foldl (\r x -> r ++ show x ++ sep) ""
 
+showTypeWithoutColor :: Type -> String
+showTypeWithoutColor IntType = "Int"
+showTypeWithoutColor CharType = "Char"
+showTypeWithoutColor BoolType = "Bool"
+showTypeWithoutColor VoidType = "Void"
+showTypeWithoutColor (TupleType ty1 ty2) = "(" ++ showTypeWithoutColor ty1 ++ "," ++ showTypeWithoutColor ty2 ++ ")"
+showTypeWithoutColor (ListType ty) = '[' : showTypeWithoutColor ty ++ "]"
+showTypeWithoutColor (TypeVar name False) = 'T':'y':'p':'e':'v':'a':'r':' ':name 
+showTypeWithoutColor (TypeVar name True) = 'R':'i':'g':'i':'d':' ':'T':'y':'p':'e':'v':'a':'r':' ':name
+showTypeWithoutColor (FunType argtypes rettype) =  listTypes " -> " argtypes ++ showTypeWithoutColor rettype 
+    where listTypes sep = foldl (\r x -> r ++ showTypeWithoutColor x ++ sep) ""
+
+
 
 data Decl (p :: Phase)
   = FunDecl (FunDecl p) String (FunDeclT p) [(String, FunDeclT p)] [Decl p] [Stmt p]

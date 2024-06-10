@@ -92,7 +92,9 @@ instance Types a => Types (Maybe a) where
 {- Functions for the TIenv state monad-}
 
 defaultFunEnv :: Map String Scheme
-defaultFunEnv = Map.fromList [("print", Scheme (Set.singleton "print_inputty") (FunType [TypeVar "print_inputty" False] VoidType))]
+defaultFunEnv = Map.fromList [("print", Scheme (Set.singleton "'print_inputty") (FunType [TypeVar "print_inputty" False] VoidType)),
+                              ("isEmpty", Scheme (Set.singleton "'isEmptyInput") (FunType [ListType (TypeVar "'isEmptyInput" False)] BoolType))
+                            ]
 
 -- Meta is not defined here but maybe if you don't touch it its ok?
 
@@ -505,7 +507,7 @@ instance Typecheck (Expr TypecheckedP) where
        -- To do that we do need to know the type of the arga
     case args of
       [] ->  return (nullSubst, VoidType) 
-      (_:_:_) -> throwError $ "You called the print function with too many arguments at " ++ showStart meta ++ ". The print function takes exactly one argument of any type." 
+      (_:_:_) -> throwError $ "You called the '"++ blue "print" ++ "' function with too many arguments at " ++ showStart meta ++ ". The '"++ blue "print" ++ "' function takes exactly one argument of any type." 
       [arg] -> do
               (s1, _) <- ti arg -- we need the sub for the type var in the argument
               s2 <- unify ty VoidType
@@ -517,13 +519,13 @@ instance Typecheck (Expr TypecheckedP) where
   ti (FunctionCallExpr (ty, meta) "isEmpty" args) = do
     replaceMeta meta
     arg <- case args of
-      [] ->  throwError $ "You called the isEmpty function with no arguments at"  ++ showStart meta ++ ". The isEmpty function takes exactly one argument. The argument should be either a list or a tuple."
-      (_:_:_) -> throwError $ "You called the isEmpty function with too many arguments at " ++ showStart meta ++ ". The isEmpty function takes exactly one argument. The argument should be either a list or a tuple."
+      [] ->  throwError $ "You called the '"++ blue "isEmpty" ++ "' function with no arguments at"  ++ showStart meta ++ ". The '"++ blue "isEmpty" ++ "' function takes exactly one argument. The argument should a list."
+      (_:_:_) -> throwError $ "You called the '"++ blue "isEmpty" ++ "' function with too many arguments at " ++ showStart meta ++ ". The '"++ blue "isEmpty" ++ "' function takes exactly one argument. The argument should be a list."
       [arg] -> pure arg
 
     -- todo not so nice that we need to have a new type var for every print check, we could also infer first check if its a list and only if not introduce a type var
     tyvar <- newTyVar
-    s1 <- tc arg (ListType tyvar) `catchError` \e -> throwError ("You can only call isEmpty on list types.'\n" ++ e) -- we need the sub for the type var in the argument
+    s1 <- tc arg (ListType tyvar) `catchError` \e -> throwError (red "You can only call '"++ blue "isEmpty" ++ red "' on list types.'\n" ++ e) -- we need the sub for the type var in the argument
     s2 <- unify ty BoolType
     let s = s1  `composeSubst` s2
     applySubToTIenv s

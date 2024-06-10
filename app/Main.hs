@@ -11,7 +11,6 @@ import SPL.Typechecker2
 import SPL.Optimizer (opti, collapseBlocks, opti_improvement)
 import SPL.Return
 
-import qualified Data.Text as T
 import SPL.Preprocess
 import GHC.Base (when)
 import SPL.PrettyPrint
@@ -75,7 +74,7 @@ main = do
     putStrLn $ blue "Optimizing step shrunk AST with by " ++ green (show improvement' ++ "%")
     when (improvement' > 0) (putStrLn $ blue "New Optimised AST:\n" ++  pretty optimized_ast)
     putStrLn $ blue "Generating ssm ast"
-    let code = getSmmCode typechecked_ast-- optimized_ast
+    let code = getSmmCode optimized_ast
         formatted_code = formatCode code
     putStrLn formatted_code
     -- "#!java -jar ssm/ssm.jar\n"
