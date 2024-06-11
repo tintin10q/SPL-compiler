@@ -115,7 +115,7 @@ emptyEnv = Info Map.empty (-1) False False
 
 
 getSmmCode :: Program TypecheckedP -> Code
-getSmmCode p = let (code, env) = runState (generate p) emptyEnv in code
+getSmmCode p = evalState (generate p) emptyEnv
 
 -- With the tuples we should probably have a pointer to the tuple somewhere and then based on the field access load the value.
 
@@ -222,7 +222,7 @@ instance GenSSM (Literal TypecheckedP) where
       generate TrueLit = pure [LDC (-1)] -- There is also a True and False but its just a bit pattern https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#True
       generate FalseLit = pure [LDC 0]
       generate (IntLit int)  = pure [LDC int]
-      generate (CharLit char)  = pure [LDC $ ord char] 
+      generate (CharLit char)  = pure [LDC $ ord char]
       generate EmptyListLit = pure [LDC 0, LDC 0, STMH 2] -- address of 0 marks the end of the array!
       -- A tuple always has two values. These do not have to be other tuples. In theory the type checker knows what kind of tuple it wants to get.
       -- So lets make it [value1, value2], one of these can be an address but you don't know.
@@ -232,9 +232,11 @@ instance GenSSM (Literal TypecheckedP) where
 instance GenSSM (Stmt TypecheckedP) where
       generate (ExprStmt _ expr) = generate expr -- Todo clean these up though? Right? 
       generate (AssignStmt _ (Identifier name Nothing) expr) = generate expr <> storeVar name
-      generate (AssignStmt _ (Identifier name (Just field)) expr) = error "Field assignment is not supported yet"
-      -- Based on the field we have to find out the adress. We can get the adress of locals and also the adress of globals. 
-      --  Then we have to dereference them and do get the next adress and store something there!
+      generate (AssignStmt _ (Identifier name (Just HeadField)) expr) = generate expr <> loadVar name <> pure [STA (-1)]
+      generate (AssignStmt _ (Identifier name (Just TailField)) expr) = generate expr <> loadVar name <> pure [STA 0]
+      generate (AssignStmt _ (Identifier name (Just FirstField)) expr) = generate expr <> loadVar name <> pure [STA (-1)]
+      generate (AssignStmt _ (Identifier name (Just SecondField)) expr) = generate expr <> loadVar name <> pure [STA 0]
+      -- Woah who would have thought that the field assignments is the same code 
 
       generate (ReturnStmt _ (Just e)) = do
             unlinkNeeded <- gets needsUnlink
@@ -364,11 +366,26 @@ generatePrint ty = case Debug.trace (";; Printing the type " ++ show ty) ty of
                                                     BRA ((-20) - printItemCodeSize +2),   -- Jump back to the brf 12
                                                     LDC (ord ']'), TRAP 1, AJS (-1)] -- These prints leave 1 value on the stack always just clean that up
                               -- ListType (ListType a) -> 
+                              TupleType a b  -> let printAcode = generatePrint a
+                                                    printBcode = generatePrint b
+                                                 in [
+                                                      LABEL "'printTuple", LDC (ord '('), TRAP 1,
+                                                      LDS 0,  -- Copy for the second value
+                                                      LDA (-1)
+                                                 ] <> printAcode <>
+                                                 [LDC (ord ','), TRAP 1, LDC (ord ' '), TRAP 1, LDA 0] -- Print `, ` and load next value
+                                                 <> printBcode <> [LDC (ord ')'), TRAP 1]
                               ty' -> printStringCode ("Error: Can not print value of type " ++ showTypeWithoutColor ty' ++ "\n")
 
 instance GenSSM (Expr TypecheckedP) where
       generate (BinOpExpr _ op left right) = generate left <> generate right <> generate op
-      generate (UnaryOpExpr _ op operand) = generate  operand <> generate op
+      -- we need to do unaryopexpr here cause we need the meta. I tried adding meta to field access in the metafield branch but it didn't work with nested field access
+      generate (UnaryOpExpr _ Negate operand) = generate  operand <> pure [NEG]
+      generate (UnaryOpExpr _ Min operand) = generate operand <> pure [NEG]
+      generate (UnaryOpExpr (_,meta) (FieldAccess HeadField) operand) = generate  operand <> headaccess meta
+      generate (UnaryOpExpr _ (FieldAccess TailField) operand) = generate  operand <> pure tailaccess
+      generate (UnaryOpExpr _ (FieldAccess FirstField) operand) = generate  operand <> pure [LDA (-1)]
+      generate (UnaryOpExpr _ (FieldAccess SecondField) operand) = generate  operand <> pure [LDA 0]
       -- Now it would be really nice if we could know the type of arg 
       generate (FunctionCallExpr _ "exit" _) = pure [HALT]
       generate (FunctionCallExpr _ "print" []) = pure [LDC newline, TRAP 1]
@@ -384,16 +401,25 @@ instance GenSSM (Expr TypecheckedP) where
                                                              removeArgs = [AJS (-argcount) | argcount > 0]
                                                          return $ argcode <> [Bsr func] <> removeArgs <> [LDR RR | ty /= VoidType]
       generate (VariableExpr _ (Identifier varname Nothing)) = loadVar varname
-      generate (VariableExpr (_, meta) (Identifier varname (Just HeadField))) = includeOutOfBoundsRuntimeExceptionCode >> loadVar varname <> pure ( checkBounds <> [LDA (-1)])
-            where checkBounds1 = [LDS 0, LDA 0]
-                  checkBounds2 = [LDC (startCol meta), LDC (startLine meta), Bra "'outOfBoundExpection"]
-                  jumpSize = codeSize checkBounds2
-                  checkBounds = checkBounds1 <> [BRT jumpSize] <> checkBounds2
-      generate (VariableExpr _ (Identifier varname (Just TailField))) = loadVar varname  <> pure [LDA 0]
+      generate (VariableExpr (_, meta) (Identifier varname (Just HeadField))) = loadVar varname <> headaccess meta
+      generate (VariableExpr _ (Identifier varname (Just TailField))) = loadVar varname  <> pure tailaccess
       generate (VariableExpr _ (Identifier varname (Just FirstField))) = loadVar varname <> pure [LDA (-1)]
       generate (VariableExpr _ (Identifier varname (Just SecondField))) = loadVar varname <> pure [LDA 0]
       generate (LiteralExpr _ literal) = generate literal
 
+
+headaccess :: SourceSpan -> Env Code
+headaccess meta = includeOutOfBoundsRuntimeExceptionCode >> pure ( checkBounds <> [LDA (-1)])
+            where checkBounds1 = [LDS 0, LDA 0]
+                  checkBounds2 = [LDC (startCol meta), LDC (startLine meta), Bra "'outOfBoundExpection"]
+                  jumpSize = codeSize checkBounds2
+                  checkBounds = checkBounds1 <> [BRT jumpSize] <> checkBounds2
+
+tailaccess :: Code
+tailaccess = [LDS 0, LDA 0,  -- Check zero
+              BRF 2, -- If its 0 leave the adress unchanged
+              LDA 0  -- Else load the tail 
+             ]
 
 -- We can generate the enviroment before we do any code generation because we know where it will end up
 -- buildFunEnv :: [Decl TypecheckedP] -> Env Code -> Env Code
@@ -458,13 +484,6 @@ Because we do stmh the adress which points to the adress in the heap of the prev
 
 -}
       generate Cons = pure [STMH 2]
-
-
-instance GenSSM UnaryOp where
-      generate Negate = pure [NEG]
-      generate Min = pure [NEG]
-      -- TODO: Fix generate for FieldAccess
-      generate _ = error "Field access is not supported. :("
 
 
 -- We have a global value

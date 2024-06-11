@@ -833,7 +833,7 @@ instance Types (Expr TypecheckedP) where
   typevars (VariableExpr (ty, _) _) = typevars ty
   typevars (LiteralExpr (ty, _) lit) = typevars ty <> typevars lit
   apply s (BinOpExpr (ty, meta) op e1 e2) = (BinOpExpr (apply s ty, meta) op (apply s e1) (apply s e2))
-  apply s (UnaryOpExpr (ty, meta) op e) = (UnaryOpExpr (apply s ty, meta) op e)
+  apply s (UnaryOpExpr (ty, meta) op e) = (UnaryOpExpr (apply s ty, meta) op (apply s e))
   apply s (FunctionCallExpr (ty, meta) name args) = (FunctionCallExpr (apply s ty, meta) name (apply s args))
   apply s (VariableExpr (ty, meta) var) = (VariableExpr (apply s ty, meta) var)
   apply s (LiteralExpr (ty, meta) lit) = (LiteralExpr (apply s ty, meta) (apply s lit))

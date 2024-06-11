@@ -1,10 +1,79 @@
 
+var ten = 10;
+var one = 1;
+var two = 2;
+
+listfield(list_arg) {
+    var list = 1:list_arg:[];
+    print("== List ==\n");
+    print("List: ");
+    print(list);
+    print();
+    print(ten + 1 + list_arg * list_arg );
+    print(" = ");
+    print(ten + list.hd + list.tl.hd * list.tl.hd);
+    print();
+    print("Tail:");
+    print(list.tl);
+}
+
+tuplefield(a_inp: Char) {
+    var a = (a_inp,'b');
+    var a2 = (1, 2);
+    print("== Tuples ==\n");
+    print("a: ");
+    print(a);
+    print("\na items are: ");
+    print(a.fst);
+    print(" and ");
+    print(a.snd);
+    print("\na2: ");
+    print(a2);
+}
+
+listtuple() {
+    var a = (1,2):(3,4):[];
+    print("== Tuple in list:==\n");
+    print(a);
+    print("\nhead: ");
+    print(a.hd);
+    print("\ntail: ");
+    print(a.tl);
+    print("\nfst of head: ");
+    print(a.hd.fst);
+    print("\nsnd of head: ");
+    print(a.hd.snd);
+}
+
+
+tuplelist() {
+    var a = (1:2:3:[], True:False:[]);
+    print("== List in tuple:==\n");
+    print(a);
+    print("\nfirst: ");
+    print(a.fst);
+    print("\nsecond: ");
+    print(a.snd);
+    print("\nhead of fst: ");
+    print(a.fst.hd);
+    print("\nhead of snd: ");
+    print(a.snd.hd);
+}
+
+tupletuple() {
+    var a = ((1,2), ((True, True), (False, False)));
+    print("== Tuple tuple ==\n");
+    print(a);
+}
+
 main() {
-    var list = 3:2:[];
-    /*
-    var a = 3:[];
-    var int = 0;
-    var b = 1:a;
-    */
-    print(list.hd + list.hd * list.hd);
+    listfield(2);
+    print();
+    tuplefield('a');
+    print();
+    listtuple();
+    print();
+    tuplelist();
+    print();
+    tupletuple();
 }

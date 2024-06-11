@@ -1,0 +1,25 @@
+
+tupleassignment() {
+    var a = ((False, False),2);
+    print(a);
+    a.fst = (True, True);
+    a.snd = a.snd * a.snd;
+    print(" -> ");
+    print(a);
+}
+
+
+listassignment() {
+    var a = [];
+    print(a);
+    print(" -> ");
+    a.tl = 2:3:[];
+    a.hd = 1;
+    print(a);
+}
+
+main() {
+    tupleassignment();
+    print();
+    listassignment();
+}
