@@ -11,10 +11,19 @@ var pos = 0;
   //'+':'+':'+':'+':'[':'>':'+':'+':'+':'+':'+':'<':'-':']':'>':'[':'<':'+':'+':'+':'+':'+':'>':'-':']':'+':'<':'+':'[':'>':'[':'>':'+':'>':'+':'<':'<':'-':']':'+':'+':'>':'>':'[':'<':'<':'+':'>':'>':'-':']':'>':'>':'>':'[':'-':']':'+':'+':'>':'[':'-':']':'+':'>':'>':'>':'+':'[':'[':'-':']':'+':'+':'+':'+':'+':'+':'>':'>':'>':']':'<':'<':'<':'[':'[':'<':'+':'+':'+':'+':'+':'+':'+':'+':'<':'+':'+':'>':'>':'-':']':'+':'<':'.':'<':'[':'>':'-':'-':'-':'-':'<':'-':']':'<':']':'<':'<':'[':'>':'>':'>':'>':'>':'[':'>':'>':'>':'[':'-':']':'+':'+':'+':'+':'+':'+':'+':'+':'+':'<':'[':'>':'-':'<':'-':']':'+':'+':'+':'+':'+':'+':'+':'+':'+':'>':'[':'-':'[':'<':'-':'>':'-':']':'+':'[':'<':'<':'<':']':']':'<':'[':'>':'+':'<':'-':']':'>':']':'<':'<':'-':']':'<':'<':'-':']':[];
 var program_pos = 0;
 
-main() : Void {
-  cells = init(size);
-  execute(program);
+// Initialize `s` cells to 0:
+init(s : Int) : [Int] {
+  [Int] list = [];
+
+  while (s > 0) {
+    list = 0 : list;
+    s = s - 1;
+  }
+  return list;
 }
+
+
+
 
 // Get the current cell:
 get_current() : [Int] {
@@ -37,6 +46,11 @@ get_at(prog : [Char], i : Int) : Char {
   while (tmp > 0) {
     p = p.tl;
     tmp = tmp - 1;
+  }
+
+  if (isEmpty(p)) {
+    print("Reached end of tape!\n");
+    exit(); 
   }
 
   return p.hd;
@@ -92,8 +106,14 @@ search_right() : Void {
 
 // Execute a brainfuck program:
 execute(prog : [Char]) : Void {
-  var head = prog.hd;
+  var head = ' '; 
   [Int] current = [];
+
+  print("Executing Brainfuck: ");
+  print(prog);
+  print(); 
+  
+  head = prog.hd;
 
   while (pos < 1000) {
     head = get_at(program, program_pos);
@@ -130,9 +150,12 @@ execute(prog : [Char]) : Void {
                   // an Int to a Char. For correct brainfuck
                   // behaviour, we should convert the current cell
                   // value to a Char and print it as that:
-                  print(current.hd);
+                  printIntAsChar(current.hd);
                 } else {
-
+                  print("Invalid instruction: '");
+                  print(current.hd);
+                  print("' brainfuck machine halted!\n");
+                  exit();
                 }
               }
             }
@@ -144,13 +167,8 @@ execute(prog : [Char]) : Void {
   }
 }
 
-// Initialize `s` cells to 0:
-init(s : Int) : [Int] {
-  [Int] list = [];
 
-  while (s > 0) {
-    list = 0 : list;
-    s = s - 1;
-  }
-  return list;
+main() : Void {
+  cells = init(size);
+  execute(program);
 }

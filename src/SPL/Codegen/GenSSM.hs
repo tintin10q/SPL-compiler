@@ -387,6 +387,8 @@ instance GenSSM (Expr TypecheckedP) where
       generate (UnaryOpExpr _ (FieldAccess FirstField) operand) = generate  operand <> pure [LDA (-1)]
       generate (UnaryOpExpr _ (FieldAccess SecondField) operand) = generate  operand <> pure [LDA 0]
       -- Now it would be really nice if we could know the type of arg 
+      generate (FunctionCallExpr _ "printIntAsChar" [arg]) = generate arg <> pure [TRAP 1]
+      generate (FunctionCallExpr _ "getChar" _ ) = pure [TRAP 11]
       generate (FunctionCallExpr _ "exit" _) = pure [HALT]
       generate (FunctionCallExpr _ "print" []) = pure [LDC newline, TRAP 1]
       generate (FunctionCallExpr _ "print" [arg]) = generate arg <> pure (generatePrint (getType arg))

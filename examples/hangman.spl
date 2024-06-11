@@ -33,6 +33,12 @@ contains(word, letter) {
     return False;
 }
 
+clear() {
+ //print("\ESC[2J\ESC[H");
+ print("Clear");
+}
+
+
 main() {
     var secret = "monomorph";
     var wordSoFar = beginWord(secret);
@@ -52,7 +58,6 @@ main() {
             if(!contains(wordSoFar, '_')) {
                 print("SUCCESS!\nword was: ");
                 print(secret);
-                return;
             }
             print("Correct!\n");
         } else {

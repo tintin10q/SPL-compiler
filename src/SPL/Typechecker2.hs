@@ -94,6 +94,8 @@ instance Types a => Types (Maybe a) where
 defaultFunEnv :: Map String Scheme
 defaultFunEnv = Map.fromList [("print", Scheme (Set.singleton "'print_inputty") (FunType [TypeVar "print_inputty" False] VoidType)),
                               ("isEmpty", Scheme (Set.singleton "'isEmptyInput") (FunType [ListType (TypeVar "'isEmptyInput" False)] BoolType)),
+                              ("getChar", Scheme Set.empty (FunType [] CharType)), -- askChar is a better name
+                              ("printIntAsChar", Scheme Set.empty (FunType [IntType] VoidType)), -- askChar is a better name
                               ("exit", Scheme Set.empty (FunType [] VoidType))
                             ]
 

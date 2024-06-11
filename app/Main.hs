@@ -16,6 +16,7 @@ import GHC.Base (when)
 import SPL.PrettyPrint
 import SPL.Codegen.GenSSM (getSmmCode)
 import SPL.Codegen.SSM (formatCode)
+import SPL.AST (Convertable(upgrade))
 
 -- import System.Posix.Files (getFileStatus, fileMode, setFileMode, ownerExecuteMode, groupExecuteMode, otherExecuteMode)
 -- import System.Posix.Types (FileMode)
@@ -54,6 +55,7 @@ main = do
     when (improvement < 0) $ putStrLn (blue "Pruned " ++ green (show (-improvement) ++ "%") ++ blue " of tree by removing dead code.")
     putStrLn $ pretty preprocessed_ast
     return_checked_ast <- eitherStrIO $ checkReturns preprocessed_ast
+    -- let return_checked_ast = map upgrade preprocessed_ast
     let explicit_returns_ast = makeVoidReturnsExplicit return_checked_ast
     -- putStr $ pretty explicit_returns_ast
     putStrLn (blue "\nSuccesfull return path analysis!")

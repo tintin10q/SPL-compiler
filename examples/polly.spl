@@ -1,20 +1,35 @@
 
-
+/*
 
 hi1(a, b:[[Int]] ) {
     var c = b == a;
     return a;
 }
 
-
-hi(a, b ) {
-    var c = b == a;
+id(a) {
     return a;
+}
+*/
+
+
+eq(a, b) {
+    var c = b == a;
+    return c;
 }
 
 
 main() {
-    hi(1,3);
-    hi(true,true);
+    /*
+    //hi(1,3);
+    //hi(True,True);
+    print("ID:");
+    print();
+    print(id("hi there"));
+    print();
+    print(id(3));
+    print("\nHI:");
+    */
+    print(eq([], []));
+
     return;
 }

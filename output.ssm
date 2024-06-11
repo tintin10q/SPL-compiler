@@ -1,62 +1,42 @@
 	Bsr main
 	HALT
-iff:
-	LINK 2
-	LDML -2 1
-	STML 1 1
-	LDC 3
-	STL 2
+eq:
+	LINK 3
+	LDML -3 2
+	STML 1 2
 	LDL 2
-	LDC 3
+	LDL 1
 	EQ
-	BRF 6
-	LDC 0
-	STR RR
-	UNLINK
-	RET
-	LDC 0
+	STL 3
+	LDL 3
 	STR RR
 	UNLINK
 	RET
 	UNLINK
 main:
-	LINK 1
-	LDC 3
-	STL 1
-	LDL 1
-	LDC 0
-	GT
-	BRF 57
-	LDL 1
-	TRAP 0
-	LDC 32
-	LDC 62
-	LDC 32
-	LDC 48
-	LDC 10
 	LDC 0
 	LDC 0
 	STMH 2
+	LDC 0
+	LDC 0
 	STMH 2
-	STMH 2
-	STMH 2
-	STMH 2
-	STMH 2
-'printChrList:
-	LDS 0
-	LDA 0
-	BRF 10
-	LDS 0
-	LDA -1
-	TRAP 1
-	LDA 0
-	BRA -16
-	AJS -1
-	LDL 1
-	LDC 1
-	SUB
-	STL 1
-	BRA -64
-	UNLINK
+	Bsr eq
+	AJS -2
+	LDR RR
+'printBool:
+	BRF 14
+	LDC 0
+	LDC 101
+	LDC 117
+	LDC 114
+	LDC 84
+	TRAP 2
+	BRA 14
+	LDC 0
+	LDC 101
+	LDC 115
+	LDC 108
+	LDC 97
+	LDC 70
+	TRAP 2
 	RET
-	UNLINK

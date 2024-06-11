@@ -446,3 +446,15 @@ makeVoidReturnsExplicit (fun@(FunDecl meta name (Just VoidType) args vars body) 
                                          _ -> False
 makeVoidReturnsExplicit (fun@(FunDecl {}) : later) = fun : makeVoidReturnsExplicit later
 
+makeTypedVoidReturnsExplicit :: [Decl TypecheckedP] -> [Decl TypecheckedP]
+makeTypedVoidReturnsExplicit [] = []
+makeTypedVoidReturnsExplicit (var@(VarDecl {}) : later) = var : makeTypedVoidReturnsExplicit later
+makeTypedVoidReturnsExplicit ((FunDecl meta name VoidType args vars []) : later) = FunDecl meta name VoidType args vars [ReturnStmt meta Nothing] : makeTypedVoidReturnsExplicit later
+makeTypedVoidReturnsExplicit (fun@(FunDecl meta name VoidType args vars body) : later) =
+  let lastStmt = last body
+  in (if isReturnStatement lastStmt then fun else FunDecl meta name VoidType args vars (body ++ [ReturnStmt meta Nothing])) : makeTypedVoidReturnsExplicit later
+          where isReturnStatement s = case s of
+                                         ReturnStmt {} -> True
+                                         _ -> False
+makeTypedVoidReturnsExplicit (fun@(FunDecl {}) : later) = fun : makeTypedVoidReturnsExplicit later
+
