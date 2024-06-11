@@ -94,7 +94,20 @@ instance Optimise (Expr TypecheckedP) where
                                             (LiteralExpr m TrueLit) -> LiteralExpr m FalseLit
                                             (LiteralExpr m FalseLit) -> LiteralExpr m TrueLit
                                             opti_expr -> (UnaryOpExpr meta Negate opti_expr)
-  opti (UnaryOpExpr meta (FieldAccess f) expr) = UnaryOpExpr meta (FieldAccess f) (opti expr) -- todo, if its a tuple literal we can get rid of the tuple!
+  -- Optimise literal field access
+  opti (UnaryOpExpr meta (FieldAccess SecondField) expr) = case opti expr of 
+                                            (LiteralExpr _ (TupleLit (_,e2))) -> opti e2 
+                                            opti_expr ->  (UnaryOpExpr meta (FieldAccess SecondField) opti_expr)
+  opti (UnaryOpExpr meta (FieldAccess FirstField) expr) = case opti expr of 
+                                            (LiteralExpr _ (TupleLit (e1,_))) -> opti e1 
+                                            opti_expr ->  (UnaryOpExpr meta (FieldAccess FirstField) opti_expr)
+  opti (UnaryOpExpr meta (FieldAccess HeadField) expr) = case opti expr of 
+                                            (BinOpExpr _ Cons e1 _) -> opti e1
+                                            opti_expr ->  (UnaryOpExpr meta (FieldAccess HeadField) opti_expr)
+  opti (UnaryOpExpr meta (FieldAccess TailField) expr) = case opti expr of 
+                                            (BinOpExpr (ty,_) Cons _ (LiteralExpr (_, m) EmptyListLit)) -> (LiteralExpr (ty, m) EmptyListLit)
+                                            (BinOpExpr _ Cons _ e2) -> opti e2 -- Special case for empty list to propagate the type
+                                            opti_expr ->  (UnaryOpExpr meta (FieldAccess TailField) opti_expr)
   opti (FunctionCallExpr _ "isEmpty" [LiteralExpr (_, meta) EmptyListLit]) = LiteralExpr (BoolType, meta) TrueLit 
   opti (FunctionCallExpr _ "isEmpty" [BinOpExpr (_,meta) Cons _ _]) = LiteralExpr (BoolType, meta) FalseLit 
   opti (FunctionCallExpr meta funname args) = FunctionCallExpr meta funname (map opti args)

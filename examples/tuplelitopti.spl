@@ -1,0 +1,8 @@
+main() {
+    print(("Never":"a":[]).tl);
+    print(("a":"b":"c":[]).tl);
+    print();
+    print(('H':[]).hd);
+    print(('o',"Long string").fst);
+    print(("Long string",'i').snd);
+}
