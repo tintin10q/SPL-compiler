@@ -1,104 +1,62 @@
 	Bsr main
 	HALT
-main:
-	LDC 97
+iff:
+	LINK 2
+	LDML -2 1
+	STML 1 1
+	LDC 3
+	STL 2
+	LDL 2
+	LDC 3
+	EQ
+	BRF 6
 	LDC 0
-	LDC 0
-	STMH 2
-	STMH 2
-	LDC 0
-	LDC 0
-	STMH 2
-	STMH 2
-'printStringList:
-	LDC 91
-	TRAP 1
-	LDS 0
-	LDA 0
-	BRF 48
-	LDC 34
-	TRAP 1
-	LDS 0
-	LDA -1
-'printChrList:
-	LDS 0
-	LDA 0
-	BRF 10
-	LDS 0
-	LDA -1
-	TRAP 1
-	LDA 0
-	BRA -16
-	AJS -1
-	LDA 0
-	LDS 0
-	LDA 0
-	BRF 10
-	LDC 34
-	TRAP 1
-	LDC 44
-	TRAP 1
-	BRA -44
-	LDC 34
-	TRAP 1
-	LDC 93
-	TRAP 1
-	AJS -1
-	LDC 98
-	LDC 0
-	LDC 0
-	STMH 2
-	STMH 2
-	LDC 99
-	LDC 0
-	LDC 0
-	STMH 2
-	STMH 2
-	LDC 0
-	LDC 0
-	STMH 2
-	STMH 2
-	STMH 2
-'printStringList:
-	LDC 91
-	TRAP 1
-	LDS 0
-	LDA 0
-	BRF 48
-	LDC 34
-	TRAP 1
-	LDS 0
-	LDA -1
-'printChrList:
-	LDS 0
-	LDA 0
-	BRF 10
-	LDS 0
-	LDA -1
-	TRAP 1
-	LDA 0
-	BRA -16
-	AJS -1
-	LDA 0
-	LDS 0
-	LDA 0
-	BRF 10
-	LDC 34
-	TRAP 1
-	LDC 44
-	TRAP 1
-	BRA -44
-	LDC 34
-	TRAP 1
-	LDC 93
-	TRAP 1
-	AJS -1
-	LDC 10
-	TRAP 1
-	LDC 72
-	TRAP 1
-	LDC 111
-	TRAP 1
-	LDC 105
-	TRAP 1
+	STR RR
+	UNLINK
 	RET
+	LDC 0
+	STR RR
+	UNLINK
+	RET
+	UNLINK
+main:
+	LINK 1
+	LDC 3
+	STL 1
+	LDL 1
+	LDC 0
+	GT
+	BRF 57
+	LDL 1
+	TRAP 0
+	LDC 32
+	LDC 62
+	LDC 32
+	LDC 48
+	LDC 10
+	LDC 0
+	LDC 0
+	STMH 2
+	STMH 2
+	STMH 2
+	STMH 2
+	STMH 2
+	STMH 2
+'printChrList:
+	LDS 0
+	LDA 0
+	BRF 10
+	LDS 0
+	LDA -1
+	TRAP 1
+	LDA 0
+	BRA -16
+	AJS -1
+	LDL 1
+	LDC 1
+	SUB
+	STL 1
+	BRA -64
+	UNLINK
+	RET
+	UNLINK

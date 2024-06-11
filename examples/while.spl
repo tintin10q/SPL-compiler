@@ -7,19 +7,11 @@ iff (tmp : Int) {
     return 0;
 }
 
-main (tmp : Int) {
-    var tmp2 = 3;
-    var result = 0;
-    while (tmp2 == 3) {
-        //p = p.tl;
-        tmp = tmp - 1;
-        while (tmp2 == 3) {
-        //p = p.tl;
-            tmp = tmp - 1;
-            result = 3;
-        }
-        // here it saw that the previous while loop returns a value but we at this point don't. But this should be checked by the decl?
-        // Lets leave this for now and get going with code gen after we merge the type check function
+main () {
+    var tmp = 3;
+    while (tmp > 0) {
+        print(tmp);
+        print(" > 0\n");
+        tmp = tmp -1;
     }
-    return result;
 }

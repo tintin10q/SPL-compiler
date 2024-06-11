@@ -1,0 +1,71 @@
+beginWord(secret : [Char]) : [Char] {
+    var result = [];
+    while (!isEmpty(secret))
+    {
+        result = '_' : result;
+        secret = secret.tl;
+    }
+    return result;
+}
+
+replaceLetters(secretWord : [Char], currentWord : [Char], letter : Char) : Void {
+    while(!isEmpty(currentWord) && !isEmpty(secretWord))
+    {
+        if (secretWord.hd == letter)
+        {
+            currentWord.hd = letter;
+        }
+
+        currentWord = currentWord.tl;
+        secretWord = secretWord.tl;
+    }
+}
+
+contains(word, letter) {
+    
+    while(!isEmpty(word)) {
+        if(word.hd == letter) {
+            return True;
+        }
+        word = word.tl;
+    }
+
+    return False;
+}
+
+main() {
+    var secret = "monomorph";
+    var wordSoFar = beginWord(secret);
+    [Char] guesses = []; // Change this to []
+    var mistakes = 0;
+    Char c = ' ';
+
+    clear(); // puts "\ESC[2J\ESC[H" to clear screen and reset cursor to the top
+    print("\n\n\n");
+    while(mistakes < 7) {
+        print(wordSoFar);
+        print('\n');
+        c = getChar();
+        clear();
+        if(contains(secret, c)) {
+            replaceLetters(secret, wordSoFar, c);
+            if(!contains(wordSoFar, '_')) {
+                print("SUCCESS!\nword was: ");
+                print(secret);
+                return;
+            }
+            print("Correct!\n");
+        } else {
+            print("Incorrect!\n");
+            mistakes = mistakes + 1;
+        }
+        guesses = c : guesses;
+        print("Guesses: ");
+        print(guesses);
+        print("\nMistakes: ");
+        print(mistakes);
+        print('\n');
+    }
+    clear();
+    print("failed!");
+}

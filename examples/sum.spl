@@ -1,0 +1,19 @@
+
+
+
+sum(list: [Int] ) {
+    if (isEmpty(list)) {
+        return 0;
+    }
+    return list.hd + sum(list.tl);
+}
+
+main() {
+    var list = 1:2:3:[];
+    print("Got ");
+    print(list);
+    print();
+    print("Sum: ");
+    print(sum(list));
+    
+}
