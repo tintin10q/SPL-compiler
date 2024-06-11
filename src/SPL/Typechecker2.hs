@@ -86,7 +86,7 @@ instance (Types a) => Types [a] where
 instance Types a => Types (Maybe a) where
   typevars Nothing =  Debug.traceStack (red "Weird error.") error " Trying to get type vars from a nothing!!!!"
   typevars (Just a) = typevars a
-  apply sub Nothing =  Debug.trace ("Trying to apply sub "++ show sub ++" on empty maybe") Nothing
+  apply _sub Nothing =  {-Debug.trace ("Trying to apply sub "++ show _sub ++" on empty maybe")-} Nothing
   apply sub (Just a) = Just (apply sub a)
 
 {- Functions for the TIenv state monad-}
@@ -199,14 +199,13 @@ newTyVar = do
 -- Automatically takes care of shadowed variables based on the current global Var names
 extendVarEnv :: VarEnv -> TI ()
 extendVarEnv new_varenv =
-
-              modify (\env@TIenv {currentVarEnv = varenv} -> let new = varenv <> new_varenv in Debug.trace ("Extending var env with" ++ show new_varenv ++ " now its "++ show new) env  {currentVarEnv = new })
+              modify (\env@TIenv {currentVarEnv = varenv} -> let new = varenv <> new_varenv in {-Debug.trace ("Extending var env with" ++ show new_varenv ++ " now its "++ show new)-} env  {currentVarEnv = new })
 
 extendFunEnv :: String -> Scheme -> TI ()
 extendFunEnv funname fun_type = modify (\env@TIenv {currentFunEnv = funenv} -> env {currentFunEnv = Map.insert funname fun_type funenv })
 
 resetVarEnv :: VarEnv -> TI ()
-resetVarEnv varenv = debugEnv "Reseting var env from!" >> modify (\env -> env {currentVarEnv = varenv}) >> debugEnv "To this!"
+resetVarEnv varenv = {-debugEnv "Reseting var env from!" >>-} modify (\env -> env {currentVarEnv = varenv}) {- >> debugEnv "To this!"-}
 
 -- If the string is the current function return the type of the current function else instanctiate the type scheme and return that. 
 lookupFunTypeOf :: String -> TI Type
@@ -236,7 +235,7 @@ instance Types Type where
   apply subst t@(TypeVar var False) = 
     case Map.lookup var subst of
         Nothing -> t; -- Return the same type variable  
-        Just concrete -> Debug.trace ("Narrowing typevar: " ++ show var ++ " to " ++ show concrete) $ 
+        Just concrete -> {- Debug.trace ("Narrowing typevar: " ++ show var ++ " to " ++ show concrete) $ -}
                   case concrete of 
                     TypeVar tyvarname False -> let further = apply subst concrete -- lookup if there is 2 people with typevars that are the same type. 
                                                 in Debug.trace ("Narrowed typevar: " ++ tyvarname ++ " further to " ++ show further) further
@@ -534,8 +533,8 @@ instance Typecheck (Expr TypecheckedP) where
     replaceMeta meta
     funtype <- lookupFunTypeOf funcName
     (funargs, retty) <- case funtype of
-          FunType funargs retty -> Debug.trace (black "got funtype of " ++ funcName ++ " as " ++ show funtype ) pure (funargs, retty)
-          ty -> error $ ("Did not get a funtype after instantiate scheme, how does that happen!!" ++ show ty ++ " ") ++ showStart meta
+          FunType funargs retty -> {- Debug.trace (black "got funtype of " ++ funcName ++ " as " ++ show funtype )-} pure (funargs, retty)
+          nonfunty -> error $ ("Did not get a funtype after instantiate scheme, how does that happen!!" ++ show nonfunty ++ " ") ++ showStart meta
 
     let arg_count = length funargs
         n_given_args = length args
@@ -663,7 +662,7 @@ instance Typecheck [Stmt TypecheckedP] where
     (mysub, mytype) <- ti stmt
     (latersub, othertype) <- ti later
     let sub = mysub `composeSubst` latersub
-    logTI ("Got sub in stmt list checker" ++ show sub)
+    -- logTI ("Got sub in stmt list checker" ++ show sub)
     case (mytype, othertype) of
       -- I think we have to have these cases so that unify does not have to deal with VoidType
       (VoidType, VoidType) -> pure (sub, VoidType)
@@ -689,7 +688,7 @@ The problem with this is that we don't need to actually combine the subs from th
 -}
 instance Typecheck (Decl TypecheckedP) where
   ti (VarDecl meta name ty expr) = do
-    Debug.trace ("Inferencing decl " ++ blue name ) pure ()
+    {- logTI ("Inferencing decl " ++ blue name ) -}
     replaceMeta meta
     sub <- tc expr ty
     -- debugEnv "Exstending the type env"
@@ -723,7 +722,7 @@ instance Typecheck (Decl TypecheckedP) where
       applySubToTIenv infered_fundelc_sub -- Not needed because ti does it already doesn't hurt.
 
       infered_body_sub <- tc body initial_retty
-      logTI $ "Infered body sub: " ++ show infered_body_sub ++ "\nfrom body : " ++ show body
+      -- logTI $ "Infered body sub: " ++ show infered_body_sub ++ "\nfrom body : " ++ show body
 
       let function_sub = infered_fundelc_sub `composeSubst` infered_body_sub
 
@@ -769,7 +768,7 @@ unifyError ty2@(TypeVar u True) ty1 = do
 unifyError ty1 ty2@(TypeVar u True) = do
   errorHead <- unifyErrorHead
   errorTail <- unifyErrorTail ty1 ty2
-  debugEnv "right before crash"
+  -- debugEnv "right before crash"
   throwError $ errorHead ++ "Types do not unify:\n" ++ (show ty1) ++ " vs. " ++ show ty2 ++ "Cannot unify " ++ show ty2 ++ " with " ++ show ty1 ++ ", as '" ++ blue u ++ "' is a rigid type variable.\nA rigid type variable (in this case " ++ u ++ ") means that the caller can choose the type. Because of this we don't know which operations are possible and thus cannot unify further.\nThis happened" ++ errorTail
 unifyError ty1 ty2 = unifyErrorHead >>= \errorHead -> unifyErrorTail ty1 ty2 >>= \errorTail -> throwError $ errorHead ++ "Types do not unify:\n" ++ show ty1 ++ " vs. " ++ show ty2 ++ errorTail
 
@@ -801,7 +800,7 @@ checkProgram program = runTI (instantiateProgram program >>= checkDecls)
 checkDecls :: Program TypecheckedP -> TI (Program TypecheckedP)
 checkDecls [] = return []
 checkDecls (decl:future) = do
-  (sub, ty) <- ti decl
+  (sub, _) <- ti decl
   solved <- checkDecls future
   return $ apply sub decl : solved
 

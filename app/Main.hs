@@ -38,8 +38,8 @@ main = do
     -- todo better error msg for this
     let filename = case args of
                 [] -> error $ red "No output file specified!"
-                [filename] -> filename
-                (filename:_) -> filename
+                [filename'] -> filename'
+                (filename':_) -> filename'
     putStrLn $ "Reading file " ++ blue filename
     source <- TIO.readFile filename
     -- putStrLn $ blue "Read in Source:\n" ++ T.unpack source
@@ -55,14 +55,15 @@ main = do
     putStrLn $ pretty preprocessed_ast
     return_checked_ast <- eitherStrIO $ checkReturns preprocessed_ast
     let explicit_returns_ast = makeVoidReturnsExplicit return_checked_ast
-    putStr $ pretty explicit_returns_ast
-    putStrLn (blue "Succesfull return path analysis!")
+    -- putStr $ pretty explicit_returns_ast
+    putStrLn (blue "\nSuccesfull return path analysis!")
     _ <- eitherStrIO $ checkDuplicateDecls explicit_returns_ast 
     putStrLn $ blue "No duplicate declerations!"
     -- todo, do we need to do anything with this sub?
     typechecked_ast <- eitherStrIO $ fst $ checkProgram explicit_returns_ast
     putStrLn $ blue "Typechecked AST:"
-    print typechecked_ast
+    print typechecked_ast -- Show the types of the expressions 
+    putStrLn $ blue "Pretty Typechecked AST:"
     putStrLn $ pretty typechecked_ast
   -- Boolean Literal evaluation, todo this makes a small part lazy, which means that if you would have 1 && true it would be ok. So its important that this runs after type checking I think
   -- Also todo we should repeat this opti function until there is no improvement anymore

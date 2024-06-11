@@ -13,7 +13,7 @@ import qualified Data.Map as Map
 import qualified Debug.Trace as Debug
 -- import Control.Monad.Reader
 import Control.Monad.State.Lazy
-import SPL.Parser.SourceSpan (showStart, SourceSpan, startLine, startCol)
+import SPL.Parser.SourceSpan 
 import SPL.Colors (blue, red, black)
 import Prelude hiding (EQ)
 
@@ -35,7 +35,7 @@ data Info = Info {
 -- Look up a variable from enviroment, doing it in a function gives worse error messages but after type checking we should never error here
 getkey :: Key -> Env Location
 getkey key = do
-            debugEnv
+            -- debugEnv
             env <- gets genEnv
             case Map.lookup key env of
                   Nothing -> error $ red "Key called '"++ blue (show key) ++"'" ++ red " not in enviroment!"
@@ -276,7 +276,7 @@ printStringCode str =  [LDC 0] <> reverse (foldMap (\c -> [LDC (ord c)]) str) <>
 -- todo We know that this function always has 1 argument so we could do register arg passing, load R6 and then the bool code and then return 
 
 generatePrint :: Type -> Code
-generatePrint ty = case Debug.trace ("Printing the type " ++ show ty) ty of
+generatePrint ty = case Debug.trace (";; Printing the type " ++ show ty) ty of
                               (TypeVar tyname False) -> printStringCode ("Non rigid TypeVar "++ show tyname ++", idk how to print this!\n")
                               (TypeVar tyname True) -> printStringCode ("Rigid TypeVar"++ show tyname ++", idk how to print this!\n")
                               CharType -> [TRAP 1] -- Print adds a newline
@@ -404,7 +404,7 @@ instance GenSSM (Expr TypecheckedP) where
 
 getExpr :: Decl TypecheckedP -> Expr TypecheckedP
 getExpr (VarDecl _ _ _ expr)  = expr
-getExpr f@(FunDecl _ _ _ _ _ body) = error $ "Can only get expressions from vardecl not fun delc" ++ show f
+getExpr f@(FunDecl {}) = error $ "Can only get expressions from vardecl not fun delc" ++ show f
 
 
 class GetType a where
