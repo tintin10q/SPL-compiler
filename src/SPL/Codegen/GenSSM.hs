@@ -370,6 +370,7 @@ instance GenSSM (Expr TypecheckedP) where
       generate (BinOpExpr _ op left right) = generate left <> generate right <> generate op
       generate (UnaryOpExpr _ op operand) = generate  operand <> generate op
       -- Now it would be really nice if we could know the type of arg 
+      generate (FunctionCallExpr _ "exit" _) = pure [HALT]
       generate (FunctionCallExpr _ "print" []) = pure [LDC newline, TRAP 1]
       generate (FunctionCallExpr _ "print" [arg]) = generate arg <> pure (generatePrint (getType arg))
 

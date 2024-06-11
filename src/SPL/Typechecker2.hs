@@ -93,7 +93,8 @@ instance Types a => Types (Maybe a) where
 
 defaultFunEnv :: Map String Scheme
 defaultFunEnv = Map.fromList [("print", Scheme (Set.singleton "'print_inputty") (FunType [TypeVar "print_inputty" False] VoidType)),
-                              ("isEmpty", Scheme (Set.singleton "'isEmptyInput") (FunType [ListType (TypeVar "'isEmptyInput" False)] BoolType))
+                              ("isEmpty", Scheme (Set.singleton "'isEmptyInput") (FunType [ListType (TypeVar "'isEmptyInput" False)] BoolType)),
+                              ("exit", Scheme Set.empty (FunType [] VoidType))
                             ]
 
 -- Meta is not defined here but maybe if you don't touch it its ok?
