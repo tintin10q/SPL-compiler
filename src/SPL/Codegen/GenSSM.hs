@@ -219,10 +219,10 @@ storeVar name = do
 
 
 instance GenSSM (Literal TypecheckedP) where
-      generate TrueLit = pure [LDC 1] -- There is also a True and False but its just a bit pattern https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#True
+      generate TrueLit = pure [LDC (-1)] -- There is also a True and False but its just a bit pattern https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#True
       generate FalseLit = pure [LDC 0]
       generate (IntLit int)  = pure [LDC int]
-      generate (CharLit char)  = pure [LDC $ ord char] -- Here we forget that it was a char
+      generate (CharLit char)  = pure [LDC $ ord char] 
       generate (TupleLit (e1, e2)) = pure [LDH 0] <> generate e1 <> pure [LDH 1] <> generate e2 -- Wrong but yeah maybe store in heap?
       generate EmptyListLit = pure [LDC 0, LDC 0, STMH 2] -- address of 0 marks the end of the array!
 
