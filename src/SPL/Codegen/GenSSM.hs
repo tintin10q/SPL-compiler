@@ -223,8 +223,11 @@ instance GenSSM (Literal TypecheckedP) where
       generate FalseLit = pure [LDC 0]
       generate (IntLit int)  = pure [LDC int]
       generate (CharLit char)  = pure [LDC $ ord char] 
-      generate (TupleLit (e1, e2)) = pure [LDH 0] <> generate e1 <> pure [LDH 1] <> generate e2 -- Wrong but yeah maybe store in heap?
       generate EmptyListLit = pure [LDC 0, LDC 0, STMH 2] -- address of 0 marks the end of the array!
+      -- A tuple always has two values. These do not have to be other tuples. In theory the type checker knows what kind of tuple it wants to get.
+      -- So lets make it [value1, value2], one of these can be an address but you don't know.
+      -- We do have this type information though! In expressions of TupleLit. So we could encode it at the runtime.
+      generate (TupleLit (e1, e2)) = generate e1 <> generate e2  <> pure [STMH 2]
 
 instance GenSSM (Stmt TypecheckedP) where
       generate (ExprStmt _ expr) = generate expr -- Todo clean these up though? Right? 
@@ -381,13 +384,13 @@ instance GenSSM (Expr TypecheckedP) where
                                                          return $ argcode <> [Bsr func] <> removeArgs <> [LDR RR | ty /= VoidType]
       generate (VariableExpr _ (Identifier varname Nothing)) = loadVar varname
       generate (VariableExpr (_, meta) (Identifier varname (Just HeadField))) = includeOutOfBoundsRuntimeExceptionCode >> loadVar varname <> pure ( checkBounds <> [LDA (-1)])
-            where checkBounds1 = [LDA 0]
+            where checkBounds1 = [LDS 0, LDA 0]
                   checkBounds2 = [LDC (startCol meta), LDC (startLine meta), Bra "'outOfBoundExpection"]
                   jumpSize = codeSize checkBounds2
                   checkBounds = checkBounds1 <> [BRT jumpSize] <> checkBounds2
-      generate (VariableExpr (ty, _) (Identifier varname (Just TailField))) = loadVar varname  <> pure [LDA 0]
-      generate (VariableExpr (ty, _) (Identifier varname (Just FirstField))) = error "Tuple fields are not implemented yet"
-      generate (VariableExpr (ty, _) (Identifier varname (Just SecondField))) = loadVar "Tuple fields are not implemented yet"
+      generate (VariableExpr _ (Identifier varname (Just TailField))) = loadVar varname  <> pure [LDA 0]
+      generate (VariableExpr _ (Identifier varname (Just FirstField))) = loadVar varname <> pure [LDA (-1)]
+      generate (VariableExpr _ (Identifier varname (Just SecondField))) = loadVar varname <> pure [LDA 0]
       generate (LiteralExpr _ literal) = generate literal
 
 

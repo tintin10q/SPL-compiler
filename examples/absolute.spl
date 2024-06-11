@@ -1,4 +1,4 @@
-main(n : Int) : Int {
+main() : Int {
     if (n < 0) {
         return -n;
     } else {

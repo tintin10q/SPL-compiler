@@ -1,22 +1,10 @@
 
 main() {
-    var a = 3:[];
     var list = 3:2:[];
+    /*
+    var a = 3:[];
+    var int = 0;
     var b = 1:a;
-    a.hd = list.hd + list.hd * list.hd;
-}
-
-foo3(c) {
-    var a = [];
-    return c :a;
-}
-
-foo() {
-    var a = True;
-    return a && a;
-}
-
-foo2(b) {
-    var a = [];
-    return b :a;
+    */
+    print(list.hd + list.hd * list.hd);
 }
