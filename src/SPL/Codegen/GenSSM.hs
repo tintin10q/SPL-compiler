@@ -340,7 +340,7 @@ generatePrint ty = case Debug.trace (";; Printing the type " ++ show ty) ty of
                                                                   LDA 0, -- Load the next adress
                                                                   LDS 0, -- Remember adress 
                                                                   LDA 0, -- Load the next cons cell to check for empty 
-                                                                  BRF 14,  -- If its empty list skip to the end
+                                                                  BRF 10,  -- If its empty list skip to the end
                                                                   LDC (ord '"'), TRAP 1,
                                                                   LDC (ord ','),
                                                                   TRAP 1,
