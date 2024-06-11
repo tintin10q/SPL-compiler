@@ -59,12 +59,13 @@ codeSize = sum . map instrSize
 
 instrSize :: Instr -> Int
 instrSize i = case i of {
-                  LDRR _ _ -> 3;    SWPRR _ _ -> 3;    BRA  _    -> 2;   BRF  _ -> 2;   BRT  _ -> 2;
-                  BSR  _   -> 2;    Bra   _   -> 2;    Brf  _    -> 2;   Brt  _ -> 2;   Bsr  _ -> 2;
-                  LDR  _   -> 2;    LDL   _   -> 2;    LDS  _    -> 2;   LDA  _ -> 2;   LDC  _ -> 2;
-                  LDLA _   -> 2;    LDSA  _   -> 2;    LDAA _    -> 2;   STR  _ -> 2;   STL  _ -> 2;
-                  STS  _   -> 2;    STA   _   -> 2;    AJS  _    -> 2;   LINK _ -> 2;   TRAP _ -> 2;
-                  SWPR _   -> 2;    LABEL _   -> 0;    LDH  _    -> 2;   LDML _ _ -> 3; STML  _ _ -> 3;
+                  LDRR _ _ -> 3;    STMH _ -> 2;   LDML _ _ -> 3;   STML  _ _ -> 3; 
+                  BRA  _   -> 2;    BRF  _ -> 2;   BRT  _ -> 2;     BSR  _ -> 2;    
+                  Bra  _   -> 2;    Brf  _ -> 2;   Brt  _ -> 2;     Bsr  _ -> 2;
+                  LDR  _   -> 2;    LDL   _ -> 2;  LDS  _ -> 2;     LDA  _ -> 2;   LDC  _ -> 2;
+                  LDLA _   -> 2;    LDSA  _ -> 2;  LDAA _ -> 2;     STR  _ -> 2;   STL  _ -> 2;
+                  STS  _   -> 2;    STA   _ -> 2;  AJS  _ -> 2;     LINK _ -> 2;   TRAP _ -> 2;
+                  SWPR _   -> 2;    LABEL _ -> 0;  LDH  _ -> 2;     SWPRR _ _ -> 3;
                   Annote {} -> 0; 
                   _ -> 1;
               }

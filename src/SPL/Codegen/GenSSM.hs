@@ -254,13 +254,13 @@ instance GenSSM (Stmt TypecheckedP) where
                                                  return $ conditionCode <> [BRF (codeSize consequentCode)] <> consequentCode <> alternativeCode
       generate (WhileStmt _ condition body) = do
             conditionCode <- generate condition
-            bodyCode <- generate body -- >>= \bodyCode -> pure $ bodyCode <> [BRA (- (codeSize bodyCode + codeSize conditionCode + 2))] -- +2 for the branch instruction added to condition code
-            let branchLength = instrSize (BRF undefined)
+            bodyCode <- generate body 
+            let branchLength = instrSize (BRA undefined)
                 bodyLenght = codeSize bodyCode + branchLength
                 conditionLength = codeSize conditionCode + branchLength
                 bodyCodeWithBranch = bodyCode ++ [BRA (-(bodyLenght + conditionLength))] -- jump back up to condition
                 conditionCodeWithBranch = conditionCode ++ [BRF bodyLenght] -- skip body on false
-             in return $ conditionCodeWithBranch <> bodyCodeWithBranch
+            return $ conditionCodeWithBranch <> bodyCodeWithBranch
       generate (BlockStmt list) = foldMap generate list
 
 
