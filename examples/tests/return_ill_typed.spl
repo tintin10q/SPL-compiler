@@ -11,3 +11,7 @@ blah()
     return False;
   }
 }
+
+main() {
+  return;
+}

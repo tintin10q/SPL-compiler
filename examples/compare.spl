@@ -1,0 +1,15 @@
+
+
+// Nice overloading program
+
+main() {
+    var a = (1,2);
+    var b = (a,a);
+    var c = (b,b);
+    var d = (c,c);
+    var e = (d,d);
+    var f = (e,e);
+    if (f != f) {
+        print(f);
+    }
+}

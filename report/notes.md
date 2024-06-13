@@ -12,3 +12,5 @@ The type families definitly did not make the error messages nicer.
 
 I changed the ssm.jar to accept labels that start with a '.
 This is great to generate function names that the programmer can not make
+
+Integer bound checking

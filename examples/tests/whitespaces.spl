@@ -10,7 +10,7 @@
 CAPPS (X:Int , S:Bool) : Void
 {
 	// Everthing on one line
-	X = 0; S = True; return;
+	var X = 0; var S = True; return;
 }
 
 tabbed () : Void

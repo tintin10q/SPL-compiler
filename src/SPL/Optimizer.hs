@@ -68,6 +68,7 @@ instance Optimise (Expr TypecheckedP) where
   opti (BinOpExpr meta Eq e1 e2) = case (opti e1, opti e2) of 
                                         ((LiteralExpr m (IntLit a)),  (LiteralExpr _ (IntLit b))) -> LiteralExpr m $ if a == b then TrueLit else FalseLit
                                         ((LiteralExpr m (CharLit a)),  (LiteralExpr _ (CharLit b))) -> LiteralExpr m $ if a == b then TrueLit else FalseLit
+                                        ((VariableExpr _ name),  (VariableExpr _ name')) -> if name == name' then LiteralExpr meta TrueLit else BinOpExpr meta Eq e1 e2
                                         (e1', e2') -> BinOpExpr meta Eq e1' e2'
   opti (BinOpExpr meta Lt e1 e2) = case (opti e1, opti e2) of 
                                         ((LiteralExpr m (IntLit a)),  (LiteralExpr _ (IntLit b))) -> LiteralExpr m $ if a < b then TrueLit else FalseLit
@@ -84,6 +85,7 @@ instance Optimise (Expr TypecheckedP) where
   opti (BinOpExpr meta Neq e1 e2) = case (opti e1, opti e2) of 
                                         ((LiteralExpr m (IntLit a)),  (LiteralExpr _ (IntLit b))) -> LiteralExpr m $ if a /= b then TrueLit else FalseLit
                                         ((LiteralExpr m (CharLit a)),  (LiteralExpr _ (CharLit b))) -> LiteralExpr m $ if a /= b then TrueLit else FalseLit
+                                        ((VariableExpr _ name),  (VariableExpr _ name')) -> if name == name' then LiteralExpr meta FalseLit else BinOpExpr meta Neq e1 e2
                                         (e1', e2') -> BinOpExpr meta Neq e1' e2'
   -- Other binops
   opti (BinOpExpr m op ex1 ex2) = BinOpExpr m op (opti ex1) (opti ex2)

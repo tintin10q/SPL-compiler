@@ -5,3 +5,6 @@ xMarksTheSpot (x:a) : a {
 
 
 
+main() {
+	print(xMarksTheSpot('x'));
+}

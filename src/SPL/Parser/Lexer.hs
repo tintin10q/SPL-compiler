@@ -38,7 +38,7 @@ tChar :: Parser Char
 tChar = lexeme $ char '\'' *> L.charLiteral <* char '\''
 
 -- https://hackage.haskell.org/package/megaparsec-9.6.1/docs/Text-Megaparsec-Char-Lexer.html#v:decimal
-tInteger :: Parser Int
+tInteger :: Parser Integer 
 tInteger = lexeme $ L.signed whitespace L.decimal
 
 -- https://hackage.haskell.org/package/megaparsec-9.6.1/docs/Text-Megaparsec-Char-Lexer.html#v:float

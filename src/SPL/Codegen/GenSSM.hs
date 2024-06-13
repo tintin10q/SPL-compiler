@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module SPL.Codegen.GenSSM where
 
@@ -13,9 +14,10 @@ import qualified Data.Map as Map
 import qualified Debug.Trace as Debug
 -- import Control.Monad.Reader
 import Control.Monad.State.Lazy
-import SPL.Parser.SourceSpan 
-import SPL.Colors (blue, red, black)
+import SPL.Parser.SourceSpan
+import SPL.Colors (blue, red, black, yellow, bold)
 import Prelude hiding (EQ)
+import SPL.ArgParse (Args (hideWarnings, skipOptimizer), hideWarnings)
 
 data Location =  LocalVar  Int Type | GlobalVar Int Type
               deriving (Eq, Ord, Show)
@@ -27,7 +29,8 @@ data Info = Info {
                    genEnv :: Map.Map Key Location, -- genEnv has the data needed to generate code like variables and where they are 
                    globalVarCounter :: Int,
                    needsUnlink :: Bool,
-                   needsOutOfBoundsRuntimeExeptionCode :: Bool
+                   needsOutOfBoundsRuntimeExeptionCode :: Bool,
+                   programArgs :: Args
                   }
 
 -- Functions defined on Info!
@@ -53,7 +56,7 @@ setUnlinkNotNeeded :: Env ()
 setUnlinkNotNeeded = modify (\env -> env {needsUnlink = False})
 
 includeOutOfBoundsRuntimeExceptionCode :: Env ()
-includeOutOfBoundsRuntimeExceptionCode = Debug.trace "Needing out of bounds runtime" modify (\env -> env {needsOutOfBoundsRuntimeExeptionCode = True})
+includeOutOfBoundsRuntimeExceptionCode = warn "Including list out of bounds runtime" >> modify (\env -> env {needsOutOfBoundsRuntimeExeptionCode = True})
 
 replaceGenEnv :: Map.Map Key Location -> Env ()
 replaceGenEnv genenv = modify (\env -> env {genEnv = genenv})
@@ -66,7 +69,7 @@ logEnv s = Debug.trace s pure ()
 
 debugEnv :: Env ()
 debugEnv = do
-      (Info env counter needUnlink needsOutOfBoundsRuntimeCode) <- get
+      (Info env counter needUnlink needsOutOfBoundsRuntimeCode _) <- get
       logEnv $ black "Current gen env: " ++ show env ++ black "\nCounter: " ++ show counter ++ black "\nNeeds unlink: " ++ show needUnlink ++ black "\nNeeds outOfBound expection runtime code: " ++ show needsOutOfBoundsRuntimeCode
       return ()
 
@@ -84,21 +87,6 @@ instance Semigroup (Env Code) where
 instance Monoid (Env Code) where
       mempty = pure []
 
--- Hoe gaan we de variables enviroment doen?
--- Volgens mij hoeven we niet een enviroment voor functies te maken
--- Mischien 1 map voor vars van String naar code om het op de stack te krijgen, 
---  in een functie overwrite een arg met dezelde naam de globals als het shadowed
-
--- data VarData = VarData {
---                       updateCode :: Code, -- Code to update value we find on stack in the storage,
---                       loadCode :: Code, -- Code to push variable onto the stack
---                       allocatedLength :: Int,  -- Length of the variable
---                       name :: String, -- name of the variabe 
---                       offset :: Int, -- Ofset in the heap
---                       typeof :: Type } -- Type of the variable
-
-
-
 -- Generate INLINE code that prints a runtime error and then halts. Only for simple exceptions.
 -- For exceptions with arguments include something in the runtime and pop of the stack 
 throw :: String -> Code
@@ -110,35 +98,17 @@ outOfBoundExpectionRuntimeCode :: Code
 outOfBoundExpectionRuntimeCode = [LABEL "'outOfBoundExpection"] <> printStringCode "\nArray out of bounds runtime expection:\nTrying to access .hd on an empty array. \nCaused by line "
                                  <> [TRAP 0] <> printStringCode " column " <> [TRAP 0, LDC (ord '.'), TRAP 1, HALT]
 
-emptyEnv :: Info
+emptyEnv :: Args -> Info
 emptyEnv = Info Map.empty (-1) False False
 
 
-getSmmCode :: Program TypecheckedP -> Code
-getSmmCode p = evalState (generate p) emptyEnv
+getSmmCode :: Args -> Program TypecheckedP -> Code
+getSmmCode args p = evalState (generate p) $ emptyEnv args
 
--- With the tuples we should probably have a pointer to the tuple somewhere and then based on the field access load the value.
-
--- Cons will be difficult! How? We have to grow the list in the heap.
--- We need to think properly first about how we will store all this stuff
-
--- Global variables should be on the heap with a way to somehow grow lists. 
--- At least the types of variables will stay the same. 
--- So besides lists getting bigger the size of a variable stays the same.
-
---The hard part is that things are not the same size.
--- Maybe we return these records with a bunch of info for the global variables.
--- And in that record we put an update function to update the value of the global on the heap
-
---- How do we have growing lists on the stack? You can keep adding to a list with a while loop
--- How do we have growing things? they did not explain that at all
-
--- At the moment there is actually no direct list index.
--- So you can only find an item in a list linearly maybe that makes code generation easier. 
-
--- instance (GenSSM a) => GenSSM [a] where 
-      -- generate a = combineCodeM $ mapM generate 
-
+warn :: String -> Env ()
+warn msg = do
+      args <- gets programArgs
+      unless (hideWarnings args) $ Debug.trace (yellow "WARNING: " ++ msg) pure ()
 
 notEmpty :: [a] -> Bool
 notEmpty = not . null
@@ -166,15 +136,10 @@ instance GenSSM (Program TypecheckedP) where
 
 instance GenSSM (Decl TypecheckedP) where
       generate :: Decl TypecheckedP -> Env Code
-      generate  (FunDecl _ name VoidType [] [] body) = do
-            setUnlinkNotNeeded
-            return [ LABEL name ] <> generate body
-
-      -- Put the var decl on the heap, as in at the start save the heap start into a regsiter. When we then want to load vars we 
-      --  Load from that register add the offset that we know and load that. 
+      generate  (FunDecl _ name VoidType [] [] body) = pure [ LABEL name ] <> generateLINK 0 <> generate body <* setUnlinkNotNeeded
+      -- Put the var decl on the heap, as in at the start save the heap start into a regsiter. When we then want to load vars we load from that register add the offset that we know and load that. 
       -- This only works if we do the var decls first but we do because we hoist them to the top
-      generate (VarDecl _ name _ expr)  = do
-            -- These are only global vars!
+      generate (VarDecl _ name _ expr)  = do -- These are only global vars! Fun var decls are generated when we generate the the code for the fun decl
             globalvarcount <- increaseGlobalVarCount
             modify $ \env@(Info {genEnv = genenv}) -> env {genEnv = Map.insert (Var name) (GlobalVar globalvarcount (getType expr)) genenv}
             generate expr -- The program generator generates the actual saving cause we do it in one go
@@ -191,13 +156,13 @@ instance GenSSM (Decl TypecheckedP) where
                 declEnv = Map.fromList [(Var varname, LocalVar i (getType varexpr)) | (VarDecl _ varname _ varexpr, i) <- zip funvardecl [(argcount+1)..]]
             replaceGenEnv $ original_genenv <> argEnv <> declEnv
             let local_length = length args + length funvardecl
-            when (local_length > 0) setUnlinkNeeded
+            linkCode <- generateLINK local_length -- This should happen first so that it knows if it has to unlink
             fundecl_code <- foldMap (\(local_index, decl) -> generate (getExpr decl) <> pure [STL local_index]) $ zip [(1+argcount)..] funvardecl -- Important to store fun var decls as you go otherwise later ones refering to earlier ones get 0 
             -- debugEnv
             body_code <- generate body
             replaceGenEnv original_genenv -- Restore previous gen env
             -- make space for locals, load the fundecls, the arguments should already be there? 
-            return $ [LABEL name] <> [LINK local_length | local_length > 0] <> argLoadCode <> fundecl_code {-<> [Annote MP (-1) local_length Pink "Locals" | local_length > 0]-} <> body_code <> [UNLINK | local_length > 0]
+            ([LABEL name] <> linkCode <> argLoadCode <> fundecl_code <> body_code) <$ setUnlinkNotNeeded -- Unlink is always added because we always add the return statement
             -- todo remove extra return by having phase that explicity adds the implcit return
 
 -- Loading global vars is
@@ -232,17 +197,12 @@ instance GenSSM (Literal TypecheckedP) where
 instance GenSSM (Stmt TypecheckedP) where
       generate (ExprStmt _ expr) = generate expr -- Todo clean these up though? Right? 
       generate (AssignStmt _ (Identifier name Nothing) expr) = generate expr <> storeVar name
-      generate (AssignStmt _ (Identifier name (Just HeadField)) expr) = generate expr <> loadVar name <> pure [STA (-1)]
+      generate (AssignStmt _ (Identifier name (Just HeadField)) expr) = generate expr <> loadVar name <> pure [STA (-1)] -- Woah who would have thought that the field assignments is the same code 
       generate (AssignStmt _ (Identifier name (Just TailField)) expr) = generate expr <> loadVar name <> pure [STA 0]
       generate (AssignStmt _ (Identifier name (Just FirstField)) expr) = generate expr <> loadVar name <> pure [STA (-1)]
       generate (AssignStmt _ (Identifier name (Just SecondField)) expr) = generate expr <> loadVar name <> pure [STA 0]
-      -- Woah who would have thought that the field assignments is the same code 
-
-      generate (ReturnStmt _ (Just e)) = do
-            unlinkNeeded <- gets needsUnlink
-            exprCode <- generate e
-            return $ exprCode <> [STR RR] <> [UNLINK | unlinkNeeded] <> [RET]
-      generate (ReturnStmt _ Nothing) = gets needsUnlink >>= \unlink_needed -> pure $ [UNLINK | unlink_needed] <> [RET] -- todo having this kind of forces to always do link even if there is no vars.
+      generate (ReturnStmt _ (Just e)) = generate e <> pure [STR RR] <> generateUNLINK <> pure [RET]
+      generate (ReturnStmt _ Nothing) = generateUNLINK <> pure [RET]
       generate (IfStmt _ condition consequent Nothing) = do
                                                  conditionCode <- generate condition
                                                  consequenceCode <- generate consequent
@@ -254,7 +214,7 @@ instance GenSSM (Stmt TypecheckedP) where
                                                  return $ conditionCode <> [BRF (codeSize consequentCode)] <> consequentCode <> alternativeCode
       generate (WhileStmt _ condition body) = do
             conditionCode <- generate condition
-            bodyCode <- generate body 
+            bodyCode <- generate body
             let branchLength = instrSize (BRA undefined)
                 bodyLenght = codeSize bodyCode + branchLength
                 conditionLength = codeSize conditionCode + branchLength
@@ -264,6 +224,21 @@ instance GenSSM (Stmt TypecheckedP) where
       generate (BlockStmt list) = foldMap generate list
 
 
+-- Generates an unlink if needed
+-- If we skip optimizer we should always unlink because if we don't optimise we might leave expressions on the stack and then we return to result of expression ...
+generateUNLINK :: Env Code
+generateUNLINK = do
+      args <- gets programArgs
+      unlinkNeeded <- gets needsUnlink
+      let shouldUnlink = unlinkNeeded || skipOptimizer args
+      return [UNLINK | shouldUnlink]
+
+generateLINK :: Int -> Env Code
+generateLINK numberOfLocals = do
+      args <- gets programArgs
+      let shouldLink = numberOfLocals > 0 || skipOptimizer args
+      when shouldLink setUnlinkNeeded
+      return [LINK numberOfLocals | shouldLink]
 
 -- we could reverses the code 
 
@@ -278,7 +253,7 @@ printStringCode str =  [LDC 0] <> reverse (foldMap (\c -> [LDC (ord c)]) str) <>
 -- todo We know that this function always has 1 argument so we could do register arg passing, load R6 and then the bool code and then return 
 
 generatePrint :: Type -> Code
-generatePrint ty = case Debug.trace (";; Printing the type " ++ show ty) ty of
+generatePrint ty = case {- Debug.trace (";; Printing the type " ++ show ty)-} ty of
                               (TypeVar tyname False) -> printStringCode ("Non rigid TypeVar "++ show tyname ++", idk how to print this!\n")
                               (TypeVar tyname True) -> printStringCode ("Rigid TypeVar"++ show tyname ++", idk how to print this!\n")
                               CharType -> [TRAP 1] -- Print adds a newline
@@ -377,10 +352,123 @@ generatePrint ty = case Debug.trace (";; Printing the type " ++ show ty) ty of
                                                  <> printBcode <> [LDC (ord ')'), TRAP 1]
                               ty' -> printStringCode ("Error: Can not print value of type " ++ showTypeWithoutColor ty' ++ "\n")
 
+
+-- Function used to check if we can compare two types, if this is false the compare code should result in [LDC 0]
+-- Comparing two type vars of different names is false but shall give a warning.
+compareCode :: SourceSpan -> Type -> Type -> Env Code
+compareCode _ CharType CharType = generate Eq
+compareCode _ IntType IntType = generate Eq
+compareCode _ BoolType BoolType = generate Eq
+-- We know we can compare them savely because the typechecker checked it? What does the typechecker check?
+compareCode meta (TupleType t1a t1b) (TupleType t2a t2b) = let aEqCode = compareCode meta t1a t2a
+                                                               bEqCode = compareCode meta t1b t2b
+                                                            in pure [LDS 0, LDA (-1),-- Load the left of tuple 1
+                                                                     LDS (-2), LDA (-1) -- Load the left of tuple 2
+                                                               ] <> aEqCode <> -- Leaves 1 single True or False
+                                                               pure [
+                                                                     LDS (-2), LDA 0, -- Load right of tuple 1
+                                                                     LDS (-2), LDA 0  -- Load left of tuple 2
+                                                               ] <> bEqCode -- Now we have to load right of both tuples
+                                                               <> generate Eq <> pure [STS (-2), AJS (-1)] -- Remove used stack space
+
+compareCode meta (ListType t1) (ListType t2) = do
+       comparecode <- compareCode meta t1 t2
+       let cmpSize = codeSize comparecode
+       pure [LDS 0, LDA 0, LDC 0] <> generate Neq <>  -- check if list 1 is at ts the end (but with Neq because then we can do and later)
+            pure [LDS (-2), LDA 0, LDC 0] <> generate Neq  <> -- check if list 2 is at the end 
+            pure [LDS 0, LDS (-2), XOR, BRF 6, AJS (-4), LDC 0, BRA (17 + cmpSize + 18)] <> -- If the xor is true (1,0 or 0,1) the whole result is false because not the same length, how do we clean up????
+            pure [AND {- We already know its the same because of the xor, so this either gets (1,1) or (0,0). So if the And is false we know there is no next value, If the and is true then the next value adresses are both NOT zero so there is a next value, we know there is a next value-}, 
+                      BRT 6, AJS (-2), LDC (-1), BRA (8 + cmpSize + 10 + 8)] <>  -- Check if they are both 0 because if thats the case everything is true since we got here
+            pure [LDS 0, LDA (-1), LDS (-2), LDA (-1)]  <>    -- Load the values, using a copy of the adress so we can load the next adress next time
+            pure comparecode <>  -- compare the values,  
+            pure [BRT 6, AJS (-2), LDC 0,  BRA 10] <> -- If its false jump to the end 
+            pure [LDA 0, AJS (-1), LDA 0, AJS 1] <> -- Move forward in both lists
+            pure [BRA ((-10) - cmpSize - 52)] -- Otherwise jump back to the top which will actually consume the values?
+
+       -- If these are both at the end we now have T T on the stack, if they are both not empty we have False False on the stack
+            -- If the xor is true the result of the whole comparison is false
+            -- If both are true the result of the whole comparison is true
+            -- If both are false we need to actually check the list argument 
+            -- If one is true and other fales everything is false 
+            
+compareCode meta t1@(TypeVar name True) t2@(TypeVar name' True) =
+      if name == name'  then warn ("You are comparing two rigid type variables: " ++ show t1 ++ " and " ++ show t2 ++
+                        " at " ++ showStart meta ++ ".\nThese two rigid type variables share the same name, " ++
+                        "which means they will have the same type. However, this comparison will be a simple reference " ++
+                        "comparison, not a value comparison. \n\nExamples of reference comparisons:\n" ++
+                        "- 1 == 1 -> True\n" ++
+                        "- 1 == 2 -> False\n" ++
+                        "- \"Hi\" == \"Hi\" -> False (These strings have the same value but different memory locations)\n" ++
+                        "- a == a -> True (Always true, since it's comparing the same variables and thus the same memory location)"++
+                        "\n\nIn summary, this comparison will work for primitive types like Int or Bool, "++
+                        "but not for complex types like Lists, Tuples, or Strings"++
+                        " unless they refer to the same memory location. \nEnsure this behavior is intended for your code.")
+                        >> generate Eq
+                       else warn ("You are comparing a " ++ show t1 ++ " with a "++ show t2 ++" at "++ showStart meta ++
+                                  ". These two rigid typevars have different names which means the values should have different types."++
+                                  "For this reason the comparison shall always result in False! "++
+                                  "\nEven if during the runtime they will be instanciated as the same type the equality will ALWASY be False!. "++
+                                  "\nEnsure this behavior is what you want.")
+                             >> pure [LDC 0] -- warn ("You are comparing a " ++ show t1 ++ " with a "++ show t2 ++" at "++ showStart meta ++". These two typevars have different names and as such this comparison will always be False! Even if during the runtime they will be instanciated as the same type the equality will ALWAYS be False!. Make sure this is what you want.") >> generate Eq
+compareCode meta t1@(TypeVar name False) t2@(TypeVar name' False) =
+      if name == name'  then warn ("You are comparing two type variables: " ++ show t1 ++ " and " ++ show t2 ++
+                        " at " ++ showStart meta ++ ".\nThese two type variables share the same name, " ++
+                        "which means they will have the same type. However, this comparison will be a simple reference " ++
+                        "comparison, not a value comparison. \n\nExamples of reference comparisons:\n" ++
+                        "- 1 == 1 -> True\n" ++
+                        "- 1 == 2 -> False\n" ++
+                        "- \"Hi\" == \"Hi\" -> False (These strings have the same value but different memory locations)\n" ++
+                        "- a == a -> True (Always true, since it's comparing the same variables and thus the same memory location)"++
+                        "\n\nIn summary, this comparison will work for primitive types like Int or Bool, "++
+                        "but not for complex types like Lists, Tuples, or Strings"++
+                        " unless they refer to the same memory location. \nEnsure this behavior is intended for your code.")
+                        >> generate Eq
+                       else warn ("You are comparing a " ++ show t1 ++ " with a "++ show t2 ++" at "++ showStart meta ++
+                                  ". These two typevars have different names which means the values can have different types."++
+                                  "For this reason the comparison shall always result in False! "++
+                                  "\nEven if during the runtime they will be instanciated as the same type the equality will ALWASY be False!. "++
+                                  "Ensure this behavior is what you want.")
+                             >> pure [LDC 0]
+compareCode meta t1@(TypeVar _ False) t2@(TypeVar _ True) =
+      warn ("You are comparing a " ++ show t1 ++ " with a "++ show t2 ++" at "++ showStart meta ++
+            ".\nThe first typevar is rigid which means that you (the programmer) specified that the value could be any type and that "++
+            "the type should never be narrowed.\nThe second typevars is infered by me (the compiler) and thus is non rigid."++
+            "This means that I decided that the value can be any type."++
+            "\n\nI can not generate code that can properly compare a rigid type var with a non rigid typevar. "++
+            "This means that during runtime, if you compare a rigid typevar with a non rigid typevar the result will "++ bold "always"++" be False. "++
+            " Make sure this is what you want.")
+      >> pure [LDC 0]
+compareCode meta t1@(TypeVar _ True) t2@(TypeVar _ False) =
+      warn ("You are comparing a " ++ show t1 ++ " with a "++ show t2 ++" at "++ showStart meta ++
+            ".\nThe first typevar is infered by me (the compiler) and thus is non rigid." ++
+            "This means that I decided that the value can be any type.\nThe second typevar is rigid " ++
+            "which means that you (the programmer) specified that the value could be any type and that " ++
+            "the type should not be narrowed." ++
+            "\n\nI can not generate code that can properly compare a rigid type var with a non rigid typevar. " ++
+            "This means that during runtime, if you compare a rigid typevar with a non rigid typevar the result will " ++ bold "always" ++ " be False. " ++
+            " Make sure this is what you want.")
+      >> pure [LDC 0]
+compareCode _ (FunType {}) (FunType {}) = generate Eq -- Even though we don't have function types. For this one lets actually compare address
+compareCode meta VoidType VoidType = error $ red "You can not compare two void types." ++ "But you tried to do it here: " ++ showStart meta
+compareCode meta t1 t2 = warn ("You are comparing a " ++ show t1 ++ " with a "++ show t2 ++" at "++ showStart meta ++". Because these are different types the result will ALWAYS be False. Make sure this is what you want.")
+                         >> pure [LDC 0]
+
+
+
+-- Get the types 
+-- If not the same its LDC 0
+-- If the same compare normally except container types.
+-- First do container with primitive types.
+
+
+
 instance GenSSM (Expr TypecheckedP) where
+      -- Overloaded EQ
+      generate (BinOpExpr (_,meta) Eq left right) = generate left <> generate right <> compareCode meta (getType left) (getType right)
+      generate (BinOpExpr (_,meta) Neq left right) = generate left <> generate right <> compareCode meta (getType left) (getType right) <> generate Neq 
       generate (BinOpExpr _ op left right) = generate left <> generate right <> generate op
       -- we need to do unaryopexpr here cause we need the meta. I tried adding meta to field access in the metafield branch but it didn't work with nested field access
-      generate (UnaryOpExpr _ Negate operand) = generate  operand <> pure [NEG]
+      generate (UnaryOpExpr _ Negate operand) = generate  operand <> pure [NOT]
       generate (UnaryOpExpr _ Min operand) = generate operand <> pure [NEG]
       generate (UnaryOpExpr (_,meta) (FieldAccess HeadField) operand) = generate  operand <> headaccess meta
       generate (UnaryOpExpr _ (FieldAccess TailField) operand) = generate  operand <> pure tailaccess
@@ -392,9 +480,7 @@ instance GenSSM (Expr TypecheckedP) where
       generate (FunctionCallExpr _ "exit" _) = pure [HALT]
       generate (FunctionCallExpr _ "print" []) = pure [LDC newline, TRAP 1]
       generate (FunctionCallExpr _ "print" [arg]) = generate arg <> pure (generatePrint (getType arg))
-
                               -- IntType -> pure [TRAP 0, LDC newline, TRAP 1] -- Print adds a newline
-
       -- In theory this is it for isEmpty cause last cons cell is 0 addr
       generate (FunctionCallExpr _ "isEmpty" [arg]) =  generate arg <> pure [LDA 0, LDC 0, EQ]
       -- generate (FunctionCallExpr meta "print" (_:_)) = error $ "At " ++ (showStart meta ) + " you call print with too many arguments"
@@ -407,6 +493,10 @@ instance GenSSM (Expr TypecheckedP) where
       generate (VariableExpr _ (Identifier varname (Just TailField))) = loadVar varname  <> pure tailaccess
       generate (VariableExpr _ (Identifier varname (Just FirstField))) = loadVar varname <> pure [LDA (-1)]
       generate (VariableExpr _ (Identifier varname (Just SecondField))) = loadVar varname <> pure [LDA 0]
+      generate (LiteralExpr (_, meta) literal@(IntLit value)) = do
+            when (value > 2147483646) (warn ( "Int literal is too large (" ++ show literal ++ " > " ++ black "2147483647"++"). It probably won't work properly in ssm. At " ++ showStart meta))
+            when (value < -2147483647) (warn ( "Int literal is too small (" ++ show literal ++ " < " ++ black "-2147483647"++"). It probably won't work properly in ssm. At " ++ showStart meta))
+            generate literal
       generate (LiteralExpr _ literal) = generate literal
 
 
@@ -422,14 +512,6 @@ tailaccess = [LDS 0, LDA 0,  -- Check zero
               BRF 2, -- If its 0 leave the adress unchanged
               LDA 0  -- Else load the tail 
              ]
-
--- We can generate the enviroment before we do any code generation because we know where it will end up
--- buildFunEnv :: [Decl TypecheckedP] -> Env Code -> Env Code
--- buildFunEnv decls env = env <> Map.fromList (zip (map nameToVarKey decls) ([LocalVar i | i <- [1..]] <*> map getDeclType decls))
-      -- where nameToVarKey (VarDecl _ name _ _) = Var name
-            -- nameToVarKey (FunDecl _ name _ _ _ _) = Fun name
-
--- Ok laten we eerst maar gewoon even 5 keer een nop of halt genereren ofzo
 
 getExpr :: Decl TypecheckedP -> Expr TypecheckedP
 getExpr (VarDecl _ _ _ expr)  = expr
@@ -486,22 +568,3 @@ Because we do stmh the adress which points to the adress in the heap of the prev
 
 -}
       generate Cons = pure [STMH 2]
-
-
--- We have a global value
--- First we need to get the value onto the stack, we do this by running the code of the expression
--- After that we have the value on the stack
--- We can store it into the heap
--- When we store it into the heap we can save the offset 
-
-
--- We can make R7 store the initial heap value
--- Generates a function that generates the code needed to store and update a value on the head
--- The generated update code assumes the value to save is on the stack before the update code. 
--- The value will be consumed
--- genSaveGlobalCode :: Decl TypecheckedP -> (Int -> VarData)
--- genSaveGlobalCode (VarDecl _ name t e) = case t of
-                                          -- IntType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 0 name offset IntType
-                                          -- CharType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 0 name offset CharType
-                                          -- BoolType -> \offset -> VarData [LDR R7, STA offset] [LDR R7, LDA offset] 0 name offset BoolType
-                                          -- _ -> undefined

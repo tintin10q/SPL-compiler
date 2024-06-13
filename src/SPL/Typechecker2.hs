@@ -240,8 +240,8 @@ instance Types Type where
         Nothing -> t; -- Return the same type variable  
         Just concrete -> {- Debug.trace ("Narrowing typevar: " ++ show var ++ " to " ++ show concrete) $ -}
                   case concrete of 
-                    TypeVar tyvarname False -> let further = apply subst concrete -- lookup if there is 2 people with typevars that are the same type. 
-                                                in Debug.trace ("Narrowed typevar: " ++ tyvarname ++ " further to " ++ show further) further
+                    TypeVar _tyvarname False -> apply subst concrete {-let further = apply subst concrete -- lookup if there is 2 people with typevars that are the same type. 
+                                                in Debug.trace ("Narrowed typevar: " ++ _tyvarname ++ " further to " ++ show further) further-} 
                     c -> c
   apply subst (TupleType t1 t2) = TupleType (apply subst t1) (apply subst t2)
   apply subst (ListType t) = ListType (apply subst t)
@@ -301,12 +301,12 @@ varBind meta u t
 -- todo, we could also include variables names here maybe
 -- Based on the variables in the varenv we could do suggestions of types to use!!
 unify :: Type -> Type -> TI Subst -- Are 2 types be the same?
-unify (FunType args r) (FunType args' r') = do
-  -- We need to unify all the arguments from l with l' pair by pair
-  s1 <- zipWithM unify args args' -- same as: mapM (uncurry unify) (zip at at') -- No I would have never have known that witout the hint thing from vscode
-  let s1' = foldr composeSubst nullSubst s1
-  s2 <- unify (apply s1' r) (apply s1' r')
-  return $ s1' `composeSubst` s2
+-- unify (FunType args r) (FunType args' r') = do
+--   -- We need to unify all the arguments from l with l' pair by pair
+--   s1 <- zipWithM unify args args' -- same as: mapM (uncurry unify) (zip at at') -- No I would have never have known that witout the hint thing from vscode
+--   let s1' = foldr composeSubst nullSubst s1
+--   s2 <- unify (apply s1' r) (apply s1' r')
+--   return $ s1' `composeSubst` s2
 unify  (TypeVar u1 False) t2@(TypeVar _ False) = return $ Map.fromList [(u1, t2)]  -- U (α, α) = id
 unify  (TypeVar u False) t = gets currentMeta >>= \meta -> varBind meta u t -- bind the type var!
 unify t (TypeVar u False) = gets currentMeta >>= \meta -> varBind meta u t
@@ -611,7 +611,7 @@ instance Typecheck (Stmt TypecheckedP) where
     (s3, ty2) <- ti alternative
     s4 <- unify ty1 ty2
     let s = s1 `composeSubst` s2 `composeSubst` s3 `composeSubst` s4
-    logTI ("Typing if: " ++ show iff ++ "\n\n with sub " ++ show s) 
+    -- logTI ("Typing if: " ++ show iff ++ "\n\n with sub " ++ show s) 
     applySubToTIenv s
     return (s, apply s ty1) -- we can do ty1 because of the previous returns checks, we know we can just pick one
   ti (IfStmt meta cond consequent Nothing) = do
@@ -772,7 +772,7 @@ unifyError ty1 ty2@(TypeVar u True) = do
   errorHead <- unifyErrorHead
   errorTail <- unifyErrorTail ty1 ty2
   -- debugEnv "right before crash"
-  throwError $ errorHead ++ "Types do not unify:\n" ++ (show ty1) ++ " vs. " ++ show ty2 ++ "Cannot unify " ++ show ty2 ++ " with " ++ show ty1 ++ ", as '" ++ blue u ++ "' is a rigid type variable.\nA rigid type variable (in this case " ++ u ++ ") means that the caller can choose the type. Because of this we don't know which operations are possible and thus cannot unify further.\nThis happened" ++ errorTail
+  throwError $ errorHead ++ "Types do not unify: " ++ (show ty1) ++ " vs. " ++ show ty2 ++ "\nCannot unify " ++ show ty2 ++ " with " ++ show ty1 ++ ", as '" ++ blue u ++ "' is a rigid type variable.\nA rigid type variable (in this case " ++ u ++ ") means that the caller can choose the type. Because of this we don't know which operations are possible and thus cannot unify further.\nThis happened" ++ errorTail
 unifyError ty1 ty2 = unifyErrorHead >>= \errorHead -> unifyErrorTail ty1 ty2 >>= \errorTail -> throwError $ errorHead ++ "Types do not unify:\n" ++ show ty1 ++ " vs. " ++ show ty2 ++ errorTail
 
 unifyErrorTail :: Type -> Type -> TI String

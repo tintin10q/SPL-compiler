@@ -3,7 +3,7 @@ id_int(x:Int) : Int
     return x;
 }
 
-id_poly_with(x:a, y:a) : a
+id_poly_with(x:a, y:b) : a
 {
     return y;
 }
@@ -14,6 +14,7 @@ id_poly_without(x:a, z:b)
 
 id_poly_wtf(wtf)
 {
+    return;
 }
 
 main() {}

@@ -22,7 +22,7 @@ data Instr
     = STR Reg | STL Int  | STS Int  | STA Int        -- Store from stack
     | LDR Reg | LDL Int  | LDS Int  | LDA Int        -- Load on stack
     | LDC Int | LDLA Int | LDSA Int | LDAA Int       -- Load on stack, for local always start with 1 and not 0 cause with 0 you overwrite/load the markpointer itself. This can be the source of many bugs.
-    |           LDML Int Int  | STML Int Int         -- Load/Store local multiple, First int args is from which local to start storing/loading, second argument is number of locals to store/load from that offset 
+    | LDML Int Int  | STML Int Int  | LDMS Int Int   -- Load/Store local multiple, First int args is from which local to start storing/loading, second argument is number of locals to store/load from that offset 
     | BRA Int | Bra String                           -- Branch always (relative/to label) string versions go to a label ints adds to PC, its NOT an absolute jump!
     | BRF Int | Brf String                           -- Branch on false
     | BRT Int | Brt String                           -- Branch on true
@@ -39,10 +39,11 @@ data Instr
     | Annote Reg Int Int AnnotateColor String      -- Meta instruction to add color https://webspace.science.uu.nl/~hage0101/SSM/ssmtopics.html#annote
     deriving Show
 
+
 data AnnotateColor = Black | Blue | Cyan
                     | DarkGray| Gray | Green
                     | LightGray | Magenta | Orange
-                    | Pink | Red | Yellow
+                    | Pink | Red | Yellow 
                     deriving Show
 
 
@@ -59,7 +60,7 @@ codeSize = sum . map instrSize
 
 instrSize :: Instr -> Int
 instrSize i = case i of {
-                  LDRR _ _ -> 3;    STMH _ -> 2;   LDML _ _ -> 3;   STML  _ _ -> 3; 
+                  LDRR _ _ -> 3;    STMH _ -> 2;   LDML _ _ -> 3;   STML  _ _ -> 3; LDMS _ _ -> 3;
                   BRA  _   -> 2;    BRF  _ -> 2;   BRT  _ -> 2;     BSR  _ -> 2;    
                   Bra  _   -> 2;    Brf  _ -> 2;   Brt  _ -> 2;     Bsr  _ -> 2;
                   LDR  _   -> 2;    LDL   _ -> 2;  LDS  _ -> 2;     LDA  _ -> 2;   LDC  _ -> 2;

@@ -98,7 +98,7 @@ Value True is encoded by a -1 (all 1 bit pattern 0xFFFFFFFF). However, when test
 
 ### Keywords [⭱](#ssm-help)
 
-[ldc](#ldc-) [lds](#lds-) [ldms](#ldms-) [sts](#sts-) [stms](#stms-) [ldsa](#ldsa-) [ldl](#ldl-) [ldml](#ldml-) [stl](#stl-) [stml](#stml-) [ldla](#ldla-) [lda](#lda-) [ldma](#ldma-) [ldaa](#ldaa-) [sta](#sta-) [stma](#stma-) [ldr](#ldr-) [ldrr](#ldrr-) [str](#str-) [swp](#swp-) [swpr](#swpr-) [swprr](#swprr-) [ajs](#ajs-) [add](#add-) [mul](#mul-) [sub](#sub-) [div](#div-) [mod](#mod-) [and](#and-) [or](#or-) [xor](#xor-) [eq](#eq-) [ne](#ne-) [lt](#lt-) [le](#le-) [gt](#gt-) [ge](#ge-) [neg](#neg-) [not](#not-) [bsr](#bsr-) [bra](#bra-) [brf](#brf-) [brt](#brt-) [jsr](#jsr-) [ret](#ret-) [link](#link-) [unlink](#unlink-) [nop](#nop-) [halt](#halt-) [trap](#trap-) [annote](#annote-) [ldh](#ldh-) [ldmh](#ldmh-) [sth](#sth-) [stmh](#stmh-) 
+[ldc](#ldc-) [lds](lds) [ldms](#ldms-) [sts](#sts-) [stms](#stms-) [ldsa](#ldsa-) [ldl](#ldl-) [ldml](#ldml-) [stl](#stl-) [stml](#stml-) [ldla](#ldla-) [lda](#lda-) [ldma](#ldma-) [ldaa](#ldaa-) [sta](#sta-) [stma](#stma-) [ldr](#ldr-) [ldrr](#ldrr-) [str](#str-) [swp](#swp-) [swpr](#swpr-) [swprr](#swprr-) [ajs](#ajs-) [add](#add-) [mul](#mul-) [sub](#sub-) [div](#div-) [mod](#mod-) [and](#and-) [or](#or-) [xor](#xor-) [eq](#eq-) [ne](#ne-) [lt](#lt-) [le](#le-) [gt](#gt-) [ge](#ge-) [neg](#neg-) [not](#not-) [bsr](#bsr-) [bra](#bra-) [brf](#brf-) [brt](#brt-) [jsr](#jsr-) [ret](#ret-) [link](#link-) [unlink](#unlink-) [nop](#nop-) [halt](#halt-) [trap](#trap-) [annote](#annote-) [ldh](#ldh-) [ldmh](#ldmh-) [sth](#sth-) [stmh](#stmh-) 
 
 ### ldc [⭱](#ssm-help)
 

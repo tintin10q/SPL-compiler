@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module SPL.Preprocess (preprocesAST, checkHasMain) where
+module SPL.Preprocess (preprocesAST, checkHasMain, checkEmptyBody) where
 
 
 
@@ -47,6 +47,11 @@ preprocesAST =  hoistGlobalVars . removeDeadCode
 
 checkHasMain :: Program ParsedP -> Either String ()
 checkHasMain [] = Left (red "No main function in your program! " ++ "\nPlease add a main function to your program.")
-checkHasMain (FunDecl _ "main" _ (_:_) _ _:_) = Left (red "The '" ++ blue "main" ++ red "' function can not have any arguments."++"\nIt can't have arguments because there is no way for you to initialize them." ++ "\nPlease remove the arguments.")
+checkHasMain (FunDecl _ "main" _ (_:_) _ _:_) = Left (red "The '" ++ blue "main" ++ red "' function can not have any arguments."++"\nThere is no way for you to initialize them. Please remove the arguments.")
 checkHasMain (FunDecl _ "main" _ _ _ _:_) = Right ()
 checkHasMain (_:later) = checkHasMain later
+
+checkEmptyBody :: Program ParsedP -> Either String ()
+checkEmptyBody [] = Right () 
+checkEmptyBody (FunDecl meta name _ _ _ [] :_) = Left (red "The '" ++ blue name ++ red "' function declared at "++ showStart meta ++ red " has an empty body."++"\nEmpty functions are not allowed. Please either add a body (just a '" ++ red "return" ++ ";' is enough) or remove the function.")
+checkEmptyBody (_:later) = checkEmptyBody later 

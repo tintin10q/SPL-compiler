@@ -7,11 +7,11 @@ import qualified SPL.Parser.Lexer as L
 
 import Control.Monad (void)
 import Control.Monad.Combinators.Expr
-import Text.Megaparsec (choice, try, (<|>), many, optional, getSourcePos, noneOf, oneOf)
+import Text.Megaparsec (choice, try, (<|>), many, optional, getSourcePos, noneOf, oneOf, sourcePosPretty)
 import qualified Data.Text as T
 import Data.Functor (($>))
 import Text.Megaparsec.Char (char)
-import SPL.Colors (red)
+import SPL.Colors (red, green, black)
 import SPL.Parser.SourceSpan ( endPos, showStart, srcSpan, startPos, SourceSpan )
 
 
@@ -189,11 +189,29 @@ pFalse = do
   void L.tFalse
   return FalseLit
 
+
+intUpperBound :: Int
+intUpperBound = maxBound
+
+intLowerBound :: Int
+intLowerBound = minBound
+
+checkNumberRange :: Integer -> Either String Int
+checkNumberRange integer = let lowerbound = toInteger intLowerBound
+                               upperbound = toInteger intUpperBound
+                           in if integer > upperbound then Left $ red "Integer is too large for the compiler! " ++ black (show integer) ++ " > " ++ black (show upperbound) ++ ". "
+                               else if integer < lowerbound then Left $ red "Integer is too small for the compiler! " ++ black (show integer) ++ " < " ++ black (show upperbound) ++ ". "
+                               else Right $ fromInteger integer
+
 -- Parse a signed integer (e.g. 12, -12, +12).
 -- Grammar (simplified): [('-' | '+')] digit+
 pInt :: Parser (Literal ParsedP)
 pInt = do
-  IntLit <$> L.tInteger
+  pos <- getSourcePos
+  integer <- L.tInteger
+  case checkNumberRange integer of
+    Right int -> pure $ IntLit int
+    Left msg -> error (msg ++ "At " ++ green (sourcePosPretty pos))
 
 -- Parses a character surrounded by quotes, including escape sequences
 -- such as '\n' and '\t'.

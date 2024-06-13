@@ -17,73 +17,64 @@ import SPL.PrettyPrint
 import SPL.Codegen.GenSSM (getSmmCode)
 import SPL.Codegen.SSM (formatCode)
 import SPL.AST (Convertable(upgrade))
-
--- import System.Posix.Files (getFileStatus, fileMode, setFileMode, ownerExecuteMode, groupExecuteMode, otherExecuteMode)
--- import System.Posix.Types (FileMode)
-
-defaultOutput :: String
-defaultOutput = "output.ssm"
-
--- Function to parse arguments and get the output value
-getOutputValue :: [String] -> String
-getOutputValue [] = defaultOutput
-getOutputValue ("-o":value:_) = value
-getOutputValue (_:xs) = getOutputValue xs
-
--- Add option to disable optimizer
+import System.Exit (exitSuccess, ExitCode (ExitFailure), exitFailure)
+import SPL.ArgParse
 
 main :: IO ()
 main = do
     args <- getArgs
-    let outputFile = getOutputValue args
-    -- todo better error msg for this
-    let filename = case args of
-                [] -> error $ red "No output file specified!"
-                [filename'] -> filename'
-                (filename':_) -> filename'
-    putStrLn $ "Reading file " ++ blue filename
+    when ("--help" `elem` args || "-h" `elem` args) (putStrLn helpText >> exitSuccess)
+    when (null args) $ putStrLn "No input file specified!" >> exitFailure
+    let filename = head args
+        parsedargs = parseArgs $ tail args
+        showInfo = not (hideInfo parsedargs)
+        optimize = not (skipOptimizer parsedargs)
+        warn = not (hideWarnings parsedargs)
+    when showInfo $ putStrLn $ "Reading file " ++ blue filename
     source <- TIO.readFile filename
     -- putStrLn $ blue "Read in Source:\n" ++ T.unpack source
     parsed_ast <- eitherParserToIO  $ parse filename source
-    print parsed_ast
-    putStr (blue "Parsing completed! ")
-    eitherStrIO $ checkHasMain parsed_ast
-    putStrLn (blue "(program has main function) ")
+    when showInfo $ putStrLn (blue "Parsed AST! ")
+    when showInfo $ print parsed_ast
+    when showInfo $ putStr (blue "Parsing completed! ")
+    eitherStrIO $ checkEmptyBody parsed_ast >> checkHasMain parsed_ast 
+    when showInfo $ putStrLn (blue "(program has main function) ")
     -- print parsed_ast
     let preprocessed_ast = preprocesAST parsed_ast
         improvement = opti_improvement parsed_ast preprocessed_ast
-    when (improvement < 0) $ putStrLn (blue "Pruned " ++ green (show (-improvement) ++ "%") ++ blue " of tree by removing dead code.")
-    putStrLn $ pretty preprocessed_ast
+    when (improvement < 0 && showInfo) $ putStrLn (blue "Pruned " ++ green (show (-improvement) ++ "%") ++ blue " of tree by removing dead code.")
+    when showInfo $ putStrLn $ pretty preprocessed_ast
     return_checked_ast <- eitherStrIO $ checkReturns preprocessed_ast
     -- let return_checked_ast = map upgrade preprocessed_ast
     let explicit_returns_ast = makeVoidReturnsExplicit return_checked_ast
-    -- putStr $ pretty explicit_returns_ast
-    putStrLn (blue "\nSuccesfull return path analysis!")
-    _ <- eitherStrIO $ checkDuplicateDecls explicit_returns_ast 
-    putStrLn $ blue "No duplicate declerations!"
+    -- when showInfo $ putStr $ pretty explicit_returns_ast
+    when showInfo $ putStrLn (blue "\nSuccesfull return path analysis!")
+    _ <- eitherStrIO $ checkDuplicateDecls explicit_returns_ast
+    when showInfo $ putStrLn $ blue "No duplicate declerations!"
     -- todo, do we need to do anything with this sub?
     typechecked_ast <- eitherStrIO $ fst $ checkProgram explicit_returns_ast
-    putStrLn $ blue "Typechecked AST:"
-    print typechecked_ast -- Show the types of the expressions 
-    putStrLn $ blue "Pretty Typechecked AST:"
-    putStrLn $ pretty typechecked_ast
+    when showInfo $ putStrLn $ blue "Typechecked AST:"
+    when showInfo $ print typechecked_ast -- Show the types of the expressions 
+    when showInfo $ putStrLn $ blue "Pretty Typechecked AST:"
+    when showInfo $ putStrLn $ pretty typechecked_ast
   -- Boolean Literal evaluation, todo this makes a small part lazy, which means that if you would have 1 && true it would be ok. So its important that this runs after type checking I think
   -- Also todo we should repeat this opti function until there is no improvement anymore
 
-    let optimized_ast = collapseBlocks $ map opti typechecked_ast
-        improvement' = - opti_improvement typechecked_ast optimized_ast
+    let optimized_ast = if optimize then collapseBlocks $ map opti typechecked_ast else typechecked_ast
+        improvement' =  if optimize then - opti_improvement typechecked_ast optimized_ast else -0
 
     -- print optimized_ast
-    putStrLn $ blue "Optimizing step shrunk AST with by " ++ green (show improvement' ++ "%")
-    when (improvement' > 0) (putStrLn $ blue "New Optimised AST:\n" ++  pretty optimized_ast)
-    putStrLn $ blue "Generating ssm ast"
-    let code = getSmmCode optimized_ast
+    when (showInfo && optimize) $ putStrLn $ blue "Optimizing step shrunk AST with by " ++ green (show improvement' ++ "%")
+    when (improvement' > 0 && showInfo && optimize) (putStrLn $ blue "New Optimised AST:\n" ++  pretty optimized_ast)
+    when (not optimize && warn) $ putStrLn (yellow "WARNING:" ++ " Skipped optimalizations because you enabled the "++ blue "--skip-optimizer" ++ " option")
+
+    when showInfo $ putStrLn $ blue "Generating ssm ast"
+    let code = getSmmCode parsedargs optimized_ast
         formatted_code = formatCode code
-    putStrLn formatted_code
     -- "#!java -jar ssm/ssm.jar\n"
-    writeFile outputFile formatted_code
-    putStrLn $ "Wrote " ++ show (length code) ++ " instructions to " ++ outputFile
-    return ()
+    let outFile = getOutputFile parsedargs
+    writeFile outFile formatted_code
+    when warn $ putStrLn $ "Wrote " ++ yellow (show (length code)) ++ " instructions to " ++ green outFile
 
 
     {-
@@ -122,3 +113,14 @@ usage: [--clisteps <steps>] [--haltonerror] [--cli] [--file <path> OR --stdin]
   --guidelay         : Amount of time to sleep in milliseconds between steps in the GUI. Default: 50
 -}
 
+
+helpText = unlines [blue "SPL Compiler" ++ " By Quinten Cabo",
+                    "This compiler compiles the SPL programming language into ssm.",
+                    "The first argument should be the filename of the .spl file to compile.",
+                    "Possible further arguments:",
+                    "--output (or -o) <filename> \t default: output.ssm",
+                    "--hide-info \t\t Optional argument to hide info messages",
+                    "--hide-warnings \t Optional argument to hide warning messages",
+                    "--skip-optimizer \t Optional argument to skip the optimizer step",
+                    "--help (or -h) \t\t Print this help message"
+                    ]

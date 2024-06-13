@@ -3,3 +3,13 @@ equals(a:[a], b:[a]) : Bool {
 	if (isEmpty(a) || isEmpty(b)) { return False; }
 	return (a.hd == b.hd) && equals (a.tl, b.tl);	
 }
+
+main() {
+	var a = 1:2:3:[];
+	var b = 1:2:3:[];
+	print(a);
+	print(" == ");
+	print(b);
+	print(" -> ");
+	print(equals(a, b));
+}

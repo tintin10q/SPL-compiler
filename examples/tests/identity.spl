@@ -33,6 +33,15 @@ id_poly_wtf(x)
   return c;
 }
 
+// should be the same typevar but it is in a list
+id_poly_wtf_list(x) 
+{
+  var a = x;
+  var b = a;
+  var c = b;
+  return c:[];
+}
+
 
 // Clumsy identity for integers
 // Type checking should give type Int -> Int
@@ -43,3 +52,5 @@ id_int_wtf(x)
   var c = b;
   return c;
 }
+
+main() { return;}

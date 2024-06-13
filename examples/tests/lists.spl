@@ -1,6 +1,6 @@
 // Reverse any list
-reverse (list[t]) : [t] {
-    [t] accu = [];
+reverse (list:[Int]) : [Int] {
+    var accu = [];
     while (!isEmpty(list)) {
         accu = list.hd : accu;
         list = list.tl;
@@ -31,8 +31,17 @@ product (list:[Int]) : Int
 main () : Void
 {
     [Int] list = 1:3:5:[];
+    print("List:");
+    print(list);
+    print();
+    print("Sum: ");
     print(sum(list));
+    print();
+    print("Product: ");
     print(product(list));
+    print();
+    print("Reverse: ");
+    print(reverse(list));
 }
 
 // vim: ft=c

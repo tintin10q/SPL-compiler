@@ -1,0 +1,14 @@
+
+
+// Nice overloading program
+
+cmp(a:[a],b:[a]) {
+   return a == a;
+}
+
+main() {
+    var a = (1,2):(1,2):[];
+    var b = (1,2):(1,2):[];
+    print(cmp([],[]));
+}
+

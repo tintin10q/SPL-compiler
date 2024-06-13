@@ -4,3 +4,5 @@
 foo(x:a) : a {
     return x + 1;
 }
+
+main() {return;}
