@@ -1,83 +1,12 @@
 	Bsr main
 	HALT
-cmp:
-	LINK 2
-	LDML -3 2
-	STML 1 2
+countdown:
+	LINK 1
+	LDML -2 1
+	STML 1 1
 	LDL 1
-	LDL 1
-	LDS 0
-	LDA 0
-	LDC 0
-	NE
-	LDS -2
-	LDA 0
-	LDC 0
-	NE
-	LDS 0
-	LDS -2
-	XOR
-	BRF 6
-	AJS -4
-	LDC 0
-	BRA 36
-	AND
-	BRT 6
-	AJS -2
-	LDC -1
-	BRA 27
-	LDS 0
-	LDA -1
-	LDS -2
-	LDA -1
-	EQ
-	BRT 6
-	AJS -2
-	LDC 0
-	BRA 10
-	LDA 0
-	AJS -1
-	LDA 0
-	AJS 1
-	BRA -63
-	STR RR
-	UNLINK
-	RET
-main:
-	LINK 2
-	LDC 1
-	LDC 2
-	STMH 2
-	LDC 1
-	LDC 2
-	STMH 2
-	LDC 0
-	LDC 0
-	STMH 2
-	STMH 2
-	STMH 2
-	STL 1
-	LDC 1
-	LDC 2
-	STMH 2
-	LDC 1
-	LDC 2
-	STMH 2
-	LDC 0
-	LDC 0
-	STMH 2
-	STMH 2
-	STMH 2
-	STL 2
-	LDC 0
-	LDC 0
-	STMH 2
-	LDC 0
-	LDC 0
-	STMH 2
-	Bsr cmp
-	AJS -2
-	LDR RR
+	LDC 97
+	GT
 'printBool:
 	BRF 14
 	LDC 0
@@ -95,4 +24,9 @@ main:
 	LDC 70
 	TRAP 2
 	UNLINK
+	RET
+main:
+	LDC 98
+	Bsr countdown
+	AJS -1
 	RET

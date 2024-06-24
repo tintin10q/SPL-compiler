@@ -34,20 +34,15 @@ data TIenv = TIenv {currentFunEnv :: FunEnv, -- Map String Shceme
                     currentVarEnv :: VarEnv,
                     currentMeta :: SourceSpan,
                     currentFunName :: Maybe String, -- Just for error messages
-                    -- currentFunGroup :: Map String Type, -- All functions in the current group that we are checking, this is half way because we need to also only apply at the end
                     currentFunType :: Maybe Type,
                     currentFunArgNames :: Maybe [String],
                     currentTypeVarCounter :: Int,
-                    funCallRecord :: Map (String, [Type]) String, -- Function name, list of arguments and the name to replace it with.
                     currentGlobalVarNames :: Set.Set String
-                    -- functionsToGenerate :: 
                   }
     deriving Show
 
 emptyTypecheckEnv :: TIenv
 emptyTypecheckEnv = TIenv { currentFunEnv = defaultFunEnv, currentVarEnv = Map.empty, currentMeta = undefined,
-                            funCallRecord = Map.empty,
-                            -- currentFunGroup = Map.empty, -- All functions in the current group that we are checking, this is half way because we need to also only apply at the end
                             currentFunType = Nothing,
                             currentGlobalVarNames = Set.empty,
                             currentFunArgNames = Nothing, currentTypeVarCounter = initTyCounterStart, currentFunName = Nothing}
@@ -128,14 +123,14 @@ lookupCurrentFunName :: TI String
 lookupCurrentFunName = do
   name <- gets currentFunName
   case name of
-    Nothing -> gets currentMeta >>= \meta -> throwError $ red "No current function name in type inference envrioment. " ++ "This is a compiler error. I don't know the name of the function I am currently checking at " ++ showStart meta
+    Nothing -> gets currentMeta >>= \meta -> throwError $ red "No current function name in type inference enviroment. " ++ "This is a compiler error. I don't know the name of the function I am currently checking at " ++ showStart meta
     Just found -> return found
 
 lookupCurrentFunType :: TI Type
 lookupCurrentFunType = do
   name <- gets currentFunType
   case name of
-    Nothing -> gets currentMeta >>= \meta -> throwError $ red "No current function type in type inference envrioment. " ++ "This is a compiler error. I don't know the type of the function I am currently checking at " ++ showStart meta
+    Nothing -> gets currentMeta >>= \meta -> throwError $ red "No current function type in type inference enviroment. " ++ "This is a compiler error. I don't know the type of the function I am currently checking at " ++ showStart meta
     Just found -> return found
 
 lookupArgNames :: TI [String]
@@ -235,13 +230,13 @@ instance Types Type where
   typevars (FunType args rt) =  typevars args <> typevars rt
   typevars (TypeVar var False) = Set.singleton var
   typevars _ = Set.empty -- No rigid!
-  apply subst t@(TypeVar var False) = 
+  apply subst t@(TypeVar var False) =
     case Map.lookup var subst of
         Nothing -> t; -- Return the same type variable  
         Just concrete -> {- Debug.trace ("Narrowing typevar: " ++ show var ++ " to " ++ show concrete) $ -}
-                  case concrete of 
+                  case concrete of
                     TypeVar _tyvarname False -> apply subst concrete {-let further = apply subst concrete -- lookup if there is 2 people with typevars that are the same type. 
-                                                in Debug.trace ("Narrowed typevar: " ++ _tyvarname ++ " further to " ++ show further) further-} 
+                                                in Debug.trace ("Narrowed typevar: " ++ _tyvarname ++ " further to " ++ show further) further-}
                     c -> c
   apply subst (TupleType t1 t2) = TupleType (apply subst t1) (apply subst t2)
   apply subst (ListType t) = ListType (apply subst t)
@@ -371,14 +366,14 @@ tcBinOp checkType e1 e2 = do
 
 -- First tries to infer two expressions as 2 ints and then as 2 chars if both fail an error is thrown using throwError
 tcBinOpCharOrInt :: BinOp -> Expr TypecheckedP -> Expr TypecheckedP -> TI (Subst)
-tcBinOpCharOrInt op e1 e2 = tcBinOp IntType e1 e2 `catchError`
-                                \_ -> tcBinOp CharType e1 e2  `catchError`
+tcBinOpCharOrInt op e1 e2 = get >>= \env -> tcBinOp IntType e1 e2 `catchError`
+                                \_ -> put env >> tcBinOp CharType e1 e2 `catchError`
                                   \_ -> do
                                     (_, t1) <- ti e1 -- Get the type for the error
                                     (_, t2) <- ti e2
                                     meta <- gets currentMeta
-                                    errorTail <- unifyError t1 t2
-                                    throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to " ++ pretty op ++" should be either Int or Char but you gave " ++ show t1 ++ show op ++ show t2 ++ errorTail
+                                    unifyError t1 t2 `catchError` \errorTail -> throwError $ "Invalid operation at " ++ show meta ++ "\nArguments to" ++ pretty op ++"should be either Int or Char but you gave " ++ show t1 ++ pretty op ++ show t2 ++ "\n" ++ errorTail
+
 
 
 tiBinaryIntOp :: Expr TypecheckedP -> Expr TypecheckedP -> Type -> TI (Subst, Type)
@@ -508,8 +503,8 @@ instance Typecheck (Expr TypecheckedP) where
      -- Print is special just return Void, later when we have the types of all expr we rewrite it to the right one! 
        -- To do that we do need to know the type of the arga
     case args of
-      [] ->  return (nullSubst, VoidType) 
-      (_:_:_) -> throwError $ "You called the '"++ blue "print" ++ "' function with too many arguments at " ++ showStart meta ++ ". The '"++ blue "print" ++ "' function takes exactly one argument of any type." 
+      [] ->  return (nullSubst, VoidType)
+      (_:_:_) -> throwError $ "You called the '"++ blue "print" ++ "' function with too many arguments at " ++ showStart meta ++ ". The '"++ blue "print" ++ "' function takes exactly one argument of any type."
       [arg] -> do
               (s1, _) <- ti arg -- we need the sub for the type var in the argument
               s2 <- unify ty VoidType
@@ -544,6 +539,7 @@ instance Typecheck (Expr TypecheckedP) where
     when (n_given_args > arg_count) (throwError $ red "You called the '"++ blue funcName ++ red "' function at " ++ showStart meta ++ red " with too many arguments " ++ "("++ green ( show n_given_args )++ " > " ++ green (show arg_count) ++ ")" ++ "\nThe '"++ blue funcName ++ "' function takes " ++ green ( show arg_count) ++ " argument" ++ (if arg_count == 1 then "" else "s") ++ " but you gave " ++ green ( show n_given_args) ++ " argument" ++ (if n_given_args == 1 then "" else "s") ++".")
     when (n_given_args < arg_count) (throwMissingArgs $ arg_count - n_given_args)
 
+    -- 
 
     args_subs <- zipWithM tc args funargs
     let args_sub = foldr composeSubst nullSubst args_subs -- combine arg subs 
@@ -604,7 +600,7 @@ instance Typecheck (Stmt TypecheckedP) where
     -- todo Now either get the return type again from the env or 
     return (s1, returntype)
   ti (ReturnStmt _ Nothing) = return (nullSubst, VoidType)
-  ti iff@(IfStmt meta cond consequent (Just alternative)) = do
+  ti (IfStmt meta cond consequent (Just alternative)) = do
     replaceMeta meta
     s1 <- tc cond BoolType
     (s2, ty1) <- ti consequent
@@ -918,7 +914,7 @@ checkDuplicateDecls = checkDuplicateDecl' Map.empty Map.empty
                Nothing -> checkDuplicateArgs (Map.insert argname meta varenv) next_args
                Just meta' -> Left $ red "The argument name '"++blue argname ++red "' of the '" ++ blue name ++ red "' function has already been defined earlier."
                                     ++ "\nThe first time at: " ++ showStart meta' ++ " and the second time at: " ++ showStart meta
-                                    ++ "\nNames used for global variables and argument names should not overlap. \nYou could consider renaming the argument to " ++ 
+                                    ++ "\nNames used for global variables and argument names should not overlap. \nYou could consider renaming the argument to " ++
                                     blue (argname ++ "'") ++ " (adding a ' behind the name)" ++ (if name `isPrefixOf` argname then "" else (" or " ++ blue (name ++ "_" ++ argname) ++ " (adding the function name as a prefix) ")) ++ "."
 
 -- Todo this should be another phase. We go from maybe type to type, but now fun decl is actually the same
