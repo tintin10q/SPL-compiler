@@ -16,14 +16,13 @@ import GHC.Base (when)
 import SPL.PrettyPrint
 import SPL.Codegen.GenSSM (getSmmCode)
 import SPL.Codegen.SSM (formatCode)
-import SPL.AST (Convertable(upgrade))
-import System.Exit (exitSuccess, ExitCode (ExitFailure), exitFailure)
+import System.Exit (exitSuccess, exitFailure)
 import SPL.ArgParse
 
 main :: IO ()
 main = do
     args <- getArgs
-    when ("--help" `elem` args || "-h" `elem` args) (putStrLn helpText >> exitSuccess)
+    when ("--help" `elem` args || "-h" `elem` args || "-help" `elem` args) (putStrLn helpText >> exitSuccess)
     when (null args) $ putStrLn "No input file specified!" >> exitFailure
     let filename = head args
         parsedargs = parseArgs $ tail args
@@ -114,6 +113,7 @@ usage: [--clisteps <steps>] [--haltonerror] [--cli] [--file <path> OR --stdin]
 -}
 
 
+helpText :: String
 helpText = unlines [blue "SPL Compiler" ++ " By Quinten Cabo",
                     "This compiler compiles the SPL programming language into ssm.",
                     "The first argument should be the filename of the .spl file to compile.",
