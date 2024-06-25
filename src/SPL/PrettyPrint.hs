@@ -246,5 +246,5 @@ instance Prettier (Literal p) where
   pretty FalseLit = black "False"
   pretty (IntLit n) = black $ show n
   pretty (CharLit c) = black $ show c
-  pretty (TupleLit (expr1, expr2)) = "(" ++ pretty expr1 ++ "," ++ pretty expr2 ++ ")"
+  pretty (TupleLit (expr1, expr2)) = "(" ++ pretty expr1 ++ ", " ++ pretty expr2 ++ ")"
   pretty EmptyListLit = black "[]"

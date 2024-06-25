@@ -35,7 +35,7 @@ instance Show Type where
   show CharType = yellow "Char"
   show BoolType = yellow "Bool"
   show VoidType = yellow "Void"
-  show (TupleType ty1 ty2) = yellow "(" ++ show ty1 ++ yellow "," ++ show ty2 ++ yellow ")"
+  show (TupleType ty1 ty2) = yellow "(" ++ show ty1 ++ yellow ", " ++ show ty2 ++ yellow ")"
   show (ListType ty) = yellow $ "[" ++ show ty ++ yellow "]"
   show (TypeVar name False) = yellow $ 'T':'y':'p':'e':'v':'a':'r':' ':blue name 
   show (TypeVar name True) = yellow $ 'R':'i':'g':'i':'d':' ':'T':'y':'p':'e':'v':'a':'r':' ':blue name
@@ -245,7 +245,7 @@ instance Show (Literal TypecheckedP) where
   show FalseLit = black "False"
   show (IntLit n) = black $ show n
   show (CharLit c) = black $ show c
-  show (TupleLit (expr1, expr2)) = "(" ++ show expr1 ++ "," ++ show expr2 ++ ")"
+  show (TupleLit (expr1, expr2)) = "(" ++ show expr1 ++ ", " ++ show expr2 ++ ")"
   show EmptyListLit = black "[]"
 
 data Field = HeadField | TailField | FirstField | SecondField

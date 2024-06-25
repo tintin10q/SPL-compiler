@@ -1,0 +1,7 @@
+
+main() {
+    var a = (1,2);
+    var b = (a,a);
+    a.snd = 8;
+    print(b);
+}

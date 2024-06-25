@@ -1,15 +1,23 @@
+var q = 137:[];
+
 main() {
-    var a1 = ("137", 137);
-    var a2 = ("137", 136);
+    var aa = ("Equal!", q.hd + 1);
+    var zz = ("-Equal!", q.hd);
     
-    var b1 = (a1,a1);
-    var b2 = (a2,a2);
+    var bb = (aa, aa);
+    var yy = (zz, zz);
     
-    var c1 = (b1,b1);
-    var c2 = (b2,b2);
-    
-    if (c1 == c2) {
-        print("Equal!");
-        print(c1);
-    }
+    var cc = (bb, bb);
+    var xx = (yy, yy);
+
+    print("cc: "); print(cc); print(); // Print without arguments print a new line
+    print("xx: "); print(xx); print("\ncc and xx are ");
+    if (cc == xx) { print(bb.snd.fst); } else { print("Not Equal!"); }
+
+    aa.snd = bb.snd.snd - 1; // Make them the same
+    zz.fst = zz.fst.tl; 
+
+    print("\n\ncc: "); print(cc); print(); 
+    print("xx: ");   print(xx); print("\ncc and xx are ");
+    if (cc == xx) { print(bb.snd.fst); } else { print("Not Equal!"); }
 }

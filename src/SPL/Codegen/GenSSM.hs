@@ -391,16 +391,19 @@ compareCode _ CharType CharType = generate Eq
 compareCode _ IntType IntType = generate Eq
 compareCode _ BoolType BoolType = generate Eq
 -- We know we can compare them savely because the typechecker checked it? What does the typechecker check?
-compareCode meta (TupleType t1a t1b) (TupleType t2a t2b) = let aEqCode = compareCode meta t1a t2a
-                                                               bEqCode = compareCode meta t1b t2b
-                                                            in pure [LDS 0, LDA (-1),-- Load the left of tuple 1
-                                                                     LDS (-2), LDA (-1) -- Load the left of tuple 2
-                                                               ] <> aEqCode <> -- Leaves 1 single True or False
-                                                               pure [
-                                                                     LDS (-2), LDA 0, -- Load right of tuple 1
-                                                                     LDS (-2), LDA 0  -- Load left of tuple 2
-                                                               ] <> bEqCode -- Now we have to load right of both tuples
-                                                               <> generate Eq <> pure [STS (-2), AJS (-1)] -- Remove used stack space
+compareCode meta (TupleType t1a t1b) (TupleType t2a t2b) = do 
+                                                            aEqCode <- compareCode meta t1a t2a
+                                                            bEqCode <- compareCode meta t1b t2b
+                                                            let bEqCodeLen = codeSize bEqCode  
+                                                            return $ [LDS 0, LDA (-1),-- Load the left of tuple 1
+                                                                      LDS (-2), LDA (-1) -- Load the left of tuple 2
+                                                                     ] <> aEqCode <> -- Leaves 1 single True or False
+                                                                  -- If not equal we jump to the end and push false, else you have to compare the other item
+                                                                     [BRT 4, LDC 0, BRA (8 + bEqCodeLen)] <>
+                                                                     [LDS 0, LDA 0, -- Load right of tuple 1
+                                                                      LDS (-2), LDA 0]  -- Load left of tuple 2
+                                                                     <> bEqCode -- The result of this equal is the final result
+                                                                     <> [STS (-2), AJS (-1)] -- Remove used stack space
 
 compareCode meta (ListType t1) (ListType t2) = do
        comparecode <- compareCode meta t1 t2
