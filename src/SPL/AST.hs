@@ -27,7 +27,7 @@ data Type
   | TupleType Type Type
   | ListType Type
   | TypeVar { typevarname :: String, rigid :: Bool }
-  | FunType [Type] Type -- Or should the ti for functions return a type scheme?
+  | FunType [Type] Type 
   deriving (Eq, Ord)
 
 instance Show Type where 

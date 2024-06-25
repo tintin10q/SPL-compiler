@@ -341,6 +341,37 @@ generatePrint ty = case {- Debug.trace (";; Printing the type " ++ show ty)-} ty
                                                     BRA ((-20) - printItemCodeSize +2),   -- Jump back to the brf 12
                                                     LDC (ord ']'), TRAP 1, AJS (-1)] -- These prints leave 1 value on the stack always just clean that up
                               -- ListType (ListType a) -> 
+                              TupleType a@(ListType CharType) b@(ListType CharType) -> 
+                                                 let printAcode = generatePrint a
+                                                     printBcode = generatePrint b
+                                                 in [
+                                                      LABEL "'printTupleStr12", LDC (ord '('), TRAP 1,
+                                                      LDS 0,  -- Copy for the second value
+                                                      LDA (-1)
+                                                 ] <> [LDC (ord '"'), TRAP 1] <> printAcode <> [LDC (ord '"'), TRAP 1] <>
+                                                      [LDC (ord ','), TRAP 1, LDC (ord ' '), TRAP 1, LDA 0] -- Print `, ` and load next value
+                                                    <> [LDC (ord '"'), TRAP 1] <> printBcode  <> [LDC (ord '"'), TRAP 1] <> [LDC (ord ')'), TRAP 1]
+                              TupleType a b@(ListType CharType) -> 
+                                                 let printAcode = generatePrint a
+                                                     printBcode = generatePrint b
+                                                 in [
+                                                      LABEL "'printTupleStr2", LDC (ord '('), TRAP 1,
+                                                      LDS 0,  -- Copy for the second value
+                                                      LDA (-1)
+                                                 ] <> printAcode <>
+                                                 [LDC (ord ','), TRAP 1, LDC (ord ' '), TRAP 1, LDA 0] -- Print `, ` and load next value
+                                                 <> [LDC (ord '"'), TRAP 1] <> printBcode <> [LDC (ord '"'), TRAP 1] <> [LDC (ord ')'), TRAP 1]
+                              TupleType a@(ListType CharType) b -> 
+                                                 let printAcode = generatePrint a
+                                                     printBcode = generatePrint b
+                                                 in [
+                                                      LABEL "'printTupleStr1", LDC (ord '('), TRAP 1,
+                                                      LDS 0,  -- Copy for the second value
+                                                      LDA (-1)
+                                                 ] <> [LDC (ord '"'), TRAP 1] <> printAcode <> [LDC (ord '"'), TRAP 1] <>
+                                                      [LDC (ord ','), TRAP 1, LDC (ord ' '), TRAP 1, LDA 0] -- Print `, ` and load next value
+                                                   <> printBcode <> [LDC (ord ')'), TRAP 1]
+                              
                               TupleType a b  -> let printAcode = generatePrint a
                                                     printBcode = generatePrint b
                                                  in [
