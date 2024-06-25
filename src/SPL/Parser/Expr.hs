@@ -11,7 +11,7 @@ import Text.Megaparsec (choice, try, (<|>), many, optional, getSourcePos, noneOf
 import qualified Data.Text as T
 import Data.Functor (($>))
 import Text.Megaparsec.Char (char)
-import SPL.Colors (red, green, black)
+import SPL.Colors (red, green, black, yellow)
 import SPL.Parser.SourceSpan ( endPos, showStart, srcSpan, startPos, SourceSpan )
 
 
@@ -121,7 +121,7 @@ pStringExpr =  do
     let meta = srcSpan posStart posEnd
 
     -- todo make this a nicer parse error from parsec
-    if null tokens then error $ red "Empty string not allowed at " ++ showStart meta ++ ". The string syntax is just syntactic suger for a large cons expression.\nBut that means that \"\" == [] which is not ideal because the typeof \"\" is [Char] while typeof [] is [a]. But the type checker can't know this anymore as this information is thrown away with the desuggering. So to prevent this confusion just no empty strings."
+    if null tokens then error $ red "Empty string not allowed at " ++ showStart meta ++ ".\nThe string syntax is just syntactic sugar for a large cons expression.\nBut that means that \"\" == [] which is not ideal because the typeof "++ black "\"\"" ++" is "++ yellow "[Char]"++ " while typeof "++ black "[]" ++ " is "++yellow "[a]"++".\nBut the type checker can't know this anymore as this information is thrown away with the desugaring. So to prevent this confusion just no empty strings."
     else return $ foldl (\previous token -> BinOpExpr meta Cons (LiteralExpr meta $ CharLit token ) previous) (LiteralExpr meta EmptyListLit) tokens
   -- pStringExpr
   -- UnaryOpExpr _ op expr

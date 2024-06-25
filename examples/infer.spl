@@ -1,0 +1,19 @@
+var a = 3;
+
+foo(x) {
+    var zero = 0;
+    var list = [];
+    return a:zero:x:list;
+}
+
+fee(x) {
+    if (x) {
+        return 3;
+    } else {
+        return 3;
+    }
+}
+
+main() {
+    foo(10); 
+}
