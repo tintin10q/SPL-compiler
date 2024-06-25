@@ -38,7 +38,6 @@ library spl-lib
         SPL.Codegen.WASM
         SPL.Colors
         SPL.Optimizer
-        SPL.State
         SPL.Return
         SPL.PrettyPrint
         SPL.Parser.SourceSpan
