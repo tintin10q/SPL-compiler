@@ -66,8 +66,17 @@ instance Optimise (Expr TypecheckedP) where
                                         ((LiteralExpr m (CharLit a)),  (LiteralExpr _ (CharLit b))) -> LiteralExpr m $ if a > b then TrueLit else FalseLit
                                         (e1', e2') -> BinOpExpr meta Gt e1' e2'
   opti (BinOpExpr meta Eq e1 e2) = case (opti e1, opti e2) of 
-                                        ((LiteralExpr m (IntLit a)),  (LiteralExpr _ (IntLit b))) -> LiteralExpr m $ if a == b then TrueLit else FalseLit
-                                        ((LiteralExpr m (CharLit a)),  (LiteralExpr _ (CharLit b))) -> LiteralExpr m $ if a == b then TrueLit else FalseLit
+                                        ((LiteralExpr m (IntLit a)), (LiteralExpr _ (IntLit b))) -> LiteralExpr m $ if a == b then TrueLit else FalseLit
+                                        ((LiteralExpr m (CharLit a)),(LiteralExpr _ (CharLit b)))-> LiteralExpr m $ if a == b then TrueLit else FalseLit
+
+                                        ((LiteralExpr m TrueLit),  (LiteralExpr _ TrueLit))  -> LiteralExpr m TrueLit
+                                        ((LiteralExpr m FalseLit), (LiteralExpr _ FalseLit)) -> LiteralExpr m TrueLit
+                                        ((LiteralExpr m TrueLit),  (LiteralExpr _ FalseLit)) -> LiteralExpr m FalseLit
+                                        ((LiteralExpr m FalseLit), (LiteralExpr _ TrueLit))  -> LiteralExpr m FalseLit
+                                        
+                                        ((LiteralExpr m (TupleLit (a,b))), (LiteralExpr _ (TupleLit (c,d))))  -> LiteralExpr m $ if a == c && b == d then TrueLit else FalseLit
+                                        ((LiteralExpr m (EmptyListLit)), (LiteralExpr _ EmptyListLit))  -> LiteralExpr m TrueLit -- The code gen also does this even for empty lists of type vars
+
                                         ((VariableExpr _ name),  (VariableExpr _ name')) -> if name == name' then LiteralExpr meta TrueLit else BinOpExpr meta Eq e1 e2
                                         (e1', e2') -> BinOpExpr meta Eq e1' e2'
   opti (BinOpExpr meta Lt e1 e2) = case (opti e1, opti e2) of 
@@ -85,6 +94,16 @@ instance Optimise (Expr TypecheckedP) where
   opti (BinOpExpr meta Neq e1 e2) = case (opti e1, opti e2) of 
                                         ((LiteralExpr m (IntLit a)),  (LiteralExpr _ (IntLit b))) -> LiteralExpr m $ if a /= b then TrueLit else FalseLit
                                         ((LiteralExpr m (CharLit a)),  (LiteralExpr _ (CharLit b))) -> LiteralExpr m $ if a /= b then TrueLit else FalseLit
+
+                                        ((LiteralExpr m TrueLit),  (LiteralExpr _ TrueLit))  -> LiteralExpr m FalseLit
+                                        ((LiteralExpr m FalseLit), (LiteralExpr _ FalseLit)) -> LiteralExpr m FalseLit
+                                        ((LiteralExpr m TrueLit),  (LiteralExpr _ FalseLit)) -> LiteralExpr m TrueLit
+                                        ((LiteralExpr m FalseLit), (LiteralExpr _ TrueLit))  -> LiteralExpr m TrueLit
+                                        
+                                        ((LiteralExpr m (TupleLit (a,b))), (LiteralExpr _ (TupleLit (c,d))))  -> LiteralExpr m $ if a == c && b == d then FalseLit else TrueLit  
+                                        ((LiteralExpr m (EmptyListLit)), (LiteralExpr _ EmptyListLit))  -> LiteralExpr m FalseLit -- The code gen also does this even for empty lists of type vars
+
+
                                         ((VariableExpr _ name),  (VariableExpr _ name')) -> if name == name' then LiteralExpr meta FalseLit else BinOpExpr meta Neq e1 e2
                                         (e1', e2') -> BinOpExpr meta Neq e1' e2'
   -- Other binops
