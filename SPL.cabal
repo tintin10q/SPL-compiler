@@ -13,7 +13,7 @@ executable spl-exe
     import:           warnings
     main-is:          Main.hs
     hs-source-dirs:   app
-    build-depends:    base ^>=4.17.2.1,
+    build-depends:    base ,
                       text ^>=2.0,
                       spl-lib
     default-language: Haskell2010
@@ -44,7 +44,7 @@ library spl-lib
         SPL.ArgParse
         SPL.Preprocess
 
-    build-depends:    base ^>=4.17.2.1,
+    build-depends:    base,
                       megaparsec,
                       containers,
                       parser-combinators ^>= 1.3.0,
@@ -68,7 +68,7 @@ test-suite tests
         Test.Parser.ProgramSpec
         Test.Parser.StmtSpec
         Test.Parser.TypeSpec
-    build-depends:    base ^>=4.17.2.1,
+    build-depends:    base,
                       hspec ^>=2.11.7,
                       hspec-megaparsec ^>= 2.2.1,
                       megaparsec,
