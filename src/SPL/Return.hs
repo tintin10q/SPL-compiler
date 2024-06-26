@@ -12,7 +12,7 @@ import SPL.Parser.SourceSpan (SourceSpan, showStart, showEnd)
   Here we check if all paths return a value
     Dit it return a value?
      No and Without are compatible = Right ...
-     With and (No | Without) are imcompatible = Left String
+     With and (No | Without) are incompatible = Left String
      With and With is competable = Right ...
 
      and so on
@@ -21,11 +21,11 @@ import SPL.Parser.SourceSpan (SourceSpan, showStart, showEnd)
 
 
 
-data TypeOfRet = WithValue SourceSpan | WithoutValue SourceSpan | No -- No is only for if there are no return statements. Only the base case should make it
+data WayOfReturn = WithValue SourceSpan | WithoutValue SourceSpan | No -- No is only for if there are no return statements. Only the base case should make it
 -- Only return statements should span the With and Without values
 
 class ReturnCheck a where
-  returns :: [a] -> Either String TypeOfRet
+  returns :: [a] -> Either String WayOfReturn 
 
 instance ReturnCheck (Stmt ParsedP) where
   returns [] = Right No
@@ -52,7 +52,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ " but the rest of the code does not.\n"
             ++ "Each branch should return the same way. You should either always return a value or never."
             ++ "\nEither add a return value to end of the code or remove the return statement at "
-            ++ showEnd m
+            ++ showEnd m ++ "."
       (Right (WithValue m1), Right (WithoutValue m2)) ->
         Left $
           red "Invalid returns"
@@ -67,7 +67,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ "\nEither add a return value to the return statement at "
             ++ showEnd m2
             ++ " or remove the value from the return statement in the if at "
-            ++ showEnd m1
+            ++ showEnd m1 ++ "."
       (Right No, Right (WithValue m)) -> Right (WithValue m)
       (Right (WithoutValue m1), Right (WithValue m2)) ->
         Left $
@@ -111,7 +111,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ showEnd m2
             ++ " or remove the return value from the return in the true part of the if condition at "
             ++ showEnd m1
-            ++ " and at "
+            ++ " and at also remove the return value at "
             ++ showEnd m3
             ++ "."
       (Right (WithoutValue m1), Right (WithValue m2), Right (WithoutValue m3)) ->
@@ -238,7 +238,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ " but no where else you return a value. \nEach branch should return the same way. You should either always return a value or never."
             ++ "\nEither remove the return statement at "
             ++ showStart m
-            ++ " or add a return statement at the end of the function."
+            ++ " or add a return statement with a value at the end of the function."
       (Right (WithoutValue _), Right No, Right No) -> Right No
       (Right No, Right (WithoutValue _), Right No) -> Right No
       (Right No, Right (WithValue m1), Right (WithoutValue m2)) ->
@@ -263,14 +263,14 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ showStart meta
             ++ "\nThe true case of the if condition returns a value at "
             ++ showStart m1
-            ++ " while the else case does not at"
+            ++ " while the else case does return but without a value at "
             ++ showStart m2
             ++ " \nEach branch should return the same way. You should either always return a value or never."
-            ++ " You probably either forgot a return value in the else or you forgot to remove the return in the true case of the if condition "
-            ++ " Add a return value at "
+            ++ " You probably either forgot a return value in the else or you forgot to remove the return value in the true case of the if condition. "
+            ++ " Either add a return value at "
             ++ showEnd m2
-            ++ " or remove it at "
-            ++ showEnd m1
+            ++ " or remove the return statement at "
+            ++ showEnd m1 ++ "."
       (Right (WithoutValue m1), Right (WithValue m2), _) ->
         Left $
           red "Invalid returns"
@@ -281,11 +281,11 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ " while the else case returns with a value at."
             ++ showStart m2
             ++ " \nEach branch should return the same way. You should either always return a value or never."
-            ++ " You probably forgot the return value in the true case of the if or you forgot to remove the return from the else case"
+            ++ " You probably forgot the return value in the true case of the if or you forgot to remove the return value from the else case."
             ++ " Either add a return value at "
             ++ showEnd m1
-            ++ " or remove the return at "
-            ++ showEnd m2
+            ++ " or remove the return statement at "
+            ++ showEnd m2 ++ "."
       -- We were here! -- idk about this one
       -- Ask Vraag I think we just be save and do all of them, but is this ok or not?  Each branch returns?
       -- I think we just be save and do all of them, but is this ok or not?  Each branch returns. I do want to detect not returning a value though
@@ -361,7 +361,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ "\nEither add a return value to the return statement at "
             ++ showEnd m2
             ++ " or remove the value from the return statement in the while loop at "
-            ++ showEnd m1
+            ++ showEnd m1 ++ "."
       (Right No, Right (WithValue m)) -> Right (WithValue m)
       (Right (WithoutValue m1), Right (WithValue m2)) ->
         Left $
@@ -377,7 +377,7 @@ instance ReturnCheck (Stmt ParsedP) where
             ++ "\nEither add a return value to the return statement in the while loop at "
             ++ showEnd m1
             ++ " or remove the return value from "
-            ++ showEnd m1
+            ++ showEnd m1 ++ "."
   returns ((AssignStmt {}) : later) = returns later
   returns ((ExprStmt _ _) : later) = returns later
   returns (BlockStmt _ : _) = error "Encountered block statement! There should not be any BlockStmt in the return check phase!!!"
@@ -392,13 +392,13 @@ instance ReturnCheck (Decl ParsedP) where
 -- Function that checks the returns of a decl with the actual state of affairs in the delc
 {-
 After the returns analysis we can do some things in the void case to add some information.
-    - If TypeOfRet == No | WithoutValue
+    - If WayOfReturn == No | WithoutValue
       -- If the return type of the function is Not given it becomes Void
       -- If the return type of the function is given and not void ERROR
-    - If TypeOfRet == WithValue
+    - If WayOfReturn == WithValue
       -- WithValue and void is actually an error!
       -- Anything else has to be solved by the type checker
-        --- If TypeOfRet == WithValue we later have to check later during type checking if we can unify the given return value of the fundecl with the expressions in the return statement
+        --- If WayOfReturn == WithValue we later have to check later during type checking if we can unify the given return value of the fundecl with the expressions in the return statement
       -- The type of every return expression has to unify with the specified type during type checking. We can look in the funenv for the return type!!
 -}
 checkReturns :: Program ParsedP -> Either String (Program ReturnsCheckedP)
@@ -414,14 +414,14 @@ checkReturns (f@(FunDecl meta name retty args funvars body) : later) = do
                   (WithoutValue _, Just VoidType) -> pure f
                   -- If the return type of the function is given and not void ERROR
                   (No, Just ty) -> Left $ red "Missing return statement" ++ " in function '" ++ blue name ++ "' defined at " ++ showStart meta
-                                    ++ "\nFunction '" ++ blue name ++ "' is specified to return a value of type " ++ show ty ++ " but no value is being returned from the '" ++ blue name ++ "' function."
-                                    ++ "\nEither add a return value or change the return type of the function to " ++ show VoidType
+                                    ++ ".\nFunction '" ++ blue name ++ "' is specified to return a value of type " ++ show ty ++ " but no value is being returned from the '" ++ blue name ++ "' function."
+                                    ++ "\nEither add a return value (of type "++show ty ++ ") or change the return type of the function to " ++ show VoidType
                   (WithoutValue m, Just ty) -> Left $ red "Missing return value " ++ " in function '" ++ blue name ++ "' defined at " ++ showStart meta
                                     ++ "\nFunction '" ++ blue name ++ "' is specified to return a value of type " ++ show ty ++ " but the return statement at "++ showStart m ++ " is not returning a value."
-                                    ++ "\nEither add a return value or change the return type of the function to " ++ show VoidType ++ "."
+                                    ++ "\nEither add a return value (of type "++show ty++") or change the return type of the function to " ++ show VoidType ++ "."
                   -- If the return type of the function is void but we do return a value ERROR
-                  (WithValue m, Just VoidType) -> Left $ red "Unexpected return value " ++ " in function '" ++ blue name ++ "' defined at " ++ showStart meta
-                                    ++ "\nFunction '" ++ blue name ++ "' has a specified return type of "++ show VoidType ++ " which means no value should be returned."
+                  (WithValue m, Just VoidType) -> Left $ red "Unexpected return value " ++ "in function '" ++ blue name ++ "' defined at " ++ showStart meta
+                                    ++ ".\nFunction '" ++ blue name ++ "' has a specified return type of "++ show VoidType ++ " which means no value should be returned."
                                     ++ "\nHowever at " ++ showEnd m ++ " you are returning a value."
                                     ++ "\nHere are some things to try:\n"
                                     ++ "- If you do not want to return a value, remove the returned value at "++ showEnd m ++"\n"

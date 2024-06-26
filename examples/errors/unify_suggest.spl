@@ -1,0 +1,11 @@
+var three = 3;
+var fff = False && False;
+
+foo(a_bool: Bool)
+{ 
+    var ttt = True;
+    var two = 2;
+    return 1 + True; 
+}
+
+main(){return;}

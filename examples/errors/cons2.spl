@@ -1,0 +1,4 @@
+main() {
+    var a = [].snd;
+    return;
+}

@@ -1,0 +1,17 @@
+    raise(number) {
+        return number * number; 
+    }
+    
+    power(number, by) {
+        var result = 0;
+        while (by > 0) { 
+            result = result + raise(number); 
+            by = by - 1;
+        }
+        return result;
+    }
+
+
+main() {
+    print(power(2,4));
+}

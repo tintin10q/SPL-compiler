@@ -2,7 +2,6 @@
 module Main where
 
 import SPL.Parser
--- import SPL.Printer
 import SPL.Colors
 import System.Environment (getArgs)
 
@@ -29,7 +28,7 @@ main = do
         showInfo = not (hideInfo parsedargs)
         optimize = not (skipOptimizer parsedargs)
         warn = not (hideWarnings parsedargs)
-    when showInfo $ putStrLn $ "Reading file " ++ blue filename
+    when showInfo $ putStrLn $ "Reading file " ++ green filename
     source <- TIO.readFile filename
     -- putStrLn $ blue "Read in Source:\n" ++ T.unpack source
     parsed_ast <- eitherParserToIO  $ parse filename source
@@ -39,7 +38,7 @@ main = do
     eitherStrIO $ checkEmptyBody parsed_ast >> checkHasMain parsed_ast 
     when showInfo $ putStrLn (blue "(program has main function) ")
     -- print parsed_ast
-    let preprocessed_ast = preprocesAST parsed_ast
+    let preprocessed_ast = preprocesAST parsedargs parsed_ast 
         improvement = opti_improvement parsed_ast preprocessed_ast
     when (improvement < 0 && showInfo) $ putStrLn (blue "Pruned " ++ green (show (-improvement) ++ "%") ++ blue " of tree by removing dead code.")
     when showInfo $ putStrLn $ pretty preprocessed_ast
@@ -94,7 +93,7 @@ eitherToIO (Left err) = do
 eitherStrIO :: Either String a -> IO a
 eitherStrIO (Right value) = return value
 eitherStrIO(Left err) = do
-    putStrLn (red "Str Error: " ++ err)
+    putStrLn (red "Semantic Analysis Error: " ++ err)
     fail $ red "Compilation failed"
 
 

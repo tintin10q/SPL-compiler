@@ -1,0 +1,11 @@
+foo(a) {
+    if (a > 3) {
+        return 'Q';  
+    } else {
+        return 'u';
+    }
+    print("Removed");
+    return '-';
+}
+
+main() {return;}

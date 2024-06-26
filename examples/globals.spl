@@ -1,0 +1,7 @@
+
+
+Int a = 3;
+
+main() {print(a);print(c);}
+
+Int b = a + 3;

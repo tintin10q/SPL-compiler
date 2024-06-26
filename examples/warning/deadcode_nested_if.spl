@@ -1,0 +1,11 @@
+foo(a) {
+    if (a) {
+        return;
+    } else {
+        if (a) { return; } else { return; }
+    }
+    print("Never");
+    return;
+}
+
+main() {return;}

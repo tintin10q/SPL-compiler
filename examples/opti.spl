@@ -1,0 +1,15 @@
+
+main() {
+    var a = 3 + 3 * 2;
+    var b = (10,"Long string").fst;
+    var ttt = isEmpty([]);
+    var c = (10:[]).hd;
+    
+    if (True) {
+        print("1");
+    } 
+    
+    if (False) {print("gone");} else {print("2");}
+
+    while (False) {print("gone");} 
+}

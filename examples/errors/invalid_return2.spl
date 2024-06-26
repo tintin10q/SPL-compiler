@@ -1,0 +1,5 @@
+foo(a) {
+    if (a) { return 3;} else { print(!a);} 
+}
+
+main() {return;}

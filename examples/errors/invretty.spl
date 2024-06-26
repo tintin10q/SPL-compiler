@@ -1,0 +1,9 @@
+
+foo(aap) {
+    if (aap) {
+        return a;
+    }
+    return 3;
+}
+
+main() {return;}

@@ -1,0 +1,8 @@
+foo() {
+    var aap = 731;
+    return aap;
+}
+
+var aap = 137;
+
+main() {return;}

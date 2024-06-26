@@ -5,6 +5,8 @@
 {-# HLINT ignore "Replace case with fromMaybe" #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# HLINT ignore "Redundant bracket" #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 
 module SPL.Typechecker2 where
 
@@ -36,15 +38,13 @@ data TIenv = TIenv {currentFunEnv :: FunEnv, -- Map String Shceme
                     currentFunName :: Maybe String, -- Just for error messages
                     currentFunType :: Maybe Type,
                     currentFunArgNames :: Maybe [String],
-                    currentTypeVarCounter :: Int,
-                    currentGlobalVarNames :: Set.Set String
+                    currentTypeVarCounter :: Int
                   }
     deriving Show
 
 emptyTypecheckEnv :: TIenv
 emptyTypecheckEnv = TIenv { currentFunEnv = defaultFunEnv, currentVarEnv = Map.empty, currentMeta = undefined,
                             currentFunType = Nothing,
-                            currentGlobalVarNames = Set.empty,
                             currentFunArgNames = Nothing, currentTypeVarCounter = initTyCounterStart, currentFunName = Nothing}
 
 -- We are now going to solve the instanciate issue
@@ -110,7 +110,7 @@ lookupVarType varname = do
   varenv <- gets currentVarEnv
   case Map.lookup varname varenv of
     Just varT -> return varT
-    Nothing -> gets currentMeta >>= \meta -> throwError $ red "Undefined variable " ++ show varname ++ " at " ++ showStart meta ++ "."
+    Nothing -> gets currentMeta >>= \meta -> throwError $ red "Undefined variable " ++ blue (show varname) ++ red " at " ++ showStart meta ++ "."
 
 lookupFunScheme :: String -> TI Scheme
 lookupFunScheme name = do
@@ -210,14 +210,6 @@ lookupFunTypeOf :: String -> TI Type
 lookupFunTypeOf name = do
     currentName <- lookupCurrentFunName `catchError` \err -> throwError $ "While looking to get name of current function for a function call ti got error here is that error: \n" ++ err
     if name == currentName then lookupCurrentFunType else lookupFunScheme name >>= instantiate
-
--- List of global variable names that can be shawed
-replaceCurrentGlobalVarNames :: Set.Set String -> TI ()
-replaceCurrentGlobalVarNames new_set = modify (\env -> env {currentGlobalVarNames = new_set  } )
-
--- When a var is added to the vars that is also in global var we remove the var from the global var first. and then we save what we removed into a shadowed map.
--- Then at the end we merge the orignal vars with the shadow map. Lets do code gen now. 
--- Also actually getting the tyep in the decl means like reruning it.
 
 -- But we save that 
 
@@ -319,7 +311,6 @@ unify IntType IntType = return nullSubst
 unify BoolType BoolType = return nullSubst
 unify CharType CharType = return nullSubst
 unify VoidType VoidType = return nullSubst
--- todo probably add case for Void Void 
 unify t1 t2 = unifyError t1 t2
 
 class Typecheck a where
@@ -381,8 +372,8 @@ tiBinaryIntOp e1 e2 ty = do
   s1 <- tcBinOp IntType e1 e2
   s2 <- unify ty IntType
   let s = s1 `composeSubst` s2
-  applySubToTIenv s -- We could put the whole decl in there and keep applying it!
-  return (s, IntType) -- No need to apply s here, it will be done at the end
+  applySubToTIenv s 
+  return (s, IntType) 
 
 -- Checks if two expressions can be bool and if the type of the node can be bool
 tiBinaryBoolOp :: Expr TypecheckedP -> Expr TypecheckedP -> Type -> TI (Subst, Type)
@@ -893,13 +884,13 @@ checkDuplicateDecls = checkDuplicateDecl' Map.empty Map.empty
                                 ++ red "' is defined two times!" ++ "\nThe first time at: "
                                 ++ showStart meta'
                                 ++ " and the second time at: "
-                                ++ showEnd meta
+                                ++ showEnd meta ++ "."
         checkDuplicateDecl' funmemory varmemory (FunDecl meta name _ args vardelcs _ : program) = do
           -- todo this used to be a checkDuplicateDecls call but now we do a checkDuplicateDecl' to avoid having to make global vars scopeing work properly :)
             -- By not taking the output of the call we do allow same names within functions just not shadowing global variables. -- I think this it good design anyhow.
           varmemoryWithArgs <- checkDuplicateArgs varmemory args
           checkDuplicateDecl' funmemory varmemoryWithArgs vardelcs >> case Map.lookup name funmemory of
-            Nothing -> checkDuplicateDecl' (Map.insert name meta funmemory) varmemory program
+            Nothing -> checkDuplicateDecl' (Map.insert name meta funmemory) varmemoryWithArgs program
             Just meta' -> Left $ red "Function with name '"
                           ++ blue name
                           ++ red "' is defined two times!" ++ "\nThe first time at: "
@@ -915,7 +906,7 @@ checkDuplicateDecls = checkDuplicateDecl' Map.empty Map.empty
                Just meta' -> Left $ red "The argument name '"++blue argname ++red "' of the '" ++ blue name ++ red "' function has already been defined earlier."
                                     ++ "\nThe first time at: " ++ showStart meta' ++ " and the second time at: " ++ showStart meta
                                     ++ "\nNames used for global variables and argument names should not overlap. \nYou could consider renaming the argument to " ++
-                                    blue (argname ++ "'") ++ " (adding a ' behind the name)" ++ (if name `isPrefixOf` argname then "" else (" or " ++ blue (name ++ "_" ++ argname) ++ " (adding the function name as a prefix) ")) ++ "."
+                                    blue (argname ++ "'") ++ " (adding a ' behind the name)" ++ (if name `isPrefixOf` argname then "" else (" or " ++ blue (name ++ "_" ++ argname) ++ " (adding the function name as a prefix)")) ++ "."
 
 -- Todo this should be another phase. We go from maybe type to type, but now fun decl is actually the same
 --

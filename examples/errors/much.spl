@@ -1,0 +1,8 @@
+
+hi(a:Int,b:Bool,c:Char) {
+    return;
+}
+
+int main() {
+    hi(2);
+}

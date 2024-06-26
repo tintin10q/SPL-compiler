@@ -1,0 +1,5 @@
+foo(a) {
+    if (False) {return 3;} else {return;}
+}
+
+main() {return;}

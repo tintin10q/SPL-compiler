@@ -1,0 +1,21 @@
+
+main() {
+    return;
+    print(10);
+}
+
+
+foo() {
+    var a = False;
+    if (a) {
+        return;
+    } else {
+        if (a) {
+            return;
+        }
+        else {
+            return;
+        }
+    }
+    print("Removed");
+}

@@ -1,0 +1,2107 @@
+\documentclass{report}
+
+\usepackage[a4paper]{geometry}
+\usepackage{hyperref}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{listings}
+\usepackage{geometry}
+\usepackage{todonotes}
+\usepackage{minted}
+\usepackage{amsmath}
+
+\geometry{
+    margin=1in
+}
+
+\hypersetup{
+	colorlinks=true,   	% false: boxed links; true: colored links
+	linkcolor=black,    	% color of internal links
+	filecolor=blue,    	% color of file links
+	urlcolor=cyan,     	% color of external links
+	citecolor=blue,    	% color of citation links (if any)
+	pdfauthor={Quinten Cabo},   % author
+	pdfpagemode=FullScreen,  % show the whole document in fullscreen
+}
+
+\definecolor{type}{cmyk}{0, .04, .92, .40}
+\definecolor{literal}{RGB}{129, 129, 128}
+\definecolor{error}{cmyk}{0, .80, .32, .13}
+\definecolor{warning}{RGB}{162, 159, 54}
+\definecolor{name}{cmyk}{.90, .33, 0, .19}
+\definecolor{info}{cmyk}{.90, .33, 0, .19}
+\colorlet{filename}{ForestGreen!90}
+% cmyk(92%, 0%, 36%, 34%)
+
+% Text color for filename is ForestGreen
+
+\lstdefinelanguage{SPL}{%
+	alsoletter={0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_+-*/\%=<>!\&|},
+	morekeywords={while,else,if,return,var},%
+	sensitive=true,%
+	morecomment=[l]{//},%
+	morecomment=[n]{/*}{*/},%
+	morestring=[b]",%
+	morestring=[b]',%
+}
+
+\lstdefinestyle{SPL}{
+	upquote=true,
+        language=SPL,
+	breakatwhitespace=false,
+	breaklines=true,
+	postbreak=\mbox{\textcolor{literal}{$\hookrightarrow$}\space},
+	keepspaces=true,
+	basicstyle=\tt\footnotesize,
+	commentstyle=\color{gray}\slshape,
+	keywordstyle=\color{error}\bfseries,
+	stringstyle=\color{literal},
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=4,
+	basewidth=0.43em,
+	columns=[c]fixed,
+	texcl=true,
+	captionpos=b,
+	morekeywords=[2]{\[Int\],\[Char\],\[Bool\],\[t\],Int,Char,Bool,Void},
+	keywordstyle=[2]\color{type},
+	classoffset=2,
+	morekeywords={print,main,isEmpty,countdown,x,y,id,foo,bar,fee,fst,snd,tl,hd,power,raise,number,result,by,aap,baap,global_var1,global_var2},
+	keywordstyle=\color{name},
+	classoffset=0,
+}
+
+\lstdefinelanguage{Haskell}{
+  morekeywords={module,import,where,let,family,in,if,then,else,case,of,data,type,newtype,deriving,do,instance,class},
+  sensitive=true,
+  morecomment=[l]--,
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+  morestring=[b]'
+}
+
+\lstdefinestyle{Haskell}{
+  language=Haskell,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  stringstyle=\color{red},
+  showstringspaces=false,
+  tabsize=2,
+  breaklines=true,
+  breakatwhitespace=false,
+  escapeinside={\%*}{*)},
+  morekeywords=[2]{operatorTable,unary,binary,try,tDot,tHead,tTail,tSnd,tFst,tGte,tGt,tLte,tLt,tDoubleEq,tExclEq,tDoubleAmpersand,tDoublePipe,tColon,tMin,tPlus,tSlash,tStar,tExcl,tPercent}, % Add your function names here
+  keywordstyle=[2]\color{magenta},
+  morekeywords=[3]{Postfix,FieldAccess,HeadField,TailField,Negate,SecondField,Prefix,Mul,Div,Mod,Add,Sub,Min,Cons,Gte,Gt,Lte,Lt,Eq,Neq,And,Or,InfixL,InfixR,InfixN,FirstField,UnaryOpExpr,BinOpExpr}, % Add your function names here
+  keywordstyle=[3]\color{purple},
+  morekeywords=[4]{L.}, % Add your function names here
+  keywordstyle=[4]\color{green},
+}
+
+\author{%
+	Quinten Cabo\\
+	\small\texttt{s1076992}
+}
+\date{\today}
+\title{My SPL Compiler}
+
+
+\begin{document}
+
+\maketitle%
+
+\tableofcontents%
+
+\vspace{1cm}
+
+% \noindent As you know my partner quit the project around the time we got started on the semantic analysis. In this report, whenever I write "we" it was something that we worked on or decided together and when I write "I" it was something that I did after Marijn quit.
+
+\pagebreak 
+
+\chapter{Introduction} 
+
+This is the final report for my Simple Programming Language (SPL) compiler. 
+
+\section{Simple Programming Language}
+
+SPL is a C-style language, but with the following main differences:
+
+\begin{itemize}
+    \item Support for polymorphic data types. 
+    \item Type inference
+    \item No pointers
+    \item Type safe operators, you get a type error with + on a chars for example
+    \item Overloaded print and equality
+    \item Arrays are quite different with the : (cons) operator and .tl and .hd access fields
+    \item Variables should be defined at the top of a function.
+\end{itemize}
+
+\noindent Here are a couple examples of SPL.
+
+\subsubsection{Hello world} \label{sec:hello-world-example}
+This example shows how to write a "Hello World" program in SPL. 
+One can create a Hello World program by printing a list of characters.
+Canonically there is no literal list syntax in SPL but only is the : (cons) operator. 
+
+\begin{lstlisting}[style=SPL]
+main() : Void {
+    print('H':'e':'l':'o':' ':'W':'o':'r':'d':[]); 
+}
+\end{lstlisting}
+
+However, I added a literal string syntax that is parsed into cons syntax.
+
+\begin{lstlisting}[style=SPL]
+main() : Void {
+    print("Hello world"); 
+}
+\end{lstlisting}
+
+Just like c, SPL has if and else statements and while loops.
+
+\begin{lstlisting}[style=SPL]
+// This is one line SPL comment
+/* Multi  
+line /* Nested */ comment */
+
+countdown(x: Int) {
+    Int zero = 0;
+    while (x > zero) { // x is inferred as Int 
+        if (x == 5) {
+            print("count is greater than 5\n");
+        } else {
+            print("Count is not greater than 5");
+        }
+        x = x - 1; 
+    }
+}
+
+main() : Void {
+    countdown(10); 
+}
+\end{lstlisting}
+
+\noindent Because of the type inference you can actually leave out the types in SPL. 
+This means that the following code:
+
+\begin{lstlisting}[style=SPL]
+var a = 3;
+
+foo(x) {
+    var zero = 0;
+    var list = [];
+    if (x) {print(x);}
+    return a:zero:list;
+}
+
+main() {
+    foo(a > 10);
+    return;
+}
+\end{lstlisting}
+
+\noindent is valid and will be inferred as:
+
+\begin{lstlisting}[style=SPL]
+Int a = 3;
+
+foo(x : Bool) : [Int] {
+    Int zero = 0;
+    [t] list = [];
+    if (x) {print(x);}
+    return a:zero:list;
+}
+
+main() : Void {
+    foo(a > 10);
+    return;
+}
+\end{lstlisting}
+
+\noindent Here is an example of a program with multiple type errors:
+
+\begin{lstlisting}[style=SPL]
+foo() {
+    var list = [];
+    3:list;
+    return 'a':list; // Can not add a char anymore because list is inferred as [Int]
+}
+
+bar() {
+    if (1) { // Not a boolean!
+        return 3 == ([1] + 2); // Non matching types!
+    }
+}
+
+fee(x) {
+    if (x) {return 3;}
+    return '3'; // Invalid return type!
+}
+\end{lstlisting}
+
+\noindent This next program shows off tuple and list support as well as overloaded equals and printing.
+
+\begin{lstlisting}[style=SPL]
+var q = 137:[];
+
+main() {
+    var aa = ("Equal!", q.hd + 1);
+    var zz = ("-Equal!", q.hd);
+    
+    var bb = (aa, aa);
+    var yy = (zz, zz);
+    
+    var cc = (bb, bb);
+    var xx = (yy, yy);
+
+    print("cc: "); print(cc); print(); // Print without arguments print a new line
+    print("xx: "); print(xx); print("\ncc and xx are ");
+    if (cc == xx) { print(bb.snd.fst); } else { print("Not Equal!"); }
+
+    aa.snd = bb.snd.snd - 1; // Make them the same
+    zz.fst = zz.fst.tl; 
+
+    print("\n\ncc: "); print(cc); print(); 
+    print("zz: ");   print(zz); print("\ncc and zz are ");
+    if (cc == xx) { print(bb.snd.fst); } else { print("Not Equal!"); }
+}
+\end{lstlisting}
+
+\noindent The type checked version of this program is:
+
+\begin{lstlisting}[style=SPL]
+[Int] q = 137:[];
+
+main() : Void {
+    ([Char], Int) aa = ('E':'q':'u':'a':'l':'!':[], q.hd + 1);
+    ([Char], Int) zz = ('-':'E':'q':'u':'a':'l':'!':[], q.hd);
+    (([Char], Int), ([Char], Int)) bb = (aa, aa);
+    (([Char], Int), ([Char], Int)) yy = (zz, zz);
+    ((([Char], Int), ([Char], Int)), (([Char], Int), ([Char], Int))) cc = (bb, bb);
+    ((([Char], Int), ([Char], Int)), (([Char], Int), ([Char], Int))) xx = (yy, yy);
+    
+    print('c':'c':':':' ':[]);
+    print(cc);
+    print();
+    print('x':'x':':':' ':[]);
+    print(xx);
+    print('\n':'c':'c':' ':'a':'n':'d':' ':'x':'x':' ':'a':'r':'e':' ':[]);
+    if (cc == xx) {
+        print(bb.snd.fst);
+    } else {
+        print('N':'o':'t':' ':'E':'q':'u':'a':'l':'!':[]);
+    }
+    aa.snd = bb.snd.snd - 1;
+    zz.fst = zz.fst.tl;
+    print('\n':'\n':'c':'c':':':' ':[]);
+    print(cc);
+    print();
+    print('z':'z':':':' ':[]);
+    print(zz);
+    print('\n':'c':'c':' ':'a':'n':'d':' ':'z':'z':' ':'a':'r':'e':' ':[]);
+    if (cc == xx) {
+        print(bb.snd.fst);
+    } else {
+        print('N':'o':'t':' ':'E':'q':'u':'a':'l':'!':[]);
+    }
+    return;
+}
+\end{lstlisting}
+
+\noindent The output of this program is: 
+
+\begin{lstlisting}[style=SPL]
+cc: ((("Equal!", 138), ("Equal!", 138)), (("Equal!", 138), ("Equal!", 138)))
+xx: ((("-Equal!", 137), ("-Equal!", 137)), (("-Equal!", 137), ("-Equal!", 137)))
+cc and xx are Not Equal!
+
+cc: ((("Equal!", 137), ("Equal!", 137)), (("Equal!", 137), ("Equal!", 137)))
+xx: ((("Equal!", 137), ("Equal!", 137)), (("Equal!", 137), ("Equal!", 137)))
+cc and xx are Equal!
+\end{lstlisting}
+
+\section{Implementation language}
+
+The compiler is implemented in Haskell \cite{marlow2010haskell}. 
+I made this choice since Haskell is a good fit for compiler construction.
+This is due to Haskell’s support for algebraic data types, monads and its well‑suitedness for writing parsers.
+
+I also chose Haskell because I wanted to learn more about it. This made the first phases of the project more challenging because my Haskell knowledge was quite rusty. 
+However, in the end I am pleased with how much I learned about Haskell. I gained an actual intuition for how to use applicative functors, monad and monoid.
+
+
+\chapter{Lexical analysis}
+
+Lexical analysis, the first stage of the compilation process, involves reading the source code and transforming it into an Abstract Syntax Tree.
+
+\section{Abstract Syntax Tree}
+
+I initially designed the abstract syntax tree (AST) of SPL by looking at many provided SPL examples. 
+I kept adding to the AST until I was that sure I captured everything expressed in those examples.  
+When I later had to add source locations to the AST I decided to implement the Trees That Grow paper \cite{Najd2017trees}. I will first explain the design of the AST without `Trees That Grow` as this is more comprehensible.
+
+Our abstract syntax tree is split up into four major inductive types, \texttt{Decl}, \texttt{Stmt}, \texttt{Expr} and \texttt{Literal}. 
+
+The essential idea of the design is that a program is just a list of declarations. 
+
+\begin{minted}{Haskell}
+type Program = [Decl]
+\end{minted}
+
+\paragraph{Declarations} A \texttt{Decl} can be a function declaration or a variable declaration. 
+A variable declaration just has a name of type \texttt{String} and an expression of type \texttt{Expr}.
+A function deceleration has a name \texttt{String}, a return type of type \texttt{Type}, a list of arguments of type \texttt{[(Expr,Type)]}, a list of function variable declarations of type \texttt{[Decl]} and a function body of type \texttt{[Stmt]}. That gives \begin{minted}{Haskell}
+data Decl = FunDecl String Type [(String, Type)] [Decl] [Stmt]
+| VarDecl String Type Expr\end{minted} 
+For the function variable declarations I have actually reused the Decl type. This allowed me to reuse code that checks global variables for function variables. However, this also means that in theory nested function definitions would be valid in the AST. However, the parser will not parse this on purpose. 
+
+\paragraph{Statements} The body of a function is just a list of statements. Possible statements include \texttt{if} with maybe an \texttt{else}, \texttt{while}, variable assignment like \texttt{a = 3;} but also \texttt{a.hd = 137;} and finally expression statement (\texttt{Expr;}). The expression statement allows calling functions without assigning to anything. This also allows expression statements that do not do anything like \texttt{3+3;} or \texttt{'a';}. But this is not a problem because all expression statements that do not have a function call expression inside are optimized away.
+\\
+When I was designing the optimiser I also added the \texttt{BlockStmt}. This is a statement that is basically just a list of other statements. \texttt{BlockStmt} makes \texttt{Stmt} a monoid which I needed during the optimization step in order to remove or rewrite statements. The parser can not create these \texttt{BlockStmt}.
+This leaves the \texttt{Stmt} AST (before trees that grow) as: 
+
+\begin{minted}{Haskell}
+data Stmt = AssignStmt Variable Expr
+  | ReturnStmt (Maybe Expr)
+  | IfStmt Expr [Stmt] (Maybe [Stmt])
+  | WhileStmt Expr [Stmt]
+  | ExprStmt Expr
+  | BlockStmt [Stmt]
+\end{minted} 
+The \texttt{AssignStmt} has the \texttt{Variable} type. This type is there to support assigning to fields. For instance \texttt{a.hd = 3;} or \texttt{a.snd = [];} or \texttt{a.tl = 1:2:3:[];}. As such \texttt{Variable} looks like the following:
+\begin{minted}{Haskell}
+data Variable = Identifier String (Maybe Field)
+data Field = HeadField | TailField | FirstField | SecondField
+\end{minted} 
+
+\paragraph{Expressions}
+
+An \texttt{Expr} can be a unary operation like \texttt{-3}, a binary operation like \texttt{134 + 3}, a function call like \texttt{foo()} or \texttt{foo(1,2,3)}, a variable expression like \texttt{a} or \texttt{a.hd} and finally a \texttt{Literal} expression like \texttt{3} or \texttt{'a'} or \texttt{[]}. This gives the following data type:
+
+\begin{lstlisting}[style=Haskell]
+data Expr 
+  = BinOpExpr BinOp Expr Expr 
+  | UnaryOpExpr UnaryOp Expr
+  | FunctionCallExpr String [Expr]
+  | VariableExpr Variable
+  | LiteralExpr Literal
+  
+data UnaryOp = Negate | FieldAccess Field | Min
+data BinOp = Mul | Div | Mod | Lt | Sub | Cons | Gt | Gte | Add | Lte | Eq | 
+             Neq | And | Or
+\end{lstlisting}
+
+\paragraph{Literal} There are 7 types of \texttt{Literal} constructors. They speak for themselves in the data definition:
+
+\begin{minted}{haskell}
+data Literal 
+  = TrueLit | FalseLit
+  | IntLit Int
+  | CharLit Char
+  | TupleLit (Expr, Expr)
+  | EmptyListLit
+\end{minted}
+
+\paragraph{Types}
+Finally there is the data type that I use to represent the possible types. 
+
+\begin{minted}{haskell}
+data Type
+  = IntType | CharType | BoolType | VoidType
+  | TupleType Type Type
+  | ListType Type
+  | TypeVar { typevarname :: String, rigid :: Bool }
+  | FunType [Type] Type 
+\end{minted}
+The \texttt{VoidType} is only used for functions that do not return a value. 
+A \texttt{TypeVar} is the most general type. Type variables are used when the compiler does not know the type of something yet. A \texttt{TypeVar} has a name so that the compiler can keep track of the identity of a type variable. A \texttt{TypeVar} is rigid when the programmer themselves specified that something as a type variable. For instance by writing: \begin{lstlisting}[style=SPL]
+id(x: a) : a { 
+    return x;
+}
+\end{lstlisting} 
+Here the programmer tells the compiler that the argument of the \texttt{id} function can be any type and that the return value of the function is the same as the type of the first argument. A rigid type variable is different from non rigid (or inferred) type variable because a rigid type variable can not be narrowed down further to a more concrete type like \texttt{Char} or \texttt{Int}. Non rigid type variables can be narrowed further to more concrete types. Only the programmer can specify rigid type variables. That means that after parsing no more rigid type variables are introduced. Any \texttt{TypeVar} that is introduced by the compiler during type checking is non rigid. 
+\\
+\texttt{FunType} is used to represent the type of functions. As the compiler does not allow functions as values, the \texttt{FunType} is not really used in the type checking. It is rather used to represent the types of \texttt{FunDecl}. The remaining types speak for themselves.
+
+\subsection{Trees that grow}
+
+The previously described AST is missing source code location information and expressions do not have room for types. During different phases of the compiler has different amounts of information. For instance, initially many types are not specified and so the type of an expression should be a Maybe. At first I thought that the only way to manage these different levels of information was to create separate, similar but distinct trees for every phase of the compiler. Like this example (with only literal and binary operation expression for brevity) of expressions for multiple phases of the compiler:
+
+\begin{minted}{Haskell}
+data ExprEmpty 
+= BinOpExprEmpty BinOp ExprEmpty ExprEmpty
+| LiteralExprEmpty Literal
+
+data ExprParsed
+= BinOpExprParsed SourcePos (Maybe Type) BinOp ExprParsed ExprParsed
+| LiteralExprParsed (Maybe Type) SourcePos Literal
+
+data ExprTypechecked
+= BinOpExprTypechecked SourcePos Type BinOp ExprTypechecked
+| LiteralExprParsed Type SourcePos Literal
+\end{minted} 
+
+This quickly got tiring. This approach requires making modifications in many places to make changes to the AST, since you have to keep all the different data types in sync. Additionally, it forces you to use long names for the different data constructors and makes it impossible to make functions that work on generic ASTs (e.g. functions that are agnostic to the phase of the AST). I wanted a flexible system to annotate the AST with additional metadata which could be different at each phase of the compiler. To achieve this, I have implemented a variation of the Trees that Grow paper \cite{Najd2017trees}. The approach allows to annotate a tree with different types of metadata depending on the phase of the compiler.
+
+This approach to annotating the AST with metadata is based on type families. It works by adding a parameter to each (relevant) data type that determines the phase of the compiler. Using type families you can then create separate instances of data based on the phase of the compiler while keeping the general structure of the AST the same. 
+
+The trees that grow paper promises to make it easy to extend the AST with more phases in the future where you have different metadata needs.
+At the time I thought that without type families you would need to build a separate, similar but distinct tree for every phase of the compiler. 
+However, at the end of the project I found out that this was not the case. You can achieve basically the same effect of type families by using polymorphic types in your data type definition. I reflect more on why trees that grow was not the best fit for this project in Section \ref{sec:trees-that-grow-reflection}.
+
+\subsubsection{Implementing "Trees That Grow"}
+Now I will go into more depth about how I implemented trees that grow into the compiler.
+
+Type families \cite{GHCTypeFamilies} can be seen as functions from types to types. These functions can take types as input and produce other types as output. The idea of trees that grow is to define general data types that take a compiler phase type as input to form another type.
+
+By using the Haskell \texttt{DataKinds} language extension, the phases of the compiler can be represented as a data type. This is something I think is an improvement over the original paper as they used multiple data without constructors instead.
+
+\begin{minted}{Haskell}
+{- All the different phases of the compiler -}
+data Phase
+  = EmptyP          -- Empty phase, used for testing
+  | ParsedP         -- Phase after parsing with location information
+  | ReturnsCheckedP -- Phase after the returns have been checked
+  | TypecheckedP    -- Phase after full type checking
+\end{minted}
+
+\noindent Lets add the phases to binary operation expressions and literal expressions as an example.
+
+\begin{minted}{Haskell}
+data Expr (p :: Phase)
+= BinOpExpr (BinOpExpr p) BinOp (Expr p) (Expr p)
+| LiteralExpr (LiteralExpr p) Literal
+\end{minted}
+
+\noindent The Expr data type takes a phase type as input. Two types take the phase as input: \texttt{BinOpExpr} and \texttt{LiteralExpr}. The type families for this example will then be:
+
+\begin{minted}{Haskell}
+type family BinOpExpr (p :: Phase) where
+  BinOpExpr EmptyP = ()
+  BinOpExpr ParsedP = SourceSpan
+  BinOpExpr ReturnsCheckedP = SourceSpan
+  BinOpExpr TypecheckedP = (Type, SourceSpan)
+
+type family LiteralExpr (p :: Phase) where
+  LiteralExpr EmptyP = ()
+  LiteralExpr ParsedP = SourceSpan
+  LiteralExpr ReturnsCheckedP = SourceSpan
+  LiteralExpr TypecheckedP = (Type, SourceSpan
+\end{minted}
+
+\noindent Note that these are closed type families because at this time I do not need to allow others to add compiler phases and closed type families give better type inference in Haskell. 
+\\\\
+The full AST using type families looks like this:
+
+\begin{minted}{Haskell}
+type Program (p :: Phase) = [Decl p]
+
+data Decl (p :: Phase)
+  = VarDecl (VarDecl p) String (VarDeclT p) (Expr p)
+  | FunDecl (FunDecl p) String (FunDeclT p) [(String, FunDeclT p)] [Decl p] 
+            [Stmt p]  
+
+data Stmt (p :: Phase) =
+  AssignStmt (AssignStmt p) Variable (Expr p)
+  | ReturnStmt (ReturnStmt p) (Maybe (Expr p))
+  | IfStmt (IfStmt p) (Expr p) [Stmt p] (Maybe [Stmt p])
+  | WhileStmt (WhileStmt p) (Expr p) [Stmt p]
+  | ExprStmt (ExprStmt p) (Expr p)
+  | BlockStmt [Stmt p]
+
+data Expr (p :: Phase) =
+  BinOpExpr (BinOpExpr p) BinOp (Expr p) (Expr p)
+  | UnaryOpExpr (UnaryOpExpr p) UnaryOp (Expr p)
+  | FunctionCallExpr (FunctionCallExpr p) String [Expr p]
+  | VariableExpr (VariableExpr p) Variable
+  | LiteralExpr (LiteralExpr p) (Literal p)
+
+data Literal (p :: Phase) =
+  TrueLit
+  | FalseLit
+  | IntLit Int
+  | CharLit Char
+  | TupleLit (Expr p, Expr p)
+  | EmptyListLit
+
+data BinOp = Mul | Div | Mod | Add | Sub | Cons | Gt | Gte | Lt | Lte | Eq 
+            | Neq |  And | Or
+data UnaryOp = Negate | FieldAccess Field | Min
+
+data Type
+  = IntType | CharType | BoolType | VoidType | TupleType Type Type
+  | ListType Type | TypeVar { typevarname :: String, rigid :: Bool }
+  | FunType [Type] Type  
+\end{minted}
+
+\noindent The actual type families are all quite similar. Every type family which name ends with \texttt{Expr} is the same as the two instances shown above in the example of \texttt{BinOpExpr} and \texttt{LiteralExpr}. Every type family ending in \texttt{Stmt} or \texttt{Decl} has instances like this:
+
+\begin{minted}{Haskell}
+type family IfStmt (p :: Phase) where
+  IfStmt EmptyP = ()
+  IfStmt ParsedP = SourceSpan
+  IfStmt ReturnsCheckedP = SourceSpan
+  IfStmt TypecheckedP = SourceSpan
+  
+
+type family VarDecl (p :: Phase) where
+  VarDecl EmptyP = ()
+  VarDecl ParsedP = SourceSpan
+  VarDecl ReturnsCheckedP = SourceSpan
+  VarDecl TypecheckedP = SourceSpan
+  
+-- etc same for AssignStmt, ReturnStmt, WhileStmt
+\end{minted}
+
+\noindent Every type family which name ends with \texttt{DeclT} have the following instances:
+
+\begin{minted}{Haskell}
+type family VarDeclT (p :: Phase) where
+  VarDeclT EmptyP = ()
+  VarDeclT ParsedP = Maybe Type
+  VarDeclT ReturnsCheckedP = Maybe Type
+  VarDeclT TypecheckedP = Type
+
+type family FunDeclT (p :: Phase) where
+  FunDeclT EmptyP = ()
+  FunDeclT ParsedP = Maybe Type
+  FunDeclT ReturnsCheckedP = Maybe Type
+  FunDeclT TypecheckedP = Type
+\end{minted}
+
+\subsubsection{Reflection on Trees That Grow} \label{sec:trees-that-grow-reflection}
+
+In the end, the trees that grow approach caused much more hassle then it was worth. I could have achieved the same by adding some polymorphic types to the data in the AST and making type synonyms to keep things short. At the time I added the type families from Trees that Grow I was not sufficiently experienced with polymorphic types and data types to come up with this. Instead I looked for a paper that solved our problem and implemented that instead. Ultimately just using polymorphic types in the data would have been much simpler and would have led to much less boilerplate.
+I also remember that I thought that the types of the annotations would differ much more than they ended up doing. In the end each data only needed the type of the Source Location and the type of the type of the node which was either Maybe Type or Type.
+\\\\
+Another benefit besides the metadata that I thought this approach provided was enforcing the order of the phases of the compiler at the type level. 
+What I mean with this is that the only way to get a \texttt{Program TypecheckedP} is from the type checker function. However, the type checker function only takes \texttt{Program ReturnsCheckedP} which you can only get by giving a \texttt{Program ParsedP} to the return checker. This way it is actually not possible to skip the return checking. 
+
+But this could also have been achieved using a data definition that just takes multiple polymorphic types as input. There was no need to involve the complexities of type families. Here is an example of that:
+\begin{minted}{Haskell}
+type Program meta types = [Decl meta types]
+type ReturnsCheckedProgram = Program SourceSpan (Maybe Type)
+type TypeCheckedProgram = Program SourceSpan Type
+\end{minted}
+
+\noindent The type families led to a significant amount of boilerplate. For instance when deriving type classes like \texttt{Show} and \texttt{Eq} you have to derive it separately for every possible instance of the AST per class you want to derive. Here is an example of deriving \texttt{Show} and \texttt{Eq} \texttt{Expr}:
+
+\begin{minted}{Haskell}
+deriving instance Eq (Expr EmptyP)
+deriving instance Eq (Expr ParsedP)
+deriving instance Eq (Expr ReturnsCheckedP)
+deriving instance Eq (Expr TypecheckedP)
+
+deriving instance Show (Expr EmptyP)
+deriving instance Show (Expr ParsedP)
+deriving instance Show (Expr ReturnsCheckedP)
+deriving instance Show (Expr TypecheckedP)
+\end{minted}
+
+\noindent In theory it sounds good that you could decide not to derive some of these type classes for certain phases of the compiler. But in practice you need this for every phase anyway.
+\\\\
+Another annoying thing is that Haskell just can’t infer that two instances of the same type family are of the same type. Like for instance with:
+
+\texttt{VarDeclT ParsedP = Maybe Type} and also \texttt{VarDeclT ReturnsCheckedP = Maybe Type}
+
+\noindent Both of these type family instances are \texttt{Maybe Type} but Haskell still does not know. 
+This means that you can not touch the contents of the nodes, and you can not convert them to another phase with identity. So a function with type \texttt{Literal ParsedP -> Literal ReturnsCheckedP} can not be id.
+
+To solve this I made a type class to convert a data to the next phase if the transformation is trivial
+id in practice.
+
+\begin{minted}{Haskell}
+class Convertable n (p1 :: Phase) (p2 :: Phase) where
+    upgrade :: n p1 -> n p2 
+\end{minted}
+
+You then recursively apply this to a node to upgrade it to the next phase. This used to be a lot of boilerplate but in the end I actually mostly do meaningful transformations. For instance when converting from \texttt{RetrunsChckedP} to \texttt{TypecheckedP} I actually have to replace the Nothing with type variables so the conversion can not be \texttt{id} anyways. 
+
+When you want to have a type class that can work on multiple phases of the compiler like:
+
+\begin{minted}{Haskell}
+class Prettier a where
+    {-# MINIMAL pretty #-}
+    pretty :: a -> String
+    prettyBrief :: a -> String
+    prettyBrief = pretty
+\end{minted}
+
+You still need to implement it for every phase separately. Even though in reality the actual types of
+UnaryOpExpr p are all the same. At least here the upgrade function helps a little but because you
+can just upgrade most things to the latest phase (in this case TypecheckedP), and only implement
+pretty for that. Later I learned about \href{https://hackage.haskell.org/package/base-4.20.0.1/docs/Unsafe-Coerce.html\#v:unsafeCoerce}{unsafeCoerce} which probably would have worked quite good as well.
+
+\section{Parsing}
+
+The source code is transformed into an AST instance using parser combinators. 
+Parser combinators are higher order functions that allow you to combine parser functions in standard ways using monad and applicative functors. 
+A parser function consumes a part of the input string and transforms this consumed string into parsed data.
+In this cased the parsed data are AST nodes. 
+Instead of consuming a part of the input a parser function can also fail if the input is not what it expects.
+
+Parser combinators work through function composition. You compose simple parsers, such as “parse a single character”, together using parser combinators to create more complicated parsers (such as “parse the word ‘parser’ ”). This composition usually happens through helper functions. 
+For example, the \texttt{<|>} combinator takes two parsers, and constructs a new parser that first tries the parser on the left, and only if it fails tries the parser on the right. 
+
+Due to Haskell support for monads and applicative functors it is very suited to build parser combinators. Initially I built my own parser combinators. While this was a good learning experience, I soon realised this would require a significant amount of work to get it to be any good. For example it would be difficult to get good error messages with source code positions. I decided that using
+more mature tools (e.g. an existing parser combinator library) would give us more time to work on other parts of the compiler. Therefore, I switched to the monadic parser combinator library megaparsec \cite{megaparsec}, which is the (informal) successor of the popular parsec library \cite{parsec}. To become more familiar with the library, and for occasional tips, I used an excellent tutorial \cite{megaparsec-tutorial} by Mark Karpov, the maintainer of megaparsec to learn more about it.
+Megaparsec uses monads to hide a large part of the internal mechanics of parser combinators. For instance carrying error messages or saving corresponding source position, are hidden away in the megaparsec Parser type. This allows to use a number of useful combinators Haskell itself provides to compose parsers (e.g. do notation, 
+\texttt{many}, \texttt{some}, \texttt{<\$>} and \texttt{<*>}).
+\\\\
+When using the megaparsec library, you get quite a number of things for free, such as error handling, associativity and also nested multi line comments.
+
+\subsection{Handling associativity}
+
+ To deal with associativity Megaparsec provides the helper function \texttt{makeExprParser} which,
+given an operator table and a parser for terms (e.g. any expression that does not have an operator, such as literals), constructs a parser that has the specified operators in the specified order or precedence and with the specified associativity. 
+
+Our operator table is as follows:
+
+\begin{minted}{Haskell}
+operatorTable :: [[Operator Parser (Expr ParsedP)]]
+operatorTable =
+    [ [ Postfix (unary (FieldAccess HeadField) (try (L.tDot <* L.tHead)))
+      , Postfix (unary (FieldAccess TailField) (try (L.tDot <* L.tTail)))
+      , Postfix (unary (FieldAccess SecondField) (try (L.tDot <* L.tSnd)))
+      , Postfix (unary (FieldAccess FirstField) (try (L.tDot <* L.tFst)))
+      ]
+    , [ Prefix (unary Negate L.tExcl)
+      ]
+    , [ InfixL (binary Mul L.tStar)
+      , InfixL (binary Div L.tSlash)
+      , InfixL (binary Mod L.tPercent)
+      ]
+    , [ InfixL (binary Add L.tPlus)
+      , InfixL (binary Sub L.tMin)
+      , Prefix (unary Min L.tMin)
+      ]
+    , [ InfixR (binary Cons L.tColon)]Semantic Analysis 
+    , [
+        InfixN (binary Gte L.tGte) 
+      , InfixN (binary Gt L.tGt)
+      , InfixN (binary Lte L.tLte)
+      , InfixN (binary Lt L.tLt)
+      , InfixN (binary Eq L.tDoubleEq)
+      , InfixN (binary Neq L.tExclEq)
+      ]
+    , [ InfixR $ binary And L.tDoubleAmpersand  ]
+    , [ InfixR $ binary Or L.tDoublePipe ]
+    ]
+ where 
+  unary def pSymbol = pSymbol $> \e -> UnaryOpExpr (exprSpan e) def e
+  binary def pSymbol = pSymbol $> \e1 e2 -> BinOpExpr (srcSpan (startPos $ exprSpan e1) 
+                       (endPos $ exprSpan e2)) def e1 e2
+
+pExpr :: Parser (Expr ParsedP)
+pExpr = makeExprParser pTerm operatorTable
+
+pTerm :: Parser (Expr ParsedP)
+pTerm = choice [ try $ L.parens pExpr , try pFunctionCall , try pLiteralExpr, 
+                 try pVariableExpr , try pStringExpr ]
+\end{minted}
+
+The operator table is ordered in decreasing precedence (i.e. the higher in the list, the greater the binding strength of the set of operators). Any operators in the same sublist have the same precedence. Associativity can be modified using the constructors from the \texttt{Operator} datatype, which supports: \\
+\texttt{InfixN}: for non‑associative infix operators; \texttt{InfixL}: for left‑associative infix operators; \texttt{InfixR}: for right‑associative infix operators and \texttt{Prefix} and \texttt{Postfix}.
+I chose the same precedence and associativity as Haskell \href{https://rosettacode.org/wiki/Operator_precedence#Haskell}{\cite{OperatorPrecedenceHaskell}}. I also use the \texttt{makeExprParser} for the field access operators (\texttt{.hd} and \texttt{.tl}) of lists and (\texttt{.fst} and \texttt{.snd}) of tuples as this was the easiest solution.
+
+While using \texttt{makeExprParser} is pleasant when it works, it is also quite "magical". This means that it can be quite hard to fix when it breaks. 
+
+\subsection{Parser Errors}
+
+Error handling is handled by megaparsec, which, out of the box, gives quite good error messages. For example:
+
+\begin{verbatim}
+test.spl:1:7:
+  |
+1 | (a + b
+  |       ^
+unexpected end of input
+expecting "!=", "&&", "<=", "==", ">=", "||", '!',
+'%', ''', ')', '*', '+', ',', '-', '/', ':', '<', '>', '_', or alphanumeric character
+\end{verbatim}
+
+\noindent Megaparsec also supports custom error messages and error recovery, but I have not implemented that. I have added two custom errors to the parsing step and for those I just used the normal Haskell \texttt{error} function. These two errors are related to string parsing and number parsing.
+
+\subsubsection{Number Range Error}
+The first custom parse error is thrown when you try to parse numbers that are too large for Haskell. For instance the following program:
+
+\begin{lstlisting}[style=SPL]
+Int large = 9223372036854775808;
+\end{lstlisting}
+
+\noindent Will result in the following parse error: \vspace{0.1cm}\\
+\noindent\texttt{\textcolor{error}{Semantic Analysis error} {Integer is too large for the compiler!\\} \textcolor{literal}{9223372036854775808} > \textcolor{literal}{9223372036854775807}. At \textcolor{filename}{examples/errors/too\_large.spl:1:13}}
+\vspace{0.1cm}\\
+\noindent This error is accomplished by checking each integer parsed against Haskell's \texttt{intLowerBound} and \texttt{intUpperBound} functions before moving on with the parsing.
+
+\subsubsection{Empty String Error}
+The second parse error happens when an empty string is parsed. 
+As can be seen in the \hyperref[sec:hello-world-example]{Introduction} Strings are just syntactic sugar in the parser for a large \texttt{Cons} expression. 
+That means however that an empty string \texttt{""} would be parsed into an \texttt{EmptyListLiteral}. 
+But that is not semantically equivalent because the type of \texttt{""} is \texttt{\textcolor{type}{[Char]}} the type of \texttt{\textcolor{literal}{[]}} is \texttt{\textcolor{type}{[a]}}. To avoid this issue altogether I just raise the following error when encountering an empty string during parsing:
+\vspace{0.1cm}\\
+\noindent \texttt{\textcolor{error}{Empty string not allowed at} \textcolor{filename}{examples/errors/empty\_string.spl:1:10}.\\The string syntax is just syntactic sugar for a large cons expression.\\
+But that means that \textcolor{literal}{""} == \textcolor{literal}{[]} which is not ideal because the typeof \textcolor{literal}{""} is \textcolor{type}{[Char]} \\while typeof \textcolor{literal}{[]} is \textcolor{type}{[a]}.\\ But the type checker can't know this anymore as this information is thrown away\\ with the desugaring. So to prevent this confusion just no empty strings.}
+
+\subsection{Lexer Step}
+
+I do not have a separate lexing step during parsing. Instead, I use a (what I call) just‑in‑time lexer (scannerless).
+Our lexer is just a collection of regular parsers that only parse simple tokens (as a regular lexer would), such as keywords, identifiers or symbols, while discarding whitespace and comments.  I achieve this "lexing" using the \texttt{symbol} parser combinator. The \texttt{symbol} parser combinator takes any string and creates a parser that parses exactly that string, while throwing away comments and whitespace at the end. For example, \texttt{symbol "a"} should parse \texttt{a}, but also \texttt{a$~~~~~$/* comment */}. The \texttt{symbol} parser only consumes and discards additional whitespace after the end of the parsed token. This is why our main program parser has an additional \texttt{whitespace} parser at the start to discard comments and whitespace at the beginning of files as well. I use these \texttt{symbol} parsers throughout the other parsers in instances where you would typically consume a token from a lexer generated token list. I chose this approach, since it is well supported by megaparsec and it easily deals with any comments and whitespace. I do not see a benefit of converting the whole input into tokens first when using parser combinators. This can be done when it is actually needed.
+
+\section{Testing}
+
+During the stage of the project where I mainly worked on the lexical analysis I wrote a lot of tests using Hspec \cite{hspec}. This was also why I added the \texttt{EmptyP} phase to be able to compare AST nodes by stripping all metadata. The tests did help in the beginning to find out if our parser still worked after making changes. However, later on I abandoned the test because things kept changing too much and updating the tests was too time consuming. Just running the compiler on complicated input and seeing if it pretty printed the expected result worked much more efficiently.
+
+\section{Problems}
+
+Since I started with writing the AST in Haskell based on the provided examples I did not have any major problems during this phase. Having a well‑defined AST early on really helped with making the parsers. By using a bottom up approach starting from the most simple parsers (such as literals), and working upwards I managed to implement the parser without many problems.
+
+I did initially struggle with the left‑recusivity of property access (e.g. a.hd), but fixed this by making the fields \texttt{Postfix} operators in the \texttt{makeExprParser}. This fixes the left‑recursion, as megaparsec
+will only parse things with lower precedence on the left, causing it to no longer be fully recursive. 
+
+\iffalse
+\begin{itemize}
+	\item How did you design the Abstract Syntax Tree
+	\item How does the parser work?
+	\item How did you handle difficult things like fixity, associativity etc.
+	\item Is there error handling? Recovery?
+	\item Do you have a lexer and parser?
+	\item How do they communicate?
+	\item Problems?
+	\item\ldots
+\end{itemize}
+\fi
+
+\chapter{Semantic analyses}
+
+In the lexical analysis the compiler checks the syntax of the program. If there are no errors then at this point the compiler has a \texttt{Program ParsedP}. During the semantic analysis phase the compiler performs many checks to figure out if your code actually makes sense semantically. If any of these checks fails the programmer gets an error. I spend a lot of time making the errors helpful and easy to understand. 
+
+This phase is further divided into 5 other phases:
+
+\begin{enumerate}
+    \item \hyperref[sec:Prep]{Preprocessing}
+        \begin{enumerate}
+            \item \hyperref[sec:Checking-bodies]{Checking for empty functions}
+            \item \hyperref[sec:Checking-main]{Checking the main function}
+            \item \hyperref[sec:Removing-dead-code]{Removing dead code}
+            \item \hyperref[sec:Hoist-globals]{Hoist global variable declarations}
+        \end{enumerate}
+    \item \hyperref[sec:Check-Returns]{Check for uniform returning} (\texttt{ReturnsCheckedP} phase)
+    \item \hyperref[sec:Check-duplicate-decls]{Check duplicate declarations}
+    \item \hyperref[sec:Type-Checking]{Type checking} (\texttt{TypecheckedP} phase)
+    \item \hyperref[sec:Optimisation]{Optimisation}
+\end{enumerate}
+
+\section{Preprocessing}  \label{sec:Preprocessing}
+
+The preprocessing step of the compiler consists of multiple smaller steps which prepare the \texttt{ParsedP} AST for the next phases.
+
+\subsection{Checking for empty functions} \label{sec:Checking-bodies}
+
+During this phase of the preprocessing step the compiler checks every function for an empty body. With an empty body I mean a function like this:
+
+\begin{lstlisting}[style=SPL]
+main() {}
+\end{lstlisting}
+
+Recall that the program is just a list of \texttt{Decl}. The compiler can find such functions by checking if there is any function declaration in the list with an empty list of statements. If the compiler finds such a function the following error is raised:
+\vspace{.1cm}\\
+\noindent\small\texttt{\textcolor{error}{Semantic Analysis Error: The '\textcolor{name}{foo}' function declared at }\textcolor{filename}{examples/errors/empty\_function.spl:2:1} \textcolor{error}{has an empty body.} Empty functions are not allowed. Please either add a body (just a '\textcolor{red}{return};' is enough) or remove the function.}
+\vspace{.1cm}\\
+\noindent After this step the compiler has been established that every function in code has a body. 
+However, for the remainder of rest of the examples the main function definition has often been left out to save space.
+
+\subsection{Check the \texttt{main} function} \label{sec:Checking-main}
+
+In this step of the preprocessing the compiler checks if the \texttt{Program ParsedP} contains a main function. 
+This works in a similar way as checking for empty bodies. The compiler iterates the function definitions and checks if there is a function called main.
+If the compiler can not find a main function the following error is presented to the programmer:
+\vspace{.1cm}\\
+\noindent\small\texttt{\textcolor{error}{Semantic Analysis Error: No main function in your program!}
+Please add a main function to your program.}
+\vspace{.01cm}
+
+\noindent Using the same technique the compiler also checks if the main function does not have any arguments. \\For instance like this:
+
+\begin{lstlisting}[style=SPL]
+main(aap, baap) {
+    return;
+}
+\end{lstlisting}
+If the compiler finds that the main function has arguments the programmer is presented with the following error:
+\vspace{.1cm}\\
+\noindent\small\texttt{\textcolor{error}{Semantic Analysis Error: The '\textcolor{name}{main}' function can not have any arguments.}
+There is no way for you to initialise them. Please remove the arguments.}
+\vspace{.1cm}\\
+I do not do specific checks on the return type of the main function. It is currently meaningless to return a value from the main function but the compiler does not deny it either.
+\\After this phase it has been established that the program has a main function without arguments.
+
+\subsection{Removing dead code} \label{sec:Removing-dead-code}
+
+In this step the compiler removes dead code by looking for certain patterns in the body of functions. 
+Recall that the body of a function is lists of statements or \texttt{[Stmt]}.
+
+The compiler recursively checks the body of each function declaration and looks for two specific patterns that indicate dead code. These two patterns are code behind a return statement and code behind an if else statement where every branch returns. As an example the following code has a print statement that will never be reached:
+
+\begin{lstlisting}[style=SPL]
+main() {
+    return;
+    print("Dead");
+}
+\end{lstlisting}
+
+\noindent This code is rewritten by the compiler into:
+
+\begin{lstlisting}[style=SPL]
+main() {
+    return;
+}
+\end{lstlisting}
+
+\noindent and the programmer is presented with the following warning:\\
+\noindent\small\texttt{\textcolor{warning}{WARNING:} Removing dead code after return at \textcolor{filename}{examples/warning/deadcode.spl:3:5}}
+\\ 
+In this next example the function will always return in the if and else statement.
+Because of this the code behind the if else statement will never run.
+
+\begin{lstlisting}[style=SPL]
+foo(aap) {
+    if (aap > 3) {
+        return 'Q';  
+    } else {
+        return 'u';
+    }
+    // we will never get here
+    print("Dead");
+    return '-';
+}
+\end{lstlisting}
+
+\noindent Any code after such an if else is considered dead code and removed by the compiler during this step. As such the compiler will turn the above SPL is converted into: 
+
+\begin{lstlisting}[style=SPL]
+foo(aap) {
+    if (aap > 3) {
+        return 'Q';  
+    } else {
+        return 'u';
+    }
+}
+\end{lstlisting}
+
+\noindent and the programmer is presented with the following warning:\vspace{.1cm}\\
+\noindent\small\texttt{\textcolor{warning}{WARNING:} Removing dead code after if at \textcolor{filename}{examples/warning/deadcode\_if.spl:2:5}}
+\\ 
+The if else dead code removal works by checking if every branch in the if else actually returns. The body of an \textt{if} and an \texttt{else} are both \texttt{[Stmt]}.  
+This allows recursively checking all return paths of an if else statement. This allows the compiler to detect any arbitrarily nested if else that always returns.
+This step uses the same function later used in the \hyperref[sec:Check-Returns]{Check return statements} step. For this reason I will expand on it more there instead of here. 
+But by using the same method the compiler is still able to detect the dead code in the following nested code:
+
+\begin{lstlisting}[style=SPL]
+foo(aap) {
+    if (aap) {
+        return;
+    } else {
+        if (aap) { return; } else { return; }
+    }
+    print("Never");
+    return;
+}
+\end{lstlisting}
+
+\noindent In this example the \texttt{print("Never")} and final \texttt{return} line will be removed by the compiler. 
+
+As a final feature of this step the compiler will print how much code was removed during this step (if any). In the last example the compiler would print:
+\texttt{\textcolor{info}{Pruned \textcolor{filename}{55\%} of tree by removing dead code.}} 55 percent might seem high but this is due to the "Never" string which is actually a chained cons expression.
+
+\subsection{Hoist global variable declarations} \label{sec:Hoist-globals}
+
+Recall that the an SPL program to the compiler is just a list of declarations or \texttt{[Decl]}. This list has both function declaration and variable declarations. In the upcoming \hyperref[sec:Type-Checking]{type checking step} the compiler will check the types of the program from top to bottom. I want to provide a semantics where the global variables are always defined before the functions. 
+Let's illustrate this with an example. Consider the following program:
+
+\begin{lstlisting}[style=SPL]
+var global_var1 = 3;
+
+main() {
+    print(global_var1, global_var2);
+}
+
+var global_var2 = global_var1 * 2;
+\end{lstlisting}
+
+\noindent Without doing anything the compiler would raise a variable not defined error:
+\\\texttt{\textcolor{error}{Semantic Analysis Error: Undefined variable "\textcolor{name}{global\_var2}" at} \textcolor{filename}{examples/globals.spl:5:24}.}
+
+To prevent these errors the compiler moves all the global variable decelerations to the top of the program (the start of the list of \texttt{Decl} list). This step will transform the above code into: 
+
+\begin{lstlisting}[style=SPL]
+var global_var1 = 3;
+var global_var2 = global_var1 * 2;
+
+main() {
+    print(global_var1, global_var2);
+}
+\end{lstlisting}
+
+\noindent This is achieved by sorting the list of \texttt{Decl} with the following Haskell sorting code
+
+\begin{minted}{Haskell}
+compareDecl :: Decl p1 -> Decl p2 -> Ordering
+compareDecl (VarDecl {}) (FunDecl {}) = LT
+compareDecl (FunDecl {}) (VarDecl {}) = GT
+compareDecl (FunDecl {}) (FunDecl {}) = EQ
+compareDecl (VarDecl {}) (VarDecl {}) = EQ
+
+{- Sorts the program, putting the global vars at start -}
+hoistGlobalVars :: Program ParsedP -> Program ParsedP
+hoistGlobalVars = sortBy compareDecl
+\end{minted}
+
+
+\noindent The major advantage of using sorting to move global variables to the top of the program is that the definition order is not changed. This means that the programmer can still have global variables depending on the previous ones like they would expect. For instance in the example \texttt{global\_var2} depends on \texttt{global\_var1} to exist.
+
+This step provides the programmer with the ability to define global variables throughout their program while not having to worry that those global variables will be available to them in their functions.
+
+\section{Check the ways of returning} \label{sec:Check-Returns}
+
+In this compiler step the compiler checks if all the branches of the program return in the same way. This step relieves the type checker from the burden of checking if each code path returns in the same way so that the type checker can focus only on the return types. 
+This phase could potentially have been achieved by the type checker but by making it a separate phase I can generate much more descriptive error messages.  
+This goal of this phase is to reject programs like this:
+
+\begin{lstlisting}[style=spl]
+foo(aap) {
+    if (aap) { return 137; } // Returns something
+    return; // Does not return anything!
+}
+\end{lstlisting}
+
+\noindent Because of this phase this example will present the programmer with the following error: \\
+\texttt{\textcolor{error}{Semantic Analysis Error: Invalid returns} in if condition at \textcolor{filename}{examples/errors/invalid\_return1.spl:2:5}
+The true case of the condition returns at \textcolor{filename}{examples/errors/invalid\_return1.spl:2:14} but a return statement later at \textcolor{filename}{examples/errors/invalid\_return1.spl:3:5} does not.
+Each branch should return the same way. You should either always return a value or never.
+Either add a return value to the return statement at \textcolor{filename}{examples/errors/invalid\_return1.spl:3:5} or remove the value from the return statement in the if at \textcolor{filename}{examples/errors/invalid\_return1.spl:2:14}}
+\\\\
+\noindent There are 3 ways a function can return.
+\begin{enumerate}
+    \item With a value:  \texttt{return 137;} which is \texttt{ReturnStmt Just (...)}
+    \item Without a value: \texttt{return;} which is \texttt{ReturnStmt Nothing}
+    \item No return statement. The base case if no return statement is found in a list of statements.
+\end{enumerate}
+
+\noindent To capture all these cases I defined a data type:
+
+\begin{minted}{Haskell}
+    data WayOfReturn = WithValue SourceSpan | WithoutValue SourceSpan | No 
+\end{minted}
+
+\noindent There are four rules when checking the way a function returns: \begin{enumerate}
+    \item \texttt{No} and \texttt{WithoutValue} are compatible. That means that if one branch returns without a value and later there is no return value then this is not an error. This is due to the implicit \texttt{return;} statement at the end of each function if no other return statement is found. 
+    \item \texttt{WithoutValue} is incompatible with \texttt{WithValue}. That means that if one branch returns with a value and another without then this is an error. 
+    \item \texttt{WithValue} is only incompatible with \texttt{No} if the \texttt{No} happens later in the list of statements. 
+    \item Each way of returning is compatible with itself. 
+\end{enumerate} 
+
+\noindent To provide more clarity on rule 3 here is a case where \texttt{WithValue} and \texttt{No} is are compatible:
+
+\begin{lstlisting}[style=spl]
+foo(aap) {
+    if (aap) { print(aap); } /* No */ else { print(! aap); } /* No */
+    return aap; // WithValue 
+} // Fine because WithValue happens after No
+\end{lstlisting}
+
+But in this next example they are not compatible because the \texttt{WithValue} happens before the \texttt{No}:
+
+\begin{lstlisting}[style=spl]
+foo(aap) {
+    if (aap) { print(aap); } /* WithValue */ else { print(! aap); } /* No */
+    // No
+} 
+\end{lstlisting}
+\noindent This example will present the programmer with the following error:
+\\
+\texttt{
+\textcolor{error}{Semantic Analysis Error: Invalid return.} In the if at \textcolor{filename}{examples/errors/return2.spl:2:5} you return a value at \textcolor{filename}{examples/errors/return2.spl:2:14} but nowhere else you return a value. \\
+Each branch should return the same way. You should either always return a value or never.
+Either remove the return statement at \textcolor{filename}{examples/errors/return2.spl:2:14} or add a return statement with a value at the end of the function.
+}
+\\\\
+\noindent To implement these 4 rules I defined the following Haskell type class. Its \texttt{returns} function can be used to ascertain how a list of something returns. 
+
+\begin{minted}{Haskell}
+class ReturnCheck a where
+  returns :: [a] -> Either String WayOfReturn
+\end{minted}
+
+\noindent The \texttt{returns} function either returns an error message (\texttt{Left}) or the way in which something returns (\texttt{Right}). I implemented this class for \texttt{Decl ParsedP} and \texttt{Stmt ParsedP}. 
+
+The \texttt{Decl} implementation just calls \texttt{returns} on the body of each function. If at any moment a \texttt{Left} is encountered the error string is raised as an error. Recall that the body of functions has type \texttt{[Stmt]}. 
+
+The \texttt{returns} implementation for \texttt{[Stmt]} recursively finds out how a statement returns. The idea is to check how the current statement returns and how the rest of the list of the statements return. The ways of returning are then compared using pattern matching. 
+There are quite some patterns to match so instead of showing all the cases I will only show a few examples. Here is the implementation of \texttt{ReturnCheck} for \texttt{Stmt ParsedP}. I replaced the pattern matching to check the rules with \texttt{\ldots} to save space. 
+
+\begin{minted}{Haskell}
+instance ReturnCheck (Stmt ParsedP) where
+  returns [] = Right No
+  returns (ReturnStmt meta Nothing : _) = Right (WithoutValue meta)
+  returns (ReturnStmt meta (Just _) : _) = Right (WithValue meta)
+  returns (IfStmt meta _ consequent Nothing : later) = 
+    case (returns consequent, returns later) of ... 
+  returns (IfStmt meta _ consequent (Just alternative) : later) = 
+    case (returns consequent, returns alternative, returns later) of ...
+  returns (WhileStmt meta _ body : later) = 
+    case (returns body, returns later) of ...
+  returns ((AssignStmt {}) : later) = returns later
+  returns ((ExprStmt _ _) : later) = returns later
+  returns (BlockStmt _ : _) = error "Encountered block statement in the return check phase!!!"
+\end{minted}
+
+\noindent Because \texttt{returns} is recursive it will also work for deeply nested statements. Like an if else statement that has while loops that have if statements. I will now discuss pattern matching cases for the different types of statements.
+
+\paragraph{If with else} The \texttt{if} statement with an else statement is the most complicated as this needs to compare 3 things. The way the consequent returns, the way the alternative returns and the way the rest of the statements return. Here are some examples. 
+\begin{minted}{Haskell}
+(Right (WithValue m1), Right No, Right No) -> Left "Detailed error" -- Not Fine Rule 3
+(Right (WithoutValue _), Right No, Right (WithoutValue m)) -> Right (WithoutValue m) -- Fine Rule 1 and 4
+(Right (No _), Right No, Right (WithoutValue m)) -> Right (WithoutValue m) -- Fine Rule 1
+(Right (WithoutValue m1), Right (WithValue m2), _) -> Left "Detailed Error" -- Rule 2
+(Right (WithValue m1), Right (WithoutValue  m2), _) -> Left "Detailed Error" -- Rule 2
+\end{minted}
+
+These last example presents the programmer with this error:
+
+\noindent \texttt{\textcolor{error}{Semantic Analysis Error: Invalid returns} in the if condition at \textcolor{filename}{examples/errors/returns3.spl:2:5}
+The true case of the if condition returns a value at \textcolor{filename}{examples/errors/returns3.spl:2:17} while the else case does return but without a value at \textcolor{filename}{examples/errors/returns3.spl:2:34}. 
+Each branch should return the same way. You should either always return a value or never. You probably either forgot a return value in the else or you forgot to remove the return value in the true case of the if condition.  Either add a return value at \textcolor{filename}{examples/errors/returns3.spl:2:34} or remove the return statement at\\ \textcolor{filename}{examples/errors/returns3.spl:2:17}.}
+
+\paragraph{While and if without else} The while and if without an else cases only need to compare two ways of returning. The way they return and the way the code after them returns. Here are some of the cases:
+\begin{minted}{Haskell}
+(Left err, _) -> Left err -- Propagate Left
+(_, Left err) -> Left err -- Propagate Left
+(Right No, Right No) -> Right No -- Rule 4
+(Right (WithoutValue _), Right (WithoutValue m)) -> Right (WithoutValue m) -- Rule 4
+(Right (WithValue _), Right (WithValue m)) -> Right (WithValue m) -- Rule 4
+(Right (WithoutValue _), Right No) -> Right No -- Rule 1
+(Right (WithValue m), Right No) -> Left "Detailed Error" -- Rule 3
+(Right No, Right (WithValue m)) -> Right (WithValue m) -- Rule 3
+(Right (WithoutVAlue m1), Right (WithValue m2)) -> Left "Detailed Error" -- Rule 2
+\end{minted}
+
+\subsection{Assigning the \texttt{VoidType} return type}
+
+As the returns checking step happens before the \hyperref[sec:Type-Checking]{type checking step} all the types are a \texttt{Maybe}. The types that are there have been specified by the programmer. 
+If after checking a function declaration, the way of returning is \texttt{No} or \texttt{WithoutValue} you know that the return type of the function has to be \texttt{VoidType}. You also know that when the way of returning is \texttt{WithValue} that the return type can not be \texttt{VoidType}. These two things are actually checked during this phase by comparing the return type specified by the programmer with the way the function actually returns. If there is no return type specified by the programmer (e.g. the return type in the \texttt{Decl} is \texttt{Nothing}) and the function does not return a value, the compiler will replace the return type in the \texttt{Decl} with \texttt{Just VoidType}. 
+
+\subsubsection{Return ways not matching specified return type errors}
+
+Here are the errors the programmer is presented with if the return type they specified does not match with the way the function actually returns.
+
+In the case of \texttt{WithValue} and a specified return type of \texttt{VoidType} like this:
+
+\begin{lstlisting}[style=SPL]
+    foo(): Void { return 3; }
+\end{lstlisting}
+
+the programmer is presented with this error:
+
+\noindent \texttt{\textcolor{error}{Semantic Analysis Error: Unexpected return value} in function '\textcolor{name}{foo}' defined at \\\textcolor{filename}{examples/errors/returns4.spl:1:1}.
+Function '\textcolor{name}{foo}' has a specified return type of \textcolor{type}{Void} which means no value should be returned.
+However at \textcolor{filename}{examples/errors/returns4.spl:1:14} you are returning a value.\\
+Here are some things to try:\\
+- If you do not want to return a value, remove the returned value at \textcolor{filename}{examples/errors/returns4.spl:1:14}\\
+- If you do want to return a value, change the return type annotation of the function to another type that is not \textcolor{type}{Void}\\
+- If you do want to return a value but you don't know what type (yet), just remove the return type annotation of the function all together and let the compiler figure it out.\\}
+
+In case of \texttt{No} or \texttt{WithoutValue} and a specified type that is not \texttt{VoidType} like this
+
+\begin{lstlisting}[style=SPL]
+    foo(): Int { return; } // WithoutValue
+    bar(): Int { print("Not returning"); } // No
+\end{lstlisting}
+
+the programmer is presented with the following error:\\
+
+\noindent\texttt{\textcolor{error}{Semantic Analysis Error: Missing return statement} in function '\textcolor{name}{foo}' defined at \\\textcolor{filename}{examples/errors/returns5.spl:1:1.}
+Function '\textcolor{name}{foo}' is specified to return a value of type \textcolor{type}{Int} but no value is being returned from the '\textcolor{name}{foo}' function.
+Either add a return value (of type \textcolor{type}{Int}) or change the return type of the function to \textcolor{type}{Void}.}
+\\\\
+\noindent After completing this step the AST has been transformed from a \texttt{Program ParsedP} into a \texttt{Program ReturnsCheckedP}.
+
+\section{Check duplicate declarations} \label{sec:Check-duplicate-decls}
+
+In this step the compiler looks for duplicate declarations. This could be duplicate variable declarations or duplicate function names.
+
+I decided to not allow shadowing of global variables. This not only makes things much simpler to implement but also I believe that it leads to more clear code. This means that as soon as you declare a global variable with name \texttt{aap} no other global variable, function argument or function variable in the program can be called \texttt{aap} anymore. There is however local scope between functions. You can reuse variable names across functions. So something like this is fine:
+
+\begin{lstlisting}[style=SPL]
+    raise(number) {
+        var result = 0;
+        result = number * number;
+        return result; 
+    }
+    
+    power(number, by) { 
+        var result = 0;
+        while (by > 0) { 
+            result = result + raise(number); 
+            by = by - 1;
+        }
+        return result;
+    }
+\end{lstlisting}
+
+Naturally within one function variables still can not overlap. 
+
+The checking works by recursively iterating over the \texttt{Program} and passing along a \texttt{Map String SourceSpan}. For every name the compiler performs a lookup in the map. If the result is \texttt{Nothing} the compiler adds the name to the map with the \texttt{SourceSpan} of the name. If the result is \texttt{Just ...} the name has already been declared before and the error is created. 
+
+\subsection{Shadow Error Examples}
+
+If the programmer tries to shadow a global variable name with the name of a function argument like like this:
+
+\begin{lstlisting}[style=SPL]
+    var aap = 137;
+    foo(aap) {return aap;}
+\end{lstlisting}
+
+they will be presented with the following error:\\\\
+\noindent\texttt{
+\textcolor{error}{Semantic Analysis Error: The argument name '\textcolor{name}{aap}' of the '\textcolor{name}{foo}' function has already been defined earlier.}
+The first time at: \textcolor{filename}{examples/defined.spl:1:1} and the second time at: \textcolor{filename}{examples/defined.spl:3:1}\\
+Names used for global variables and argument names should not overlap. 
+You could consider renaming the argument to \textcolor{name}{aap'} (adding a ' behind the name) or \textcolor{name}{foo\_aap} (adding the function name as a prefix).}
+\\
+
+A similar error is generated by this code:
+
+\begin{lstlisting}[style=SPL]
+    foo(aap, aap) {
+        return;
+    }
+\end{lstlisting}
+
+If the programmer tries to shadow a global variable name with the name of a function variable like like this:
+
+\begin{lstlisting}[style=SPL]
+    foo() {
+        var aap = 731;
+        return aap;
+    }
+    
+    var aap = 137;
+\end{lstlisting}
+
+they will be presented with the following error:\\
+
+\noindent\texttt{\textcolor{error}{Semantic Analysis Error: Variable with name '\textcolor{name}{aap}' is defined two times!}\\
+The first time at: \textcolor{filename}{examples/defined2.spl:6:1} and the second time at: \textcolor{filename}{examples/defined2.spl:2:5}.}\\
+
+\noindent Even though the variable is defined after the function it is being mentioned in the error as first because it was moved to the start of the file in the \hyperref[sec:Hoist-globals]{hoist globals} step. \\
+
+\noindent The last error is also produced for the following two programs:
+
+\noindent % Ensures there is no indentation at the start of the line
+
+\noindent
+\begin{minipage}[t]{0.45\textwidth}
+\begin{lstlisting}[style=SPL]
+    var aap = 137;
+    var aap = 731;
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[t]{0.45\textwidth}
+\begin{lstlisting}[style=SPL]
+    foo(aap) {
+        var aap = 137;
+    }
+\end{lstlisting}
+\end{minipage}
+
+\section{Type checking} \label{sec:Type-Checking}
+
+During type checking the compiler checks if the code written by the programmer actually made sense given the types. For example, in SPL the \texttt{+} operation can only be performed with two Int. As such writing \texttt{True + 137} does not make sense because you can not do the \texttt{+} operation with a Bool and an Int. This means that when the compiler encounters a \texttt{+} operation it has to check if both of the operands can be Int types. This is type checking. 
+
+Because the operands of \texttt{+} have to be Int the compiler can assume that \texttt{a} and \texttt{b} in \texttt{a + b} are of type Int. This is type inference. If the compiler later encounters information which contradicts this. For instance \texttt{a} \&\& \texttt{b}, an operation that can only be performed on two Boolean's, the compiler has to generate a type error. 
+\\\\
+The type system is based on the classic Hindley-Milner \cite{milner1978theory} system. The AlgorithmW step by step tutorial paper \cite{grabmuller2006algorithm} was very helpful during the implementation of the type checker.
+
+\subsubsection{Fixing the \texttt{Maybe Type}}
+
+At the start of the type checking the compiler only has the type information it was given by the programmer. Many types might be missing. For this reason the type of the nodes in the AST that hold the type information are \texttt{Maybe Type}. The compiler removes \texttt{Maybe} by replacing all the \texttt{Nothing} with a fresh type variable. After this in theory every part of the AST has a type. But many of the types are type variables. 
+
+\subsubsection{Narrowing the type variables}
+
+Type variable are the most general type and represent the least amount of information. Each type variable has a name. 
+The idea of the type checking phase is to create a substitution that substitutes type variables with more concrete types.  Essentially the substitution is a map from type variable names to types. Hopefully a more concrete type but a type variable can also be substituted with another type variable. That means that a type variable has the same type as another type variable.
+
+The substitution is created by collecting information about how variables are used. If the compiler manages to create a substitution for the entire program without generating an error you know that the program is correctly typed. After obtaining a substitution for the entire program the compiler applies it to the AST to add the obtained type information to the AST. 
+
+\subsection{Unification}
+
+Every time the compiler infers something it can turn this information into a substitution using unification. Unification is the process of making two types equal by finding a suitable substitution. For instance if you unify an \texttt{Int} with \texttt{Int} you get an empty substitution $\empty$ because the types are already equal. There are no type variables to substitute. If you try to unify $Int$ with a type variable \texttt{a} you can make them equal with the $\{a \rightarrow \text{\texttt{Int}}\}$ substitution. If you try to unify \texttt{Int} with \texttt{Bool} you get $\bot$ because there is no way to make \texttt{Int} and \texttt{Bool} equal. Here is my unification function implemented in Haskell:
+
+\begin{minted}{Haskell}
+unify :: Type -> Type -> TI Subst 
+unify (TypeVar u1 False) t2@(TypeVar _ False) = return $ Map.fromList [(u1, t2)]  -- U (α, α) = id
+unify (TypeVar u False) t = gets currentMeta >>= \meta -> varBind meta u t -- bind the type var!
+unify t (TypeVar u False) = gets currentMeta >>= \meta -> varBind meta u t
+unify ty1@(TypeVar name1 True) ty2@(TypeVar name2 True) = 
+  if name1 == name2 then return nullSubst else unifyError ty1 ty2
+unify ty1@(TypeVar _ True) ty2 = unifyError ty1 ty2
+unify ty1 ty2@(TypeVar _ True) = unifyError ty1 ty2
+unify (ListType t1) (ListType t2) = unify t1 t2
+unify (TupleType t1 t2) (TupleType t1' t2') = do
+  s1 <- unify t1 t1'
+  s2 <- unify (apply s1 t2) (apply s1 t2')
+  let s = s1 `composeSubst` s2
+  applySubToTIenv s
+  return s
+unify IntType IntType = return nullSubst
+unify BoolType BoolType = return nullSubst
+unify CharType CharType = return nullSubst
+unify VoidType VoidType = return nullSubst
+unify t1 t2 = unifyError t1 t2 
+
+varBind :: SourceSpan -> String -> Type -> TI Subst
+varBind meta u t
+    | u `Set.member` typevars t =
+        throwError $
+            red "Occurs check:" ++ " cannot construct the infinite type" 
+                    ++ u ++ " ~ " ++ show t ++ " at " ++ showStart meta
+    | otherwise = return (Map.singleton u t)
+\end{minted}
+
+
+Once the compiler gets a substitution from unification it has to be merged with the larger substitution of the entire program. Two substitutions can be composed using the \texttt{composeSubst} function. For instance merging $\{a \rightarrow \text{\texttt{Int}}\}$ with $\{b \rightarrow \text{\texttt{Bool}}\}$ becomes $\{a \rightarrow \text{\texttt{Int}}, b \rightarrow \text{\texttt{Bool}}\}$. 
+
+\subsubsection{Unify Errors}
+
+When the \texttt{unify} function can not unify two types it calls the \texttt{unifyError} function. I tried to make the unification error very helpful to the programmer. As an example the following code:
+
+\begin{lstlisting}[style=SPL]
+   main() { return 1 + True; } 
+\end{lstlisting}
+
+\noindent Will produce this error:\\
+
+\noindent\texttt{\textcolor{error}{Semantic Analysis Error:} Inside function \textcolor{name}{main};\\
+Types do not unify:\\
+\textcolor{type}{Int} vs. \textcolor{type}{Bool} at \textcolor{filename}{examples/errors/unify.spl:1:20} until line 1 column 24\\
+\\
+learn more about unification errors here:\\ https://en.wikipedia.org/wiki/unification\_(computer\_science) or here https://cloogle.org/\#unify\%20error}
+
+\pagebreak
+
+\noindent The error generated by the \texttt{unifyError} function can also make suggestions if there are other variables in scope that would be the correct type. For instance with this code:
+
+\begin{lstlisting}[style=SPL]
+var three = 3;
+var fff = False && False;
+
+foo(a_bool: Bool)
+{ 
+    var ttt = True;
+    var two = 2;
+    return 1 + True; 
+}
+\end{lstlisting}
+
+\noindent The following lines would be added to the error:
+\\\\
+\noindent \texttt{
+Potential variables of type \textcolor{type}{Int} in scope include '\textcolor{name}{three}' and '\textcolor{name}{two}'\\
+Potential variables of type \textcolor{type}{Bool} in scope include '\textcolor{name}{a\_bool}', '\textcolor{name}{fff}' and '\textcolor{name}{ttt}'
+}
+
+\subsection{TI Monad}
+
+In the unify function the result is not a \texttt{Subst} but a \texttt{TI Subst}. The \texttt{TI} type is a Monad. 
+The TI monad is a State monad wrapped by an \texttt{ExceptT} Monad transformer. 
+This monad gives a convenient way to manage state in the type checker and gain the ability to throw and catch errors using \texttt{throwError} and \texttt{catchError}. The definition of the TI monad is as follows:
+
+\begin{minted}{Haskell}
+type TI a = ExceptT String (State TIState) a
+\end{minted}
+
+\noindent The definition of TIState is a record type: 
+
+\begin{minted}{Haskell}
+type TIState = TIenv
+data TIenv = TIenv {currentFunEnv :: FunEnv, -- Map String Scheme
+                    currentVarEnv :: VarEnv, -- Map String Type
+                    currentTypeVarCounter :: Int, -- Used to generate fresh type vars
+                    currentFunName :: Maybe String, 
+                    currentFunType :: Maybe Type,
+                    currentMeta :: SourceSpan, 
+                    currentFunArgNames :: Maybe [String],
+                  }
+\end{minted}
+
+
+
+
+\subsection{Type Inference}
+
+Type inference is determines the type of something while type checking checks if the type of something conforms to a certain type. Type inference gives you a type and a substitution while type checking only gives you a substitution. If you only implement one of these operations you can get the other one for free. I took full advantage of this with a \texttt{Typecheck} type class:
+
+\begin{minted}{Haskell}
+class Typecheck a where
+    {-# MINIMAL tc | ti #-}
+    tc :: a -> Type -> TI Subst
+    tc a t = do
+        (s1, inferredT) <- ti a
+        s2 <- unify t inferredT
+        let s = s1 `composeSubst` s2
+        applySubToTIenv s
+        return s
+    ti :: a -> TI (Subst, Type)
+    ti a = do
+        t <- newTyVar
+        s <- tc a t
+        applySubToTIenv s
+        return (s, apply s t)
+\end{minted}
+
+I chose to implement type inference for everything and rely on the derived \texttt{tc} for where it was needed. I did this because I found type inferencing easier and more intuitive to implement than type checking. 
+
+\subsubsection{Literals} 
+
+In general, type inferencing for literals is trivial. The type of an integer literal is just \texttt{IntType} and so on. However, there are two special cases: tuples and lists.
+
+For tuple literals you have to infer the types of the two tuple members and compose the obtained substitutions.
+
+The empty list type is special because it is impossible to know the type of the elements that will be added to an empty list in the future. As such every empty list starts out with type \texttt{[t]} where \texttt{t} is a fresh (non rigid) type variable. 
+
+
+Because the implementation is not very long I included the entire \texttt{Typecheck} instance for \texttt{Literal}.
+
+\begin{minted}{Haskell}
+instance Typecheck (Literal TypecheckedP) where
+  ti (IntLit _) = return (nullSubst, IntType)
+  ti TrueLit = return (nullSubst, BoolType)
+  ti FalseLit = return (nullSubst, BoolType)
+  ti (CharLit _) = return (nullSubst, CharType)
+  ti EmptyListLit = do
+    var <- newTyVar
+    return (nullSubst, ListType var) 
+  ti (TupleLit (e1, e2)) = do
+    (s1, t1) <- ti e1
+    (s2, t2) <- ti e2
+    let s = s1 `composeSubst` s2
+    applySubToTIenv s
+    return (s, TupleType t1 t2)
+\end{minted}
+
+
+
+\subsubsection{Expressions}
+
+Expressions result in a value. When type inferencing an expression you try to figure out the type of this value. 
+
+\paragraph{Simple Binary Operation} I define simple binary operations as operations that can only be applied to a single type. Because the simple operations can only be applied to a single type they do a good job of narrowing types. Before you can infer the type of a binary operation you have to check if the operands of the operation are the correct type and propagate the substitutions properly. To help with this I created the \texttt{tcBinOp} function.
+
+\begin{minted}{Haskell}
+{- Check if the type of 2 expr can be CheckType return the obtained substitution if they can -}
+tcBinOp :: Type -> Expr TypecheckedP -> Expr TypecheckedP -> TI (Subst)
+tcBinOp checkType e1 e2 = do
+  s1 <- tc e1 checkType
+  s2 <- tc e2 checkType
+  let s = s1 `composeSubst` s2
+  applySubToTIenv s
+  return s
+\end{minted}
+
+\noindent Then to infer the type of integer binary operations I created the \texttt{tiBinaryIntOp} function which builds on.
+
+\begin{minted}{Haskell}
+tiBinaryIntOp :: Expr TypecheckedP -> Expr TypecheckedP -> Type -> TI (Subst, Type)
+tiBinaryIntOp e1 e2 ty = do
+  s1 <- tcBinOp IntType e1 e2
+  s2 <- unify ty IntType
+  let s = s1 `composeSubst` s2
+  applySubToTIenv s 
+  return (s, IntType)
+\end{minted}
+
+\noindent Using \texttt{tiBinaryIntOp} I was able to make the implementation of \texttt{ti} of integer operations quite terse. 
+
+\begin{minted}{Haskell}
+ ti (BinOpExpr (ty, meta) Mul e1 e2) = replaceMeta meta >> tiBinaryIntOp e1 e2 ty
+ ti (BinOpExpr (ty, meta) Mod e1 e2) = replaceMeta meta >> tiBinaryIntOp e1 e2 ty
+ ti (BinOpExpr (ty, meta) Add e1 e2) = replaceMeta meta >> tiBinaryIntOp e1 e2 ty
+ ti (BinOpExpr (ty, meta) Div e1 e2) = replaceMeta meta >> tiBinaryIntOp e1 e2 ty
+ ti (BinOpExpr (ty, meta) Sub e1 e2) = replaceMeta meta >> tiBinaryIntOp e1 e2 ty
+\end{minted}
+
+\noindent I implemented type checking for the boolean binary operations in the same way.
+
+\paragraph{Equality Expression} The equality and non equality expressions are special because they are actually overloaded functions. That means that they can be applied to any type. However, I did restrict this by making the type of equality $== :: a \rightarrow a \rightarrow Bool$. These $a$ represent rigid type variables. What this means is in my implementation of SQL the programmer can not just compare an Int to a Bool or an Int to a Char. In other words the type types you compare have to be unifiable.  
+
+\paragraph{Greater than and smaller than expressions} The $>$, $>=$, $<$ and $<=$ operations are special because they work on two types: Int and Char. I solved this by first checking if both the expressions unify with an Int and if that throws an error to try a Char type. Because this could be confusing for the programmer I added an extra line to the usual unification error for this case. 
+
+\begin{minted}{Haskell}
+tcBinOpCharOrInt :: BinOp -> Expr TypecheckedP -> Expr TypecheckedP -> TI (Subst)
+tcBinOpCharOrInt op e1 e2 = 
+    get >>= \env -> tcBinOp IntType e1 e2 `catchError`
+             \_ -> put env >> tcBinOp CharType e1 e2 `catchError`
+              \_ -> do
+                (_, t1) <- ti e1 -- Get the type for the error
+                (_, t2) <- ti e2
+                meta <- gets currentMeta
+                unifyError t1 t2 
+                   `catchError` \errorTail -> throwError $ "Invalid operation at " ++ show meta 
+                                                            ++ "\nArguments to" ++ pretty op ++
+                                                            "should be either Int or Char but you gave " 
+                                                            ++ show t1 ++ pretty op ++ show t2 ++ "\n" 
+                                                            ++ errorTail
+\end{minted}
+
+
+\paragraph{Cons} The cons operation (\texttt{:}) is special because you have to check that the left hand side is of type list and that the right hand side unifies with the type of the element inside the list. When the programmer makes a mistake with cons the compiler will create specific errors.
+These errors include
+
+\noindent\texttt{\textcolor{error}{Semantic Analysis Error: You tried to \textcolor{black}{\textbf{cons}} \textcolor{type}{Int} with} \textcolor{type}{Int} but that does work. The right of a cons should always be a list type.}
+\\\\
+\noindent\texttt{\textcolor{error}{Semantic Analysis Error: You tried to cons \textcolor{type}{Int} with \textcolor{type}{[Char]}}, but this is not legal.}
+\\\\
+\noindent Here is the code for inferring Cons expressions. I truncated the code that generates the additional error to keep the code more readable. 
+
+\begin{minted}{Haskell}
+  ti (BinOpExpr (ty, meta) Cons e1 e2) = do
+    replaceMeta meta
+    (s1, t1) <- ti e1
+    (s2, listty) <- ti e2
+    s3 <- case listty of -- If t2 is a list type we have to unify with the type inside the list
+            ListType u1 -> unify t1 u1  `catchError` \err -> throwError $ "Additional error" ++ err
+            _ -> throwError $ red "Additional Error 2"
+    let inferredType = ListType t1
+    s4 <- unify ty inferredType -- Check the type of this node and save the result
+    let s = s1 `composeSubst` s2 `composeSubst` s3 `composeSubst` s4
+    applySubToTIenv s
+    return (s, apply s inferredType)
+\end{minted}
+
+\paragraph{Unary Operation} As all unary operations can only be applied to a single type inferring the type of a unary operation works basically the same as with the binary expressions.
+
+\paragraph{Field Operation Expressions} 
+
+Fields are special because the inferred type comes from the structure that it is applied to.
+There are 4 fields in SPL: \texttt{tl} and \texttt{hd} for lists and \texttt{fst} and \texttt{snd} for tuples. For each field the compiler has to check that it is applied to the right type. I added special errors for each. Here is one example:
+
+\begin{lstlisting}][style=spl]
+main() {
+    var a = [].snd;
+    return;
+}
+\end{lstlisting}
+
+\noindent\texttt{\textcolor{error}{Semantic Analysis Error: You accessed the \textcolor{black}{snd} field on a \textcolor{type}{[Typevar f]} at \textcolor{filename}{cons2.spl:2:13}.} But that is invalid you can only access the snd field on tuple types.\\
+Maybe you meant .tl?
+}
+
+\paragraph{Variable Expressions}
+
+The types of all defined variables are stored in the Variable environment in the TI monad. This environment stores the type of each defined variable. Thus, to infer the type the compiler can just look in the variable environment. If a variable is not there a "variable is not defined" error is thrown. Here is the code that checks variables:
+
+\begin{minted}{Haskell}
+  ti (VariableExpr (ty, meta) (Identifier var Nothing)) = do
+    replaceMeta meta
+    sigma <- lookupVarType var -- Throws error if not defined
+    s <- unify ty sigma
+    applySubToTIenv s
+    return (s, sigma)
+\end{minted}
+
+\subsubsection{Statements}
+
+It would seem but I decided to make type inference on statements yielding the type that the statement returns. This means that the type of an if statement with a return statement that returns a value of type Int, is inferred as an Int. A list of statements must return the same type. If it does not, the programmer is presented with an error. The only other things to check during the type inference of statements is the types of expressions in conditions. The types of the condition expressions should be boolean. 
+\\\\
+This code is a good example of statement type checking as it demonstrates both narrowing an expression to Boolean and the return type checking.  
+
+\begin{lstlisting}[style=SPL]
+foo(aap) {
+    if (aap) {
+        return aap;
+    }
+    return 137;
+}
+\end{lstlisting}
+
+\noindent If the programmer would compile this code they would be presented with the following error:
+
+\noindent\texttt{Types do not unify:\\
+\textcolor{type}{Bool} vs. \textcolor{type}{Int} at \textcolor{filename}{examples/invretty.spl:6:12} until line 6 column 13\\
+Potential variables of type \textcolor{type}{Bool} in scope include '\textcolor{blue}{aap}'.\\
+\\
+learn more about unification errors here:\\ https://en.wikipedia.org/wiki/unification\_(computer\_science) or here https://cloogle.org/#unify\%20error}
+
+\subsubsection{Declarations}
+
+The declarations are at the top level of the program. 
+Inferring variable declarations is not harder than inferring expressions. But the special thing about inferring variable declarations is that they add themselves to the variable environment.
+Function declarations keep track of the variables that are added to the environment before type checking the body. After the body is checked they remove the local and argument variables again after the body is checked. Type checking a function declaration is special because it generates a FunType from the argument types and the return type obtained from checking the statements in the body. This FunType can then be applied to a function \texttt{Decl} AST node to update it accordingly.
+
+\begin{minted}{haskell}
+checkDecls :: Program TypecheckedP -> TI (Program TypecheckedP)
+checkDecls [] = return []
+checkDecls (decl:future) = do
+    (sub, ty) <- ti decl
+    solved <- checkDecls future
+    return $ apply sub decl : solved
+\end{minted}
+
+
+\subsection{Polymorphism \& Function call expressions}
+
+Function call expressions look up the type of the function from the TI monad. The result of that monadic action will either be a FunType or if the function is not defined an error. Build in function are hard coded into the function environment. After obtaining the type of the function the compiler unifies the types of the expressions with the types of the arguments in the FunType.
+
+There is also a special check to make sure that you actually give the same number as arguments. If that does not happen you will get an error.
+
+\noindent \begin{lstlisting}[style=SPL]
+hi(a:Int, b:Bool, c:Char) { 
+    return; 
+}
+
+main() { hi(2); }
+\end{lstlisting}
+
+\noindent will generate: \\\textcolor{error}{Semantic Analysis Error: Function call at \textcolor{filename}{examples/errors/much.spl:7:5} is missing \textcolor{filename}{2} arguments}
+\\\\
+\noindent When calling a function the compiler checks if this function is the same function the compiler is currently checking (recursive call) or another function. In the first case the function call should narrow the type of the function that is being called in the function environment. In the second case the function call should not narrow the type of the function being called in the function environment. This effectively enables polymorphism because the polymorphic arguments will just unify with the type of the expression given as input without affecting any other calls to the polymorphic function.  
+\\\\
+\noindent When checking function types something special happens with the rigid type variables. If two arguments are defined as the same rigid type variable the types of those expressions have to be unifiable with each other. If the return type of the function is a rigid type variable that is also used as one of the argument types, the type of the expression of that argument will be the inferred type of the function call expression. This way you can make the return type of a function depend on the type of an argument. However, this is not incredibly useful as Rigid type variables can not be narrowed inside of functions. So you can only use rigid type variables if you don't touch them. But this does cause the compiler to know that in this next example the type of \texttt{aap} is Int.
+
+\begin{lstlisting}[style=SPL]
+id(value: a): a {
+    return a;
+}
+
+main() { 
+    var aap = id(137);
+    print(a);
+}
+\end{lstlisting}
+
+\subsection{Problems}
+
+\noindent The fact that the types were a \texttt{Maybe} actually caused a lot of hassle. I was trying to resolve the Maybe in the same function that was type checking the \texttt{Decl} and this was a major source of hidden complexity because the type checking function only returns a substitution and not a new AST node. Only quite late I realised that this was the source of the complexity. The right thing to do was to first instantiate the entire tree with type variables and only then start type checking. 
+
+The more and more I worked on the type checker the simpler the code became. But this simplicity is
+very hard to reach in one go.
+
+\section{Optimisation} \label{sec:Optimisation}
+
+The last step of the semantic analysis is the optimization step. During this phase the compiler prunes and evaluates parts of the AST so that less code has to be generated. Quite some optimisations have been implemented:
+\begin{itemize}
+    \item Literal evaluation for binary and unary operations.
+    \item Lazy boolean expressions, meaning that if in an && expression one of the bools is true I just replace it with a True lit.
+    \item Remove while (false)
+    \item Remove if (false) and always run the else
+    \item Comparing variables with the same name always yields true
+\end{itemize}
+
+\noindent In the last two cases I replace the statements with a \texttt{BlockStatement} first which I later merge into the main statement list.
+
+\\\\
+\noindent This next example shows how a program can be optimised by the compiler.
+
+\begin{lstlisting}[style=SPL]
+main() {
+    var a = 3 + 3 * 2;
+    var b = (10,"Long string").fst;
+    var ttt = isEmpty([]);
+    var c = (10:[]).hd;
+    var d = c == c;
+    
+    if (True) {
+        print("1");
+    } 
+    
+    if (False) {print("gone");} else {print("2");}
+
+    while (False) {print("gone");} 
+}
+\end{lstlisting}
+
+Is optimised into:
+
+\begin{lstlisting}[style=SPL]
+main() : Void {
+    Int a = 9;
+    Int b = 10;
+    Bool ttt = True;
+    Int c = 10;
+    Bool d = True; 
+    
+    print('1':[]);
+    print('2':[]);
+    return;
+}
+\end{lstlisting}
+
+
+\\\\
+\noindent You can skip this phase by using the \texttt{--skip-optimizer} flag.
+
+
+% \begin{itemize}
+% 	\item New Abstract Syntax Tree? Decorate an existing Abstract Syntax Tree?
+% 	\item Error messages?
+% 	\item Polymorphism? Inference? Overloading?
+% 	\item Problems?
+% 	\item\ldots
+% \end{itemize}
+
+
+
+
+\chapter{Code Generation}
+
+During the code generation phase I generate code for the simple stack machine (SSM) \cite{SimpleStackMachine}. 
+This virtual machine was originally developed at Utrecht university to teach about code generation and compilers. However, in this project I use a Radboud University fork found at: \url{https://gitlab.science.ru.nl/compilerconstruction/ssm}.
+ 
+\section{Code generation infrastructure}
+
+I started out by implementing every SSM instruction as a data type. Simply calling \texttt{show} on this datatype would print the assembly code. I also defined the \texttt{Code} type which is just a list of SSM instructions.
+
+\begin{minted}{Haskell}
+data Instr
+    = STR Reg | STL Int  | STS Int  | STA Int        -- Store from stack
+    | LDR Reg | LDL Int  | LDS Int  | LDA Int        -- Load on stack
+    | LDC Int | LDLA Int | LDSA Int | LDAA Int       -- Load on stack, for local always start with 1 
+    | LDML Int Int  | STML Int Int  | LDMS Int Int   -- Load/Store local multiple, 
+    | BRA Int | Bra String                           -- Branch always (relative/to label) 
+    | BRF Int | Brf String                           -- Branch on false
+    | BRT Int | Brt String                           -- Branch on true
+    | BSR Int | Bsr String                           -- Branch to subroutine
+    | ADD | SUB | MUL | DIV | MOD                    -- Arithmetical operations on 2 stack operands
+    | EQ  | NE  | LT  | LE  | GT  | GE               -- Relational   operations on 2 stack operands
+    | AND | OR  | XOR                                -- Bitwise      operations on 2 stack operands
+    | NEG | NOT                                      --              operations on 1 stack operand
+    | RET | UNLINK | LINK Int | AJS Int              -- Procedure utilities, Ret = Return from 
+    | SWP | SWPR Reg | SWPRR Reg Reg | LDRR Reg Reg  -- Various swaps
+    | JSR | TRAP Int | NOP | HALT                    -- Other instructions
+    | LABEL String                                   -- Pseudo-instruction for generating a label
+    | LDH Int | STH | STMH Int                       -- Heap variables
+    deriving Show
+    
+type Code = [Instr]
+\end{minted}
+
+Another important thing to implement was the \texttt{codeSize} function. This is calculates how many memory cells a \texttt{Code} takes up. This is useful when calculating how far the program counter has to jump.
+
+The code generation works by implementing the GenSSM typeclass for every node in the AST.
+
+\begin{minted}
+class GenSSM a where
+    generate :: a -> Env Code
+\end{minted}
+
+As you can see the \texttt{generate} function returns \texttt{Code} inside an \texttt{Env} monad. This monad is a state monad and keeps track of all information relating to the code generation:
+
+\begin{minted}{Haskell}
+
+data Location =  LocalVar  Int Type | GlobalVar Int Type
+              deriving (Eq, Ord, Show)
+newtype Key = Var String
+              deriving (Eq, Ord, Show)
+
+data Info = Info {
+   -- genEnv has the data needed to generate code like variables and where they are 
+   genEnv :: Map.Map Key Location,
+   globalVarCounter :: Int,
+   needsUnlink :: Bool,
+   needsOutOfBoundsRuntimeExeptionCode :: Bool,
+   programArgs :: Args
+}
+
+type Env = State Info
+\end{minted}
+
+The most important thing in this monad is the \texttt{genEnv}. It is a map that tells the code generator where variables can be found in memory. The \texttt{needsOutOfBoundsRuntimeExeptionCode} variable remembers if the array out of bounds runtime error runtime should be included or not. It is only included when the .hd field is used. 
+%\texttt{needsUnlink} keeps track of whether we are in a function that has locals or not. If there are no locals we might be able to return without   
+
+\noindent I implemented monoid for \texttt{Env Code} so that I could combine instances of the \texttt{Env Code} without having to get the code out of the monad.
+
+\begin{minted}{Haskell}
+instance Semigroup (Env Code) where
+      m1 <> m2 = m1 >>= (\code -> m2 >>= \code2 -> pure $ code <> code2)
+
+instance Monoid (Env Code) where
+      mempty = pure []
+\end{minted}
+
+\section{Data Representations}
+
+The data is represented in such a way that all data types only take up a single memory cell on the stack. Arrays are stored on the stack as a pointer to the heap where they are implemented as linked lists. The linked lists are achieved by using the \texttt{STMH 2} instruction. The end of a list is indicated by two zero values on the heap. Those zero values get there because an empty list literal generates \texttt{[LDC 0, LDC 0, STMH 2]}. A tuple is a pointer on the stack that points to the first value of the tuple stored in the heap. If you load this address with an offset of 1 you get the second value. The rest of the literals are quite trivial.
+
+\begin{minted}{Haskell}
+instance GenSSM (Literal TypecheckedP) where
+      generate TrueLit = pure [LDC (-1)] -- There is also a True and False but its just a bit pattern 
+      generate FalseLit = pure [LDC 0]
+      generate (IntLit int)  = pure [LDC int]
+      generate (CharLit char)  = pure [LDC $ ord char]
+      generate EmptyListLit = pure [LDC 0, LDC 0, STMH 2] -- address of 0 marks the end of the array!
+      -- A tuple always has two values. These do not have to be other tuples. 
+      -- So lets make it [value1, value2], one of these can be an address but you don't know.
+      generate (TupleLit (e1, e2)) = generate e1 <> generate e2  <> pure [STMH 2]
+    \end{minted}
+
+
+\subsection{Global variables}
+
+Global variables are loaded into the heap at the start of the program. By loading them into the heap they can be assessed from anywhere. However, the heap pointer moves away after the start of the program so how can I get the values? I solved this by allocating the fifth register to store the starting address of the heap. This way whenever you want to load a global variable you have to push the register 5 value onto the stack and load with the offset. The offset of global variables can be obtained from the \texttt{genEnv}.  
+
+\begin{minted}{Haskell}
+  generate (VarDecl _ name _ expr)  = do 
+    globalvarcount <- increaseGlobalVarCount
+    modify $ \env@(Info {genEnv = genenv}) -> 
+                env {genEnv = Map.insert (Var name) (GlobalVar globalvarcount (getType expr)) genenv}
+    generate expr -- The program generator generates the actual saving cause we do it in one go
+\end{minted}
+
+\subsection{Function Calls}
+
+When a function is called I use the `Bsr` instruction with a label to branch to it. This pushes the current program counter onto the stack and jumps to the label.
+
+I implemented function locals by using the special smm \texttt{LINK} and \texttt{UNLINK} instructions. These instructions make it simple to deal with locals and nested function calls. However, if a function does not have arguments and no return value I optimise and do not generate these instructions. 
+
+The arguments of a function call are passed through the stack. I managed to load the arguments and store them as locals in just two instructions. This works by using a load local multiple instruction with a negative argument to load values from before the mark pointer. Here is the code that generates these instructions:
+
+\begin{minted}{Haskell}
+     [LDML (-(argcount + 1)) argcount | argcount > 0] ++ [STML 1 argcount | argcount > 0]
+\end{minted}
+
+The local variables of a function are inserted as expressions at the start of the function code. As each expression leaves only a single value on the stack we can load all the values into locals with a single multiple instruction. 
+
+\noindent Because everything only takes up a single cell in memory I can pass the return values through the return register. 
+
+% \subsection{Runtime}
+
+% \subsubsection{Array out of bounds checking}
+
+
+
+\section{Polymorphism}
+
+The fact that all types only take up a single memory cell in the stack has the great advantage that it deals with polymorphism for free because the code generation can assume that the result of an expression always leaves a single value on the stack. If a function has 3 arguments it always has to load 3 memory cells from the stack. Because the program type checked we know that a polymorphic function will not perform any operation on its argument that will cause trouble. 
+
+
+\section{Overloading}
+
+As can be seen from the example in the introduction both overloaded functions have been implemented.
+SPL has two build in overloaded functions. Printing \texttt{print} and \texttt{equality}.
+
+Overloaded functions are treated as a special case in the code generator. This is possible because during the semantic analysis phase every expression was annotated with a it's type. This allows the code generator to generate specific code for each version of the overloaded functions. 
+
+\subsection{Printing}
+
+I started out by implementing special code for the basic types like Char and Int. These types have special system call instructions to print them. The Boolean type is a bit more complicated because it needs a runtime condition to check whether a True or False should be printed. From this I moved on to lists and tuples. Lists were especially complicated because they need to iterate till the end of the list during runtime and also compile in the right print function for their argument. I achieved this by generating the print code recursively and jumping the right amounts. Implementing these specialisations was a very precise job. To give some idea of that I put a couple of the specialisations below but there are more. 
+
+\begin{minted}{Haskell}
+
+generatePrint :: Type -> Code
+generatePrint ty = case ty of
+  CharType -> [TRAP 1] -- Print adds a newline
+  IntType -> [TRAP 0] -- Print does not add a newline, for a newline call print without arguments
+  (TypeVar tyname False) -> printStringCode ("Non rigid TypeVar " ++ 
+    show tyname ++ ", idk how to print this!\n")
+  (TypeVar tyname True) -> printStringCode ("Rigid TypeVar" ++ show tyname ++ ", idk how to print this!\n")
+  BoolType ->
+    let trueCode = printStringCode "True"
+        branchSize = instrSize (BRF undefined)
+        falseCode = printStringCode "False"
+     in [LABEL "'printBool", BRF (codeSize trueCode + branchSize)] <> trueCode <>  
+        [BRA (codeSize falseCode)] <> falseCode
+  ListType IntType ->
+    [ LABEL "'printIntList",
+      LDC (ord '['),
+      TRAP 1,
+      LDS 0, -- Remember adress of cons
+      LDA 0, -- Load the adress
+      BRF 20, -- If its empty list skip to the end
+      LDS 0, -- Remember the cons cell for the next LDA
+      LDA (-1), -- Otherwise load the value
+      TRAP 0, -- Print it
+      LDA 0, -- Move to the next cons cell
+      LDS 0, -- Check if we should end it or print a comma and continue
+      LDA 0,
+      BRF 6,
+      LDC (ord ','), -- print comma
+      TRAP 1,
+      BRA (-20), -- Jump back to the copy after the inital emtpy check
+      LDC (ord ']'),
+      TRAP 1,
+      AJS (-1)
+    ]
+  ListType CharType ->
+    [ LABEL "'printChrList",
+      LDS 0, -- Save the adress of the cons cell
+      LDA 0, -- Load the first adress
+      BRF 10, -- If its empty list skip to the end
+      LDS 0, -- Remember the cons cell for the next LDA
+      LDA (-1), -- Load the value
+      TRAP 1, -- Print it
+      LDA 0, -- Move to the next cons cell
+      BRA (-16),
+      AJS (-1) -- Jump back to the brf 12
+    ]
+  ListType itemType ->
+    let printItemCode = generatePrint itemType
+        printItemCodeSize = codeSize printItemCode
+     in [ LABEL "'printListList",
+          LDC (ord '['),
+          TRAP 1,
+          LDS 0, -- Check for empty list once
+          LDA 0,
+          BRF (18 + printItemCodeSize),
+          LDS 0, -- Remember the cons cell for the next LDA
+          LDA (-1) -- Otherwise load the value
+        ]
+          <> printItemCode
+          <> [ LDA 0, -- Load the next adress
+               LDS 0, -- Remember adress
+               LDA 0, -- Load the next cons cell to check for empty
+               BRF 6, -- If its empty list skip to the end
+               LDC (ord ','),
+               TRAP 1,
+               BRA ((-20) - printItemCodeSize + 2), -- Jump back to the brf 12
+               LDC (ord ']'),
+               TRAP 1,
+               AJS (-1) -- These prints leave 1 value on the stack always just clean that up
+               -- ListType (ListType a) ->
+             ]
+  TupleType a b ->
+    let printAcode = generatePrint a
+        printBcode = generatePrint b
+     in [ LABEL "'printTuple",
+          LDC (ord '('),
+          TRAP 1,
+          LDS 0, -- Copy for the second value
+          LDA (-1)
+        ]
+          <> printAcode
+          <> [LDC (ord ','), TRAP 1, LDC (ord ' '), TRAP 1, LDA 0] -- Print `, ` and load next value
+          <> printBcode
+          <> [LDC (ord ')'), TRAP 1]
+  ty' -> printStringCode ("Error: Can not print value of type " ++ showTypeWithoutColor ty' ++ "\n")
+\end{minted}
+
+
+\subsection{Equality}
+
+Equality is implemented in much the same way as printing. It generates the correct equality instructions for every type. I started with simple types and moved on to more complicated types like lists that recursively call the equality code generation of the simpler type.
+\\
+If you compare polymorphic types like this:
+
+\begin{lstlisting}[style=SPL]
+foo(a, b) {
+    return a == b;
+}
+\end{lstlisting}
+
+\\you will get this warning.\\
+
+\noindent\texttt{
+\textcolor{warning}{WARNING}: You are comparing two type variables: \textcolor{type}{Typevar d} and \textcolor{type}{Typevar d} at \textcolor{filename}{examples/warning/polly.spl:3:12.}\\
+These two type variables share the same name, which means they will have the same type. However, this comparison will be a simple reference comparison, not a value comparison. \\
+\\
+Examples of reference comparisons:\\
+- 1 == 1 -> True\\
+- 1 == 2 -> False\\
+- "Hi" == "Hi" -> False (These strings have the same value but different memory locations)\\
+- a == a -> True (Always true, since it's comparing the same variables and thus the same memory location)\\\\
+In summary, this comparison will work for primitive types like Int or Bool, but not for complex types like Lists, Tuples, or Strings unless they refer to the same memory location. 
+Ensure this behaviour is intended for your code.}
+
+\section{Runtime Error}
+
+The implementation \texttt{GenSSM} for \texttt{Program TypecheckedP} generates the code for all the declarations but also a runtime. This runtime includes declaring the global, branching to main and halting but it also contains a runtime error that prints an error when you do an out of bound array index. 
+
+Each time code is generated for a .hd field access the \texttt{headaccess} function is called. This function loads the address from the heap and checks if the address to the next cons cell is 0. If it is then it was an out out bounds array access and the code jumps to \texttt{'outOfBoundExpection}.
+
+\begin{minted}{Haskell}
+headaccess :: SourceSpan -> Env Code
+headaccess meta = includeOutOfBoundsRuntimeExceptionCode >> pure (checkBounds <> [LDA (-1)])
+  where
+    checkBounds1 = [LDS 0, LDA 0]
+    checkBounds2 = [LDC (startCol meta), LDC (startLine meta), Bra "'outOfBoundExpection"]
+    jumpSize = codeSize checkBounds2
+    checkBounds = checkBounds1 <> [BRT jumpSize] <> checkBounds2
+\end{minted}
+
+Only if \texttt{needsOutOfBoundsRuntimeExeptionCode} is true in the environment (\texttt{headaccess} sets this to true) will the \texttt{'outOfBoundExpection} function be included into the runtime. The first time that this boolean is set to true the compiler will also emit the following warning. 
+
+\noindent \texttt{\textcolor{warning}{WARNING:} Including list out of bounds runtime}
+\\\\
+\noindent If you actually do an out of bounds array access like this:
+
+\begin{lstlisting}[style=SPL]
+foo() {
+    var a = [];
+    return a.hd;
+}
+
+main() { foo(); return; }; 
+\end{lstlisting}
+
+\noindent the code will print:
+
+\noindent \texttt{Array out of bounds runtime expection:\\
+Trying to access .hd on an empty array.\\
+Caused by line 12 column 4.\\
+}
+
+\noindent As you can see it remembers where the error happened in the source code during the runtime.
+
+\section{Patching SSM}
+
+During this project I extended the SSM virtual machine with two new instructions. \texttt{TRAP 2} to print null terminated character arrays on the stack and the ability to have function names that start with a ' character. This is useful for generation labels that the programmer can not create.
+
+\section{Problems}
+
+I did not experience any major problems implementing this phase. I made good foundations with the state monad. It was rather tedious however to get all the jump distances correct for the overloaded functions.
+
+
+\chapter{Extension}
+
+As an extension I added the following things to the SPL language:
+
+\begin{itemize}
+    \item Tuples
+    \item String syntax in the parser
+    \item Good error messages and compiler warnings
+    \item Variable names can end with ' like in Haskell
+    \item The optimiser step
+    \item Runtime out of bounds checking for lists
+    \item The following build in functions:
+    \begin{itemize}
+        \item \texttt{getChar} - Asks a single char input and puts it into the stack
+        \item \texttt{printIntAsChar} - A function that will print an int as a unicode char 
+        \item \texttt{exit} - This function will hald the program
+    \end{itemize}
+\end{itemize}
+
+I was unable to add WASM code generation to the compiler as my partner left during the project. This meant that there was simply no time. Had he stayed involved I am sure it would have been implemented.
+
+\chapter{Conclusion}
+
+\section{Reflection}
+
+Besides learning a great deal about compilers, I learned two valuable lessons that made me a better programmer. "it is more important for code to be easy to break than easy to write" and "design for the hardest thing."
+
+For "Easy to break over easy to write" imagine changing the type of a date value in Python to an int from a string. Next month you might still have bugs coming from this change while in Haskell it is immediately clear which part of the code broke due to your change. This is well worth the increased difficulty in writing Haskell over Python.
+
+With "Design for the hardest thing" I mean that when solving a problem you should always aim to solve the most difficult version of it you know. Otherwise you might create a solution that works for a lot of cases but when you want to solve a more difficult case you have to rewrite a large part of the code. This happened multiple times during this project where supporting a final difficult case actually required a large rewrite. As an example at some point I could type check all the expressions except for function calls. I had to make a lot of changes to also support function calls. I feel like compilers are especially susceptible to this. With compilers you really have to choose the right abstractions otherwise it just will not work. 
+
+\section{Conclusion}
+
+The journey of constructing this compiler has been an enlightening and challenging experience which will stay with me for the rest of my life. Throughout this project, I encountered and overcame numerous technical challenges, which changed my perspective on what I want to do with my life and that is working on complicated things. 
+
+One of the most significant aspects of this project was the deep dive into Haskell and functional programming. Initially, my understanding of Haskell was rudimentary, stemming from a course in my bachelor's degree. However, the demands of this project, particularly in implementing the type checker, caused me to explore advanced concepts in greater depth. Finally I can truly say I really understand advanced concepts such as Monads and Monoids.
+
+In conclusion, this project has been a profound learning experience, pushing the boundaries of my technical knowledge and skills. The lessons I learned from this project will undoubtedly greatly improve my future endeavours in computer science and software development.
+
+\noindent The code of the compiler can be found at \href{https://github.com/tintin10q/SPL-compiler}{https://github.com/tintin10q/SPL-compiler}.
+
+\section{Acknowledgements}
+
+I started this project together with Marijn van Wezel (s1040392). We collaborated on Chapter One of this work. After completing most of the work in Chapter One together, Marijn decided to discontinue his involvement.
+
+\bibliographystyle{plain}
+\bibliography{refs}
+
+\appendix
+\chapter{Grammar}
+% Change the grammar to the one you actually used
+
+\begin{verbatim}
+| Symbol  | Meaning                                |
+|---------|----------------------------------------|
+| `|`     | or                                     |
+| `'if'`  | literal string                         |
+| `'\''`  | literal single quote                   |
+| `[ a ]` | should appear 0 or 1 time              |
+| `a*`    | should appear 0 or more times          |
+| `a+`    | should appear 1 or more times          |
+
+Program = Decl+
+
+Type =
+    | 'Int'             
+    | 'Char'
+    | 'Bool'
+    | 'Void'
+    | '(' Identifier ',' Identifier ')'
+    | '[' Identifier ']'
+    | Identifier  -- a
+
+Decl =
+    Identifier '(' [Identifier [':' Type]  
+                [',' Identifier [':' Type] ]* ] ')' [':' Type] '{' Stmt* '}'
+    [Type] Identifier '=' Expr ';'
+
+Stmt =
+    | 'return' [Expr] ';'
+    | 'if' '(' Expr ')' '{' Stmt* '}' [else '{' Stmt* '}']
+    | 'while' '(' Expr ')' '{' Stmt* '}'               
+    | Variable '=' Expr ';'
+    | Expr  ';'
+    | 'var' [Type] Identifier Expr  ';'
+
+Expr =
+    | Expr BinOp Expr
+    | UnaryPrefix Expr
+    | UnaryPostfix Expr
+    | Identifier '(' ')'
+    | Identifier '(' Expr [',' Expr]* ')'
+    | Variable              
+    | Literal             
+
+UnaryPrefix = 
+    | '!'
+    | '-'
+
+UnaryPostfix =
+    | '.' Field
+
+BinOp =
+    | '*'
+    | '/'
+    | '%'
+    | '+'
+    | '-'
+    | ':'
+    | '>'
+    | '>='
+    | '<'
+    | '<='
+    | '=='
+    | '!='
+    | '&&'
+    | '||'
+
+Variable = Identifier ['.' Field]
+
+Field =
+    | 'hd'
+    | 'tl'
+    | 'snd'
+    | 'fst'
+
+Literal =
+    | 'true'
+    | 'false'
+    | Int            
+    | Char          
+    | '('Expr ',' Expr')' 
+    | '[]' 
+
+Char = ''' UnicodeChar '''
+Float = [ '-' | '+' ] Int '.' Int
+Int = [ '-' | '+' ] digit+
+Identifier = (alphaNumLower | '_') (alphaNum | '_') '\''*
+\end{verbatim}
+
+
+\end{document}
+

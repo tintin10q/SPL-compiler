@@ -1,0 +1,6 @@
+foo(a) {
+    if (a) { return 137; } // Returns something
+    return; // Does not return anything!
+}
+
+main() {return;}

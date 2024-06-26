@@ -1,0 +1,5 @@
+var aap = 137;
+
+foo(aap) {return aap;}
+
+main() {return;}

@@ -1,0 +1,6 @@
+foo(aap: Int, aap: Int) {
+    var aap = 3;
+    print(aap);
+}
+
+main() {foo(1,2);}

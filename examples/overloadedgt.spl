@@ -1,0 +1,12 @@
+foo(a, b) {
+    if (a > b) {
+        return 'Q';  
+    } else {
+        return 'u';
+    }
+    print("Removed");
+}
+
+main() {
+    foo('a','c');
+    return;} // yikes
