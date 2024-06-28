@@ -1,0 +1,13 @@
+
+id(value: a) : a {
+    return value;
+}
+
+id2(value: a, val: a) : a {
+    return value;
+}
+
+main() {
+    var a = id2(3,2);
+    return;
+}
