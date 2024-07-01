@@ -1,0 +1,7 @@
+
+
+main() {
+    var lijst = [];
+
+    print("1234");
+}

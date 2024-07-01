@@ -3,11 +3,12 @@ id(value: a) : a {
     return value;
 }
 
-id2(value: a, val: a) : a {
+id2(value: a, val2: a) {
     return value;
 }
 
 main() {
-    var a = id2(3,2);
+    var a = id2(3,True);
+    var b = id(3);
     return;
 }

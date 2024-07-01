@@ -1,0 +1,9 @@
+foo() {
+    var a = [];
+    return a.hd;
+}
+
+main() {
+    var i = foo();
+    return;
+}

@@ -248,6 +248,22 @@ instance Types Type where
 
   -- A type var 
 
+applyrigid :: Map String Type -> Type -> Type
+applyrigid subst t@(TypeVar var _) =
+    case Map.lookup var subst of
+        Nothing -> t; -- Return the same type variable  
+        Just concrete -> {- Debug.trace ("Narrowing typevar: " ++ show var ++ " to " ++ show concrete) $ -}
+                  case concrete of
+                    TypeVar _tyvarname _ -> applyrigid subst concrete {-let further = apply subst concrete -- lookup if there is 2 people with typevars that are the same type. 
+                                                in Debug.trace ("Narrowed typevar: " ++ _tyvarname ++ " further to " ++ show further) further-}
+                    c -> c
+applyrigid subst (TupleType t1 t2) = TupleType (applyrigid subst t1) (applyrigid subst t2)
+applyrigid subst (ListType t) = ListType (applyrigid subst t)
+applyrigid subst (FunType args rt) = error "Trying to apply rigid to a funtype" -- FunType (applyrigid subst args) (applyrigid subst rt)
+applyrigid _ concreteType = concreteType
+
+
+
 envtolist :: Subst -> [(String, Type)]
 envtolist = Map.toList
 
@@ -372,8 +388,8 @@ tiBinaryIntOp e1 e2 ty = do
   s1 <- tcBinOp IntType e1 e2
   s2 <- unify ty IntType
   let s = s1 `composeSubst` s2
-  applySubToTIenv s 
-  return (s, IntType) 
+  applySubToTIenv s
+  return (s, IntType)
 
 -- Checks if two expressions can be bool and if the type of the node can be bool
 tiBinaryBoolOp :: Expr TypecheckedP -> Expr TypecheckedP -> Type -> TI (Subst, Type)
@@ -530,15 +546,36 @@ instance Typecheck (Expr TypecheckedP) where
     when (n_given_args > arg_count) (throwError $ red "You called the '"++ blue funcName ++ red "' function at " ++ showStart meta ++ red " with too many arguments " ++ "("++ green ( show n_given_args )++ " > " ++ green (show arg_count) ++ ")" ++ "\nThe '"++ blue funcName ++ "' function takes " ++ green ( show arg_count) ++ " argument" ++ (if arg_count == 1 then "" else "s") ++ " but you gave " ++ green ( show n_given_args) ++ " argument" ++ (if n_given_args == 1 then "" else "s") ++".")
     when (n_given_args < arg_count) (throwMissingArgs $ arg_count - n_given_args)
 
-    -- 
+    -- Consoladate the rigid types!
+    let rigidMap = argsTypeToRigidMap funargs
+    let  rigidMapExpr = Map.map (map (args !!)) rigidMap
+    showTI rigidMap
+    showTI rigidMapExpr
+    infered <- traverse (mapM ti) rigidMapExpr
+    let inferedTy =  (map snd) <$> infered
+        -- If we execute all the subs on the single type we are there! for the rigid type sub
+        singleTypeMap = head <$> inferedTy
+        -- Nope because they also all need to unify with eachother. 
+        shift = \l -> last l : tail l
+        mapWithTypePairs = Map.map (\l -> let typesList = map snd l in zip typesList (shift typesList)) infered
+    subs <- traverse (mapM (uncurry unify)) mapWithTypePairs
+    let mapwithsub = foldr composeSubst nullSubst <$> subs 
+        argssublist = map (foldr composeSubst nullSubst) (Map.elems subs)
+        final_sub = foldr composeSubst nullSubst argssublist 
+        rigidtypemap = apply final_sub <$> singleTypeMap 
+        final_retty = applyrigid rigidtypemap retty 
+    showTI rigidtypemap
+    showTI retty
+    showTI final_retty
 
-    args_subs <- zipWithM tc args funargs
+    {- args_subs <- zipWithM tc args funargs
     let args_sub = foldr composeSubst nullSubst args_subs -- combine arg subs 
         resultingType = apply args_sub retty
     rettysub <- unify ty resultingType -- todo test the error messages this gives. 
     let sub = args_sub `composeSubst` rettysub
     applySubToTIenv sub
-    return (sub, resultingType) -- We apply it so that the receiver of this type gets the latest version 
+    -}
+    return (final_sub, final_retty) -- We apply it so that the receiver of this type gets the latest version 
       where
         -- This is used for the error message
         throwMissingArgs :: Int -> TI ()
@@ -546,6 +583,14 @@ instance Typecheck (Expr TypecheckedP) where
           funcname <- lookupCurrentFunName
           names <- if funcname == funcName then lookupArgNames >>= \argnames -> pure $ "\nThe missing arguments are called " ++ intercalate " and " (map blue (drop missing argnames)) ++ "." else pure ""
           throwError $ red "Function call at " ++ showStart meta ++ red " is missing " ++ green (show missing) ++ red " argument" ++ if missing == 1 then "" else "s"++ "." ++ names
+
+argsTypeToRigidMap :: [Type] -> Map String [Int]
+argsTypeToRigidMap types = argsTypeToRigidMap' ((length types)-1) types
+  where
+    argsTypeToRigidMap' :: Int -> [Type] -> Map String [Int]
+    argsTypeToRigidMap' _ [] = Map.empty
+    argsTypeToRigidMap' index (TypeVar name True:rest) = Map.insertWith (++) name [index] $ argsTypeToRigidMap' (index-1) rest
+    argsTypeToRigidMap' index (_:rest) = argsTypeToRigidMap' (index-1) rest
 
 -- Check if a field fits with the type of the expression is on 
 -- Then gives back the correct type from the expression
@@ -731,6 +776,9 @@ instance Typecheck (Decl TypecheckedP) where
 logTI :: String -> TI ()
 logTI s = Debug.trace (black s) $ pure ()
 
+showTI :: Show a => a -> TI ()
+showTI s = Debug.trace (black $ show s) $ pure ()
+
 getRelevantVars :: Type -> TI String
 getRelevantVars ty = do
    varEnv <- gets currentVarEnv
@@ -890,7 +938,7 @@ checkDuplicateDecls = checkDuplicateDecl' Map.empty Map.empty
             -- By not taking the output of the call we do allow same names within functions just not shadowing global variables. -- I think this it good design anyhow.
           varmemoryWithArgs <- checkDuplicateArgs varmemory args
           checkDuplicateDecl' funmemory varmemoryWithArgs vardelcs >> case Map.lookup name funmemory of
-            Nothing -> checkDuplicateDecl' (Map.insert name meta funmemory) varmemoryWithArgs program
+            Nothing -> checkDuplicateDecl' (Map.insert name meta funmemory) varmemory program
             Just meta' -> Left $ red "Function with name '"
                           ++ blue name
                           ++ red "' is defined two times!" ++ "\nThe first time at: "

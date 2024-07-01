@@ -9,7 +9,7 @@ product(list: [Int] ) {
 }
 
 main() {
-    var list = 9:9:[];
+    var list = 2:2:2:2:2:2:2:2:2:2:2:2:2:2:2:2:2:2:2:9:9:[];
     print("Got ");
     print(list);
     print();

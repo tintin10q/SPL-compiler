@@ -627,7 +627,7 @@ headaccess :: SourceSpan -> Env Code
 headaccess meta = includeOutOfBoundsRuntimeExceptionCode >> pure (checkBounds <> [LDA (-1)])
   where
     checkBounds1 = [LDS 0, LDA 0]
-    checkBounds2 = [LDC (startCol meta), LDC (startLine meta), Bra "'outOfBoundExpection"]
+    checkBounds2 = [LDC (startLine meta), LDC (startCol meta), Bra "'outOfBoundExpection"]
     jumpSize = codeSize checkBounds2
     checkBounds = checkBounds1 <> [BRT jumpSize] <> checkBounds2
 
