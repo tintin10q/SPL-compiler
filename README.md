@@ -1,6 +1,7 @@
 # SPL
 
 This repository contains a compiler for SPL (Simple Programming Language) for the 2023-2024 course Compiler Construction (NWI-IMC004).
+Read the [full report here](./report/Compiler-Construction-Final-Report.pdf).
 
 
 ## Running the compiler
