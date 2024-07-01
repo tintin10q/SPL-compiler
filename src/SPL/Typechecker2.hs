@@ -547,35 +547,29 @@ instance Typecheck (Expr TypecheckedP) where
     when (n_given_args < arg_count) (throwMissingArgs $ arg_count - n_given_args)
 
     -- Consoladate the rigid types!
-    let rigidMap = argsTypeToRigidMap funargs
-    let  rigidMapExpr = Map.map (map (args !!)) rigidMap
-    showTI rigidMap
-    showTI rigidMapExpr
-    infered <- traverse (mapM ti) rigidMapExpr
-    let inferedTy =  (map snd) <$> infered
-        -- If we execute all the subs on the single type we are there! for the rigid type sub
-        singleTypeMap = head <$> inferedTy
-        -- Nope because they also all need to unify with eachother. 
-        shift = \l -> last l : tail l
+    let rigidIndexesMap = argsTypeToRigidMap funargs
+        rigidExprMap = Map.map (map (args !!)) rigidIndexesMap
+    infered <- traverse (mapM ti) rigidExprMap
+    let inferedTy = (map snd) <$> infered
+        rigid_sub_singleTypeMap = head <$> inferedTy -- We can just apply the final rigid sub to a single type and we get the same one
         mapWithTypePairs = Map.map (\l -> let typesList = map snd l in zip typesList (shift typesList)) infered
-    subs <- traverse (mapM (uncurry unify)) mapWithTypePairs
-    let mapwithsub = foldr composeSubst nullSubst <$> subs 
-        argssublist = map (foldr composeSubst nullSubst) (Map.elems subs)
-        final_sub = foldr composeSubst nullSubst argssublist 
-        rigidtypemap = apply final_sub <$> singleTypeMap 
-        final_retty = applyrigid rigidtypemap retty 
-    showTI rigidtypemap
-    showTI retty
-    showTI final_retty
+    rigid_subsMap <- traverse (mapM (uncurry unify)) mapWithTypePairs
+    let prerigid_sub_map = foldr composeSubst nullSubst <$> rigid_subsMap
+        pre_rigid_sub = foldr composeSubst nullSubst prerigid_sub_map
+        rigid_sub = apply pre_rigid_sub <$> rigid_sub_singleTypeMap
+        final_retty = applyrigid rigid_sub retty 
 
-    {- args_subs <- zipWithM tc args funargs
+    -- Actually check the rest of the types 
+    let post_rigid_funargs = applyrigid rigid_sub <$> funargs -- but remove the rigid types first
+    args_subs <- zipWithM tc args post_rigid_funargs
     let args_sub = foldr composeSubst nullSubst args_subs -- combine arg subs 
         resultingType = apply args_sub retty
-    rettysub <- unify ty resultingType -- todo test the error messages this gives. 
-    let sub = args_sub `composeSubst` rettysub
+        resultingTypeNonRigid = applyrigid rigid_sub resultingType
+    rettysub <- unify ty resultingTypeNonRigid
+    let sub = args_sub `composeSubst` rettysub `composeSubst` pre_rigid_sub
     applySubToTIenv sub
-    -}
-    return (final_sub, final_retty) -- We apply it so that the receiver of this type gets the latest version 
+    
+    return (sub, final_retty) -- We apply it so that the receiver of this type gets the latest version 
       where
         -- This is used for the error message
         throwMissingArgs :: Int -> TI ()
@@ -583,6 +577,7 @@ instance Typecheck (Expr TypecheckedP) where
           funcname <- lookupCurrentFunName
           names <- if funcname == funcName then lookupArgNames >>= \argnames -> pure $ "\nThe missing arguments are called " ++ intercalate " and " (map blue (drop missing argnames)) ++ "." else pure ""
           throwError $ red "Function call at " ++ showStart meta ++ red " is missing " ++ green (show missing) ++ red " argument" ++ if missing == 1 then "" else "s"++ "." ++ names
+        shift = \l -> last l : tail l
 
 argsTypeToRigidMap :: [Type] -> Map String [Int]
 argsTypeToRigidMap types = argsTypeToRigidMap' ((length types)-1) types
