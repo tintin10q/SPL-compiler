@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 module SPL.Return where

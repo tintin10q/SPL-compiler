@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 module SPL.Parser (parse, formatError, eitherParserToIO) where
 
 import SPL.AST (Phase(ParsedP), Program)

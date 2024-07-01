@@ -3,6 +3,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 -- {-# LANGUAGE DeriveFoldable #-}
 module SPL.AST where
 

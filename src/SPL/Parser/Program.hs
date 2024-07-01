@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 module SPL.Parser.Program where
 
 import SPL.AST

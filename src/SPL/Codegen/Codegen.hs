@@ -9,4 +9,4 @@ import SPL.AST
 
 class (GenWASM a, GenSSM a) => CodeGeneratable a
 
-instance CodeGeneratable (Program TypecheckedP)
+instance CodeGeneratable (Program 'TypecheckedP)

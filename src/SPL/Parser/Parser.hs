@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
--- todo maybe we can remove endPos and startPos exports
+
 module SPL.Parser.Parser (Parser) where
 
 import Text.Megaparsec (Parsec)

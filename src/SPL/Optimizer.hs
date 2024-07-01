@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
+{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 {-# HLINT ignore "Use camelCase" #-}
 {-# HLINT ignore "Redundant bracket" #-}
 {-# LANGUAGE DataKinds #-}

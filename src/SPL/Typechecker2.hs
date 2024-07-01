@@ -259,7 +259,7 @@ applyrigid subst t@(TypeVar var _) =
                     c -> c
 applyrigid subst (TupleType t1 t2) = TupleType (applyrigid subst t1) (applyrigid subst t2)
 applyrigid subst (ListType t) = ListType (applyrigid subst t)
-applyrigid subst (FunType args rt) = error "Trying to apply rigid to a funtype" -- FunType (applyrigid subst args) (applyrigid subst rt)
+applyrigid _ (FunType _ _) = error "Trying to apply rigid to a funtype" -- FunType (applyrigid subst args) (applyrigid subst rt)
 applyrigid _ concreteType = concreteType
 
 

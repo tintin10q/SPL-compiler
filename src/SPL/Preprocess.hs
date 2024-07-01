@@ -1,6 +1,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 
 module SPL.Preprocess (preprocesAST, checkHasMain, checkEmptyBody) where
 
@@ -10,8 +12,8 @@ import Data.List (sortBy)
 import SPL.AST
 
 import qualified Debug.Trace as Debug
-import SPL.Parser.SourceSpan 
-import SPL.Colors (black, red, blue, yellow)
+import SPL.Parser.SourceSpan
+import SPL.Colors (red, blue, yellow)
 import SPL.Return
 import SPL.ArgParse (Args, hideWarnings)
 
@@ -40,14 +42,14 @@ removeStmtAfterReturns programArgs (ret@(ReturnStmt meta _): rest) = if not $ nu
 removeStmtAfterReturns programArgs (iff@(IfStmt meta _ consequent  (Just alternative)): rest) = case (returns consequent, returns alternative) of
                                                                                          -- The lefts are already handeld at this point! but doesn't hurt to be save
                                                                                          (Left err, _) -> error err
-                                                                                         (_, Left err) -> error err 
+                                                                                         (_, Left err) -> error err
                                                                                          (Right (WithValue _), Right (WithValue _)) -> if null rest then [iff] else warn programArgs (yellow "WARNING: "++"Removing dead code after if at " ++ showEnd meta) [iff]
                                                                                          (Right (WithoutValue _), Right (WithoutValue _)) -> if null rest then [iff] else warn programArgs (yellow "WARNING: " ++ "Removing dead code after if at " ++ showEnd meta) [iff]
-                                                                                         _ -> iff : removeStmtAfterReturns programArgs rest 
+                                                                                         _ -> iff : removeStmtAfterReturns programArgs rest
 removeStmtAfterReturns programArgs (a: later) = a : removeStmtAfterReturns programArgs later
 
 preprocesAST :: Args -> Program ParsedP -> Program ParsedP
-preprocesAST args =  hoistGlobalVars . (removeDeadCode args)
+preprocesAST args =  hoistGlobalVars . removeDeadCode args
 
 checkHasMain :: Program ParsedP -> Either String ()
 checkHasMain [] = Left (red "No main function in your program! " ++ "\nPlease add a main function to your program.")
@@ -56,6 +58,6 @@ checkHasMain (FunDecl _ "main" _ _ _ _:_) = Right ()
 checkHasMain (_:later) = checkHasMain later
 
 checkEmptyBody :: Program ParsedP -> Either String ()
-checkEmptyBody [] = Right () 
+checkEmptyBody [] = Right ()
 checkEmptyBody (FunDecl meta name _ _ _ [] :_) = Left (red "The '" ++ blue name ++ red "' function declared at "++ showStart meta ++ red " has an empty body."++"\nEmpty functions are not allowed. Please either add a body (just a '" ++ red "return" ++ ";' is enough) or remove the function.")
-checkEmptyBody (_:later) = checkEmptyBody later 
+checkEmptyBody (_:later) = checkEmptyBody later
