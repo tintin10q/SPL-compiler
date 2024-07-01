@@ -14,5 +14,6 @@ main()
 {
   assign(1:[]);
   assign(True:[]);
+  print(list);
   return;
 }

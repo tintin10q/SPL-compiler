@@ -4,3 +4,5 @@ f(x)
 {
   return f( (x, x) );
 }
+
+main() {return;}

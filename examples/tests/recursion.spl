@@ -14,6 +14,7 @@ gcd (m, n) {
       return gcd(m, n - m);
     }
   }
+  return 3;
 }
 
 main() {

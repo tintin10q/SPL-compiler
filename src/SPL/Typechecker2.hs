@@ -549,9 +549,7 @@ instance Typecheck (Expr TypecheckedP) where
     -- Consoladate the rigid types!
     let rigidIndexesMap = argsTypeToRigidMap funargs
         rigidExprMap = Map.map (map (args !!)) rigidIndexesMap
-    showTI rigidIndexesMap
     infered <- traverse (mapM ti) rigidExprMap
-    showTI infered
     let inferedTy = (map snd) <$> infered
         rigid_sub_singleTypeMap = head <$> inferedTy -- We can just apply the final rigid sub to a single type and we get the same one
         mapWithTypePairs = Map.map (\l -> let typesList = map snd l in zip typesList (shift typesList)) infered
@@ -563,9 +561,6 @@ instance Typecheck (Expr TypecheckedP) where
 
     -- Actually check the rest of the types 
     let post_rigid_funargs = applyrigid rigid_sub <$> funargs -- but remove the rigid types first
-    showTI rigid_sub
-    showTI post_rigid_funargs
-    logTI $ "tc " ++ show post_rigid_funargs ++ " with " ++ show args
     args_subs <- zipWithM tc args post_rigid_funargs
     let args_sub = foldr composeSubst nullSubst args_subs -- combine arg subs 
         resultingType = apply args_sub retty
@@ -573,7 +568,6 @@ instance Typecheck (Expr TypecheckedP) where
     rettysub <- unify ty resultingTypeNonRigid
     let sub = args_sub `composeSubst` rettysub `composeSubst` pre_rigid_sub
     applySubToTIenv sub
-
     return (sub, final_retty) -- We apply it so that the receiver of this type gets the latest version 
       where
         -- This is used for the error message
@@ -626,15 +620,22 @@ instance Typecheck (Stmt TypecheckedP) where
   ti (ReturnStmt meta (Just expr)) = do
     replaceMeta meta
     funtype <- lookupCurrentFunType  `catchError` \err -> throwError $ err ++ "\nNo function name, that means the return at "++ showStart meta ++ red " is outside a function? Don't do that."
-
     (_, returntype) <- case funtype of -- don't generalize this one I think, otherwise you still don't really know if you have retty and arg types
                                   FunType argtypes returntype -> pure (argtypes,returntype)
                                   t -> throwError $ "Function env returned non function type " ++ show t
 
-    s1 <- tc expr returntype --`catchError` \err -> lookupCurrentFunName >>= \funname -> throwError $ red "Returned expression at " ++ showEnd meta ++ red " in function " ++ blue funname ++ red "' has an invalid type. " ++ show returntype ++ ".\n" ++ err
-    applySubToTIenv s1 -- Apply s1 on function scheme!
+    (expr_sub, exprTy) <- ti expr 
+    s1 <- unify exprTy returntype
+    return (expr_sub `composeSubst` s1, VoidType)
+  {-
+
+    
+
+
+    -- applySubToTIenv s1 -- Apply s1 on function scheme!
     -- todo Now either get the return type again from the env or 
     return (s1, returntype)
+-}
   ti (ReturnStmt _ Nothing) = return (nullSubst, VoidType)
   ti (IfStmt meta cond consequent (Just alternative)) = do
     replaceMeta meta
@@ -751,6 +752,7 @@ instance Typecheck (Decl TypecheckedP) where
 
       fundelc_inference <- mapM ti fundelcs -- These extends the var env with the arguments by itself
 
+
       let infered_fundelc_subs = map fst fundelc_inference -- Create the substitution for the decls
           infered_fundelc_sub = foldr composeSubst nullSubst infered_fundelc_subs -- I don't think foldMap works here
 
@@ -838,7 +840,7 @@ checkProgram program = runTI (instantiateProgram program >>= checkDecls)
 checkDecls :: Program TypecheckedP -> TI (Program TypecheckedP)
 checkDecls [] = return []
 checkDecls (decl:future) = do
-  (sub, _) <- ti decl
+  (sub, _) <- ti decl 
   solved <- checkDecls future
   return $ apply sub decl : solved
 

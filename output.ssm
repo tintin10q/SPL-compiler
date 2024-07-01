@@ -1,70 +1,45 @@
 	Bsr main
 	HALT
-id:
-	LINK 1
-	LDML -2 1
-	STML 1 1
-	LDL 1
-	STR RR
-	UNLINK
-	RET
-tuple:
+gcd:
 	LINK 2
 	LDML -3 2
 	STML 1 2
+	LDL 2
+	LDL 1
+	LT
+	BRF 14
+	LDL 2
+	LDL 1
+	Bsr gcd
+	AJS -2
+	STR RR
+	UNLINK
+	RET
+	BRA 32
+	LDL 2
+	LDL 1
+	EQ
+	BRF 8
+	LDL 2
+	STR RR
+	UNLINK
+	RET
+	BRA 17
 	LDL 1
 	LDL 2
-	STMH 2
+	LDL 1
+	SUB
+	Bsr gcd
+	AJS -2
+	LDR RR
 	STR RR
 	UNLINK
 	RET
 main:
-	LINK 3
-	LDC 137
-	Bsr id
-	AJS -1
-	LDR RR
-	STL 1
-	LDC -1
-	Bsr id
-	AJS -1
-	LDR RR
-	STL 2
-	LDL 1
-	LDL 2
-	Bsr tuple
+	LDC 10
+	LDC 10
+	Bsr gcd
 	AJS -2
 	LDR RR
-	STL 3
-	LDL 3
-'printTuple:
-	LDC 40
-	TRAP 1
-	LDS 0
-	LDA -1
 	TRAP 0
-	LDC 44
-	TRAP 1
-	LDC 32
-	TRAP 1
-	LDA 0
-'printBool:
-	BRF 14
-	LDC 0
-	LDC 101
-	LDC 117
-	LDC 114
-	LDC 84
-	TRAP 2
-	BRA 14
-	LDC 0
-	LDC 101
-	LDC 115
-	LDC 108
-	LDC 97
-	LDC 70
-	TRAP 2
-	LDC 41
-	TRAP 1
-	UNLINK
 	RET
