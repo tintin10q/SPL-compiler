@@ -549,7 +549,9 @@ instance Typecheck (Expr TypecheckedP) where
     -- Consoladate the rigid types!
     let rigidIndexesMap = argsTypeToRigidMap funargs
         rigidExprMap = Map.map (map (args !!)) rigidIndexesMap
+    showTI rigidIndexesMap
     infered <- traverse (mapM ti) rigidExprMap
+    showTI infered
     let inferedTy = (map snd) <$> infered
         rigid_sub_singleTypeMap = head <$> inferedTy -- We can just apply the final rigid sub to a single type and we get the same one
         mapWithTypePairs = Map.map (\l -> let typesList = map snd l in zip typesList (shift typesList)) infered
@@ -557,10 +559,13 @@ instance Typecheck (Expr TypecheckedP) where
     let prerigid_sub_map = foldr composeSubst nullSubst <$> rigid_subsMap
         pre_rigid_sub = foldr composeSubst nullSubst prerigid_sub_map
         rigid_sub = apply pre_rigid_sub <$> rigid_sub_singleTypeMap
-        final_retty = applyrigid rigid_sub retty 
+        final_retty = applyrigid rigid_sub retty
 
     -- Actually check the rest of the types 
     let post_rigid_funargs = applyrigid rigid_sub <$> funargs -- but remove the rigid types first
+    showTI rigid_sub
+    showTI post_rigid_funargs
+    logTI $ "tc " ++ show post_rigid_funargs ++ " with " ++ show args
     args_subs <- zipWithM tc args post_rigid_funargs
     let args_sub = foldr composeSubst nullSubst args_subs -- combine arg subs 
         resultingType = apply args_sub retty
@@ -568,7 +573,7 @@ instance Typecheck (Expr TypecheckedP) where
     rettysub <- unify ty resultingTypeNonRigid
     let sub = args_sub `composeSubst` rettysub `composeSubst` pre_rigid_sub
     applySubToTIenv sub
-    
+
     return (sub, final_retty) -- We apply it so that the receiver of this type gets the latest version 
       where
         -- This is used for the error message
@@ -580,12 +585,12 @@ instance Typecheck (Expr TypecheckedP) where
         shift = \l -> last l : tail l
 
 argsTypeToRigidMap :: [Type] -> Map String [Int]
-argsTypeToRigidMap types = argsTypeToRigidMap' ((length types)-1) types
+argsTypeToRigidMap = argsTypeToRigidMap' 0
   where
     argsTypeToRigidMap' :: Int -> [Type] -> Map String [Int]
     argsTypeToRigidMap' _ [] = Map.empty
-    argsTypeToRigidMap' index (TypeVar name True:rest) = Map.insertWith (++) name [index] $ argsTypeToRigidMap' (index-1) rest
-    argsTypeToRigidMap' index (_:rest) = argsTypeToRigidMap' (index-1) rest
+    argsTypeToRigidMap' index (TypeVar name True:rest) = Map.insertWith (++) name [index] $ argsTypeToRigidMap' (index+1) rest
+    argsTypeToRigidMap' index (_:rest) = argsTypeToRigidMap' (index+1) rest
 
 -- Check if a field fits with the type of the expression is on 
 -- Then gives back the correct type from the expression

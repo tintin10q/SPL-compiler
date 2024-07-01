@@ -244,6 +244,43 @@ xx: ((("Equal!", 137), ("Equal!", 137)), (("Equal!", 137), ("Equal!", 137)))
 cc and xx are Equal!
 ```
 
+Here is an example of rigid types:
+
+```c 
+id(value: a): a {
+    return value;
+}
+
+tuple(v1: a, v2: b) : (a,b) {
+    return (v1,v2);
+}
+
+main() {
+    var foo = id(137);
+    var bar = id(True);
+
+    var foobar = tuple(foo,bar);
+
+    print(foobar);
+} 
+
+```
+
+Here `main` is typechecked as:
+
+```c
+main() : Void {
+    Int foo = id(137);
+    Bool bar = id(True);
+    (Int, Bool) foobar = tuple(foo, bar);
+    
+    print(foobar);
+    return;
+}
+```
+
+It knows that the type of a is based on type of the input value. 
+
 
 # Setting up a development environment
 

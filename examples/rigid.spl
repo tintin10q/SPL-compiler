@@ -1,0 +1,16 @@
+id(value: a): a {
+    return value;
+}
+
+tuple(v1: a, v2: b) : (a,b) {
+    return (v1,v2);
+}
+
+main() {
+    var foo = id(137);
+    var bar = id(True);
+
+    var foobar = tuple(foo,bar);
+
+    print(foobar);
+} 

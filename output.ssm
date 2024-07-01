@@ -8,71 +8,63 @@ id:
 	STR RR
 	UNLINK
 	RET
-id2:
+tuple:
 	LINK 2
 	LDML -3 2
 	STML 1 2
 	LDL 1
-	STR RR
-	UNLINK
-	RET
-normal:
-	LINK 1
-	LDML -2 1
-	STML 1 1
-	LDL 1
-	LDC 1
-	ADD
+	LDL 2
+	STMH 2
 	STR RR
 	UNLINK
 	RET
 main:
-	LINK 5
-	LDC -1
-	LDC 0
-	Bsr id2
-	AJS -2
-	LDR RR
-	STL 1
-	LDC 1
-	LDC 37
-	Bsr id2
-	AJS -2
-	LDR RR
-	STL 2
-	LDC 97
-	LDC 97
-	LDC 112
-	LDC 0
-	LDC 0
-	STMH 2
-	STMH 2
-	STMH 2
-	STMH 2
-	LDC 98
-	LDC 97
-	LDC 97
-	LDC 112
-	LDC 0
-	LDC 0
-	STMH 2
-	STMH 2
-	STMH 2
-	STMH 2
-	STMH 2
-	Bsr id2
-	AJS -2
-	LDR RR
-	STL 3
-	LDC 3
+	LINK 3
+	LDC 137
 	Bsr id
 	AJS -1
 	LDR RR
-	STL 4
-	LDC 1
-	Bsr normal
+	STL 1
+	LDC -1
+	Bsr id
 	AJS -1
 	LDR RR
-	STL 5
+	STL 2
+	LDL 1
+	LDL 2
+	Bsr tuple
+	AJS -2
+	LDR RR
+	STL 3
+	LDL 3
+'printTuple:
+	LDC 40
+	TRAP 1
+	LDS 0
+	LDA -1
+	TRAP 0
+	LDC 44
+	TRAP 1
+	LDC 32
+	TRAP 1
+	LDA 0
+'printBool:
+	BRF 14
+	LDC 0
+	LDC 101
+	LDC 117
+	LDC 114
+	LDC 84
+	TRAP 2
+	BRA 14
+	LDC 0
+	LDC 101
+	LDC 115
+	LDC 108
+	LDC 97
+	LDC 70
+	TRAP 2
+	LDC 41
+	TRAP 1
 	UNLINK
 	RET
