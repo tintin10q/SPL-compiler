@@ -245,7 +245,7 @@ xx: ((("Equal!", 137), ("Equal!", 137)), (("Equal!", 137), ("Equal!", 137)))
 cc and xx are Equal!
 ```
 
-Here is an example of rigid types:
+Here is an example of polymorphic types:
 
 ```c 
 id(value: a): a {

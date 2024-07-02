@@ -426,7 +426,7 @@ Here the programmer tells the compiler that the argument of the \texttt{id} func
 
 \subsection{Trees that grow}
 
-The previously described AST is missing source code location information and expressions do not have room for types. During different phases of the compiler has different amounts of information. For instance, initially many types are not specified and so the type of an expression should be a Maybe. At first I thought that the only way to manage these different levels of information was to create separate, similar but distinct trees for every phase of the compiler. Like this example (with only literal and binary operation expression for brevity) of expressions for multiple phases of the compiler:
+The previously described AST is missing source code location information and expressions do not have room for types. During different phases of the compiler, the compiler has different amounts of information. For instance, initially many types are not specified and so the type of an expression should be a Maybe. At first I thought that the only way to manage these different levels of information was to create separate, similar but distinct trees for every phase of the compiler. Like this example (with only literal and binary operation expression for brevity) of expressions for multiple phases of the compiler:
 
 \begin{minted}{Haskell}
 data ExprEmpty 
