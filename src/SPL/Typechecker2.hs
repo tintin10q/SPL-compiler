@@ -626,7 +626,7 @@ instance Typecheck (Stmt TypecheckedP) where
 
     (expr_sub, exprTy) <- ti expr 
     s1 <- unify exprTy returntype
-    return (expr_sub `composeSubst` s1, VoidType)
+    return (expr_sub `composeSubst` s1, exprTy)
   {-
 
     
