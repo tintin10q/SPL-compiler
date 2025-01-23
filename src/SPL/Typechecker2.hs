@@ -511,7 +511,7 @@ instance Typecheck (Expr TypecheckedP) where
        -- To do that we do need to know the type of the arga
     case args of
       [] ->  return (nullSubst, VoidType)
-      (_:_:_) -> throwError $ "You called the '"++ blue "print" ++ "' function with too many arguments at " ++ showStart meta ++ ". The '"++ blue "print" ++ "' function takes exactly one argument of any type."
+      (_:_:_) -> throwError $ "You called the '"++ blue "print" ++ "' function with too many arguments at " ++ showStart meta ++ ". The '"++ blue "print" ++ "' function takes zero exactly one argument of any type or zero to print a new line."
       [arg] -> do
               (s1, _) <- ti arg -- we need the sub for the type var in the argument
               s2 <- unify ty VoidType
@@ -533,7 +533,7 @@ instance Typecheck (Expr TypecheckedP) where
     s2 <- unify ty BoolType
     let s = s1  `composeSubst` s2
     applySubToTIenv s
-    return (s, BoolType) -- isEmpty is special just return Void, but we should actually infer if its a container type 
+    return (s, BoolType) -- isEmpty is special just return BoolTupe, but we should actually infer if its a container type 
   ti (FunctionCallExpr (ty, meta) funcName args) = do
     replaceMeta meta
     funtype <- lookupFunTypeOf funcName
