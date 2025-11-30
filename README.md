@@ -6,7 +6,7 @@ Read the [full report here](./report/Compiler-Construction-Final-Report.pdf).
 
 ## Running the compiler
 
-To run the compiler you need to instal [cabal](https://www.haskell.org/cabal/)
+To run the compiler you need to install [cabal](https://www.haskell.org/cabal/)
 Once you have done that you can run the compiler with:
 
 
